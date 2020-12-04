@@ -52,7 +52,6 @@ if __name__ == '__main__':
     graph_path = os.path.abspath('data/graph.csv')
     graph_nx, graph_torch = from_csv(graph_path)
 
-
 # A file with which I will generate new data
 # This is going to be somewhat different than before, because I will need to have a more realistic dataset.
 # This means that all the features Raven is using need to be available to me as well.
