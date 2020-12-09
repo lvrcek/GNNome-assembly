@@ -1,0 +1,81 @@
+import os
+import re
+
+import torch
+from torch_geometric.utils import from_networkx
+import networkx as nx
+from matplotlib import pyplot as plt
+
+
+def draw_graph(graph_nx):
+    nx.draw(graph_nx, node_size=6, width=.2, arrowsize=3)
+    plt.show()
+
+
+def from_csv(graph_path):
+    graph_nx = nx.DiGraph()
+    node_lengths = {}
+    edge_ids, edge_lengths, edge_similarities = {}, {}, {}
+
+    with open(graph_path) as f:
+        for line in f.readlines():
+            src, dst, flag, overlap = line.strip().split(',')
+            src, dst = src.split(), dst.split()
+            flag = int(flag)
+            pattern = r':(\d+)'
+            src_id, src_len = int(src[0]), int(re.findall(pattern, src[2])[0])
+            dst_id, dst_len = int(dst[0]), int(re.findall(pattern, dst[2])[0])
+
+            if flag == 0:
+                if src_id not in node_lengths.keys():
+                    node_lengths[src_id] = src_len
+                    graph_nx.add_node(src_id)
+                if dst_id not in node_lengths.keys():
+                    node_lengths[dst_id] = dst_len
+                    graph_nx.add_node(dst_id)
+            else:
+                graph_nx.add_edge(src_id, dst_id)
+                # ID, length, weight, similarity
+                # weight is always zero for some reason
+                # similarity = edit distance of prefix-suffix overlap divided by the length of overlap
+                overlap = overlap.split()
+                len(overlap)
+                [edge_id, overlap_len, weight], similarity = map(int, overlap[:3]), float(overlap[3])
+                if (src_id, dst_id) not in edge_lengths.keys():
+                    edge_ids[(src_id, dst_id)] = edge_id
+                    edge_lengths[(src_id, dst_id)] = overlap_len
+                    edge_similarities[(src_id, dst_id)] = similarity
+
+    nx.set_node_attributes(graph_nx, node_lengths, 'read_length')
+    nx.set_edge_attributes(graph_nx, edge_lengths, 'overlap_length')
+    nx.set_edge_attributes(graph_nx, edge_similarities, 'overlap_similarity')
+    graph_torch = from_networkx(graph_nx)
+
+    return graph_nx, graph_torch
+
+    # TODO: This keep both strands, and I only need one. I should fix that
+
+
+def main():
+    # TODO: Add some asserts for testing
+    graph_path = os.path.abspath('data/raw/graph_before.csv')
+    graph_nx, graph_torch = from_csv(graph_path)
+    # --- TESTING ---
+    print(graph_torch)
+    print(graph_torch.read_length[:10])
+    print(graph_torch.edge_index[0][:10])
+    print(graph_torch.edge_index[1][:10])
+    print(graph_torch.overlap_length[:10])
+    print(graph_torch.overlap_similarity[:10])
+    draw_graph(graph_nx)
+    # ---------------
+
+
+if __name__ == '__main__':
+    main()
+
+
+# A file with which I will generate new data
+# This is going to be somewhat different than before, because I will need to have a more realistic dataset.
+# This means that all the features Raven is using need to be available to me as well.
+# This includes: length of reads, length of overlaps, ... ?
