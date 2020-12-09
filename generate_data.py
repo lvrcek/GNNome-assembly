@@ -47,6 +47,8 @@ def from_csv(graph_path):
     print(graph_torch.overlap_length[:10])
     return graph_nx, graph_torch
 
+    # TEST
+
 
 if __name__ == '__main__':
     graph_path = os.path.abspath('data/graph.csv')
