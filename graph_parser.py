@@ -1,10 +1,12 @@
 import os
 import re
+from collections import deque
 
 import torch
 from torch_geometric.utils import from_networkx
 import networkx as nx
 from matplotlib import pyplot as plt
+from Bio.Seq import Seq
 
 
 def draw_graph(graph_nx):
@@ -12,11 +14,42 @@ def draw_graph(graph_nx):
     plt.show()
 
 
+def find_edge_index(graph, src, dst):
+    for idx, (node1, node2) in enumerate(zip(graph.edge_index[0], graph.edge_index[1])):
+        if node1 == src and node2 == dst:
+            return idx
+
+def translate_nodes_into_sequence(graph, node_tr):
+    seq = graph.read_sequence[node_tr[0]]
+    for src, dst in zip(node_tr[:-1], node_tr[1:]):
+        idx = find_edge_index(graph, src, dst)
+        overlap_length = graph.overlap_length[idx]
+        seq += graph.read_sequence[dst][overlap_length:]
+    return seq
+
+
+# TODO: This works, but is not really the most elegant way. If anything, it's a bit shady.
+def from_gfa(graph_path):
+    read_sequences = deque()
+    with open(graph_path) as f:
+        for line in f.readlines():
+            line = line.strip().split()
+            if len(line) == 5:
+                tag, name, sequence, length, count = line
+                sequence = Seq(sequence)
+                read_sequences.append(sequence)
+                read_sequences.append(sequence.reverse_complement())
+            else:
+                break
+    return read_sequences
+
+
 def from_csv(graph_path):
     graph_nx = nx.DiGraph()
     node_lengths = {}
+    node_data = {}
     edge_ids, edge_lengths, edge_similarities = {}, {}, {}
-
+    read_sequences = from_gfa(graph_path[:-3] + 'gfa')
     with open(graph_path) as f:
         for line in f.readlines():
             src, dst, flag, overlap = line.strip().split(',')
@@ -29,9 +62,11 @@ def from_csv(graph_path):
             if flag == 0:
                 if src_id not in node_lengths.keys():
                     node_lengths[src_id] = src_len
+                    node_data[src_id] = read_sequences.popleft()
                     graph_nx.add_node(src_id)
                 if dst_id not in node_lengths.keys():
                     node_lengths[dst_id] = dst_len
+                    node_data[dst_id] = read_sequences.popleft()
                     graph_nx.add_node(dst_id)
             else:
                 graph_nx.add_edge(src_id, dst_id)
@@ -39,7 +74,7 @@ def from_csv(graph_path):
                 # weight is always zero for some reason
                 # similarity = edit distance of prefix-suffix overlap divided by the length of overlap
                 overlap = overlap.split()
-                len(overlap)
+                # len(overlap)
                 [edge_id, overlap_len, weight], similarity = map(int, overlap[:3]), float(overlap[3])
                 if (src_id, dst_id) not in edge_lengths.keys():
                     edge_ids[(src_id, dst_id)] = edge_id
@@ -47,6 +82,7 @@ def from_csv(graph_path):
                     edge_similarities[(src_id, dst_id)] = similarity
 
     nx.set_node_attributes(graph_nx, node_lengths, 'read_length')
+    nx.set_node_attributes(graph_nx, node_data, 'read_sequence')
     nx.set_edge_attributes(graph_nx, edge_lengths, 'overlap_length')
     nx.set_edge_attributes(graph_nx, edge_similarities, 'overlap_similarity')
     graph_torch = from_networkx(graph_nx)
@@ -60,8 +96,10 @@ def main():
     # TODO: Add some asserts for testing
     graph_path = os.path.abspath('data/raw/graph_before.csv')
     graph_nx, graph_torch = from_csv(graph_path)
+    graph_torch.x = torch.zeros(graph_torch.num_nodes, dtype=int)
     # --- TESTING ---
     print(graph_torch)
+    print(graph_torch.x)
     print(graph_torch.read_length[:10])
     print(graph_torch.edge_index[0][:10])
     print(graph_torch.edge_index[1][:10])
