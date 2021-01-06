@@ -84,7 +84,7 @@ class ExecutionModel(nn.Module):
             walk.append(current)
             print(current)
             print(neighbors[current])
-            if len(neighbors[current]) == 0: # TEST FOR 2FA
+            if len(neighbors[current]) == 0: # TEST FOR 2FA again
                 break
 
             print('neighbors loop')
