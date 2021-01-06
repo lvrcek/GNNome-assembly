@@ -84,7 +84,7 @@ class ExecutionModel(nn.Module):
             walk.append(current)
             print(current)
             print(neighbors[current])
-            if len(neighbors[current]) == 0:
+            if len(neighbors[current]) == 0: # TEST FOR 2FA
                 break
 
             print('neighbors loop')
@@ -128,7 +128,10 @@ class ExecutionModel(nn.Module):
             print(correct)
             print(actions.shape)
             print(correct.shape)
-            loss = criterion(actions, correct)
+            actions = actions.unsqueeze(0)
+            print(actions.shape)
+            best_neighbor = 5
+            loss = criterion(actions, torch.tensor([best_neighbor]))
 
             # Update weights
             loss.backward()
