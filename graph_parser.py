@@ -21,9 +21,11 @@ def find_edge_index(graph, src, dst):
 
 def translate_nodes_into_sequence(graph, node_tr):
     seq = graph.read_sequence[node_tr[0]]
+    # print(node_tr)
     for src, dst in zip(node_tr[:-1], node_tr[1:]):
         idx = find_edge_index(graph, src, dst)
         overlap_length = graph.overlap_length[idx]
+        # print(graph.read_sequence[dst][overlap_length:])
         seq += graph.read_sequence[dst][overlap_length:]
     return seq
 
