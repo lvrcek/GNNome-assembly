@@ -24,7 +24,6 @@ class ExecutionModel(nn.Module):
 
     @staticmethod
     def get_neighbors(graph):
-        # TODO: This shouldn't be here. Should be in utils or somewhere
         neighbor_dict = defaultdict(list)
         for src, dst in zip(graph.edge_index[0], graph.edge_index[1]):
             neighbor_dict[src.item()].append(dst.item())
@@ -32,7 +31,6 @@ class ExecutionModel(nn.Module):
 
     @staticmethod
     def get_predecessors(graph):
-        # TODO: This also shouldn't be here
         predecessor_dict = defaultdict(list)
         for src, dst in zip(graph.edge_index[0], graph.edge_index[1]):
             predecessor_dict[dst].append(src)

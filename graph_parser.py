@@ -1,6 +1,6 @@
 import os
 import re
-from collections import deque
+from collections import deque, defaultdict
 
 import torch
 from torch_geometric.utils import from_networkx
@@ -14,10 +14,25 @@ def draw_graph(graph_nx):
     plt.show()
 
 
+def get_neighbors(graph):
+    neighbor_dict = defaultdict(list)
+    for src, dst in zip(graph.edge_index[0], graph.edge_index[1]):
+        neighbor_dict[src.item()].append(dst.item())
+    return neighbor_dict
+
+
+def get_predecessors(graph):
+    predecessor_dict = defaultdict(list)
+    for src, dst in zip(graph.edge_index[0], graph.edge_index[1]):
+        predecessor_dict[dst.item()].append(src.item())
+    return predecessor_dict
+
+
 def find_edge_index(graph, src, dst):
     for idx, (node1, node2) in enumerate(zip(graph.edge_index[0], graph.edge_index[1])):
         if node1 == src and node2 == dst:
             return idx
+
 
 def translate_nodes_into_sequence(graph, node_tr):
     seq = graph.read_sequence[node_tr[0]]
@@ -30,7 +45,19 @@ def translate_nodes_into_sequence(graph, node_tr):
     return seq
 
 
-# TODO: This works, but is not really the most elegant way. If anything, it's a bit shady.
+def translate_nodes_into_sequence2(graph, node_tr):
+    seq = ''
+    # seq = graph.read_sequence[node_tr[0]]
+    # print(node_tr)
+    for src, dst in zip(node_tr[:-1], node_tr[1:]):
+        idx = find_edge_index(graph, src, dst)
+        prefix_length = graph.overlap_length[idx]
+        # print(graph.read_sequence[dst][overlap_length:])
+        seq += graph.read_sequence[src][:prefix_length]
+    seq += graph.read_sequence[node_tr[-1]]
+    return seq
+
+
 def from_gfa(graph_path):
     read_sequences = deque()
     with open(graph_path) as f:
@@ -91,11 +118,10 @@ def from_csv(graph_path):
 
     return graph_nx, graph_torch
 
-    # TODO: This keep both strands, and I only need one. I should fix that
+    # TODO: This keep both strands, and I only need one. I should fix that - maybe through parsing GFA
 
 
 def main():
-    # TODO: Add some asserts for testing
     graph_path = os.path.abspath('data/raw/graph_before.csv')
     graph_nx, graph_torch = from_csv(graph_path)
     graph_torch.x = torch.zeros(graph_torch.num_nodes, dtype=int)
@@ -113,9 +139,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-
-# A file with which I will generate new data
-# This is going to be somewhat different than before, because I will need to have a more realistic dataset.
-# This means that all the features Raven is using need to be available to me as well.
-# This includes: length of reads, length of overlaps, ... ?
