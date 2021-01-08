@@ -34,28 +34,31 @@ def find_edge_index(graph, src, dst):
             return idx
 
 
-def translate_nodes_into_sequence(graph, node_tr):
-    seq = graph.read_sequence[node_tr[0]]
-    # print(node_tr)
-    for src, dst in zip(node_tr[:-1], node_tr[1:]):
-        idx = find_edge_index(graph, src, dst)
-        overlap_length = graph.overlap_length[idx]
-        # print(graph.read_sequence[dst][overlap_length:])
-        seq += graph.read_sequence[dst][overlap_length:]
-    return seq
+# TODO: add overlap length from GFA to graph
+# def translate_nodes_into_sequence(graph, node_tr):
+#     seq = graph.read_sequence[node_tr[0]]
+#     for src, dst in zip(node_tr[:-1], node_tr[1:]):
+#         idx = find_edge_index(graph, src, dst)
+#         overlap_length = graph.overlap_length[idx]
+#         seq += graph.read_sequence[dst][overlap_length:]
+#     return seq
 
 
 def translate_nodes_into_sequence2(graph, node_tr):
     seq = ''
-    # seq = graph.read_sequence[node_tr[0]]
-    # print(node_tr)
     for src, dst in zip(node_tr[:-1], node_tr[1:]):
         idx = find_edge_index(graph, src, dst)
-        prefix_length = graph.overlap_length[idx]
-        # print(graph.read_sequence[dst][overlap_length:])
+        prefix_length = graph.prefix_length[idx]
         seq += graph.read_sequence[src][:prefix_length]
     seq += graph.read_sequence[node_tr[-1]]
     return seq
+
+
+def get_quality(hits, seq_len):
+    # Returns the franction of the best mapping
+    # Could also include the number of mappings (-), mapping quality (+)
+    # Maybe something else, a more sophisticated method of calculation
+    return (hits[0].q_en - hits[0].q_st) / seq_len
 
 
 def from_gfa(graph_path):
@@ -103,16 +106,15 @@ def from_csv(graph_path):
                 # weight is always zero for some reason
                 # similarity = edit distance of prefix-suffix overlap divided by the length of overlap
                 overlap = overlap.split()
-                # len(overlap)
-                [edge_id, overlap_len, weight], similarity = map(int, overlap[:3]), float(overlap[3])
+                [edge_id, prefix_len, weight], similarity = map(int, overlap[:3]), float(overlap[3])
                 if (src_id, dst_id) not in edge_lengths.keys():
                     edge_ids[(src_id, dst_id)] = edge_id
-                    edge_lengths[(src_id, dst_id)] = overlap_len
+                    edge_lengths[(src_id, dst_id)] = prefix_len
                     edge_similarities[(src_id, dst_id)] = similarity
 
     nx.set_node_attributes(graph_nx, node_lengths, 'read_length')
     nx.set_node_attributes(graph_nx, node_data, 'read_sequence')
-    nx.set_edge_attributes(graph_nx, edge_lengths, 'overlap_length')
+    nx.set_edge_attributes(graph_nx, edge_lengths, 'prefix_length')
     nx.set_edge_attributes(graph_nx, edge_similarities, 'overlap_similarity')
     graph_torch = from_networkx(graph_nx)
 
@@ -131,7 +133,7 @@ def main():
     print(graph_torch.read_length[:10])
     print(graph_torch.edge_index[0][:10])
     print(graph_torch.edge_index[1][:10])
-    print(graph_torch.overlap_length[:10])
+    print(graph_torch.prefix_length[:10])
     print(graph_torch.overlap_similarity[:10])
     draw_graph(graph_nx)
     # ---------------
