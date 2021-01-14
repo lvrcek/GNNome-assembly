@@ -42,6 +42,8 @@ def find_edge_index(graph, src, dst):
 #         overlap_length = graph.overlap_length[idx]
 #         seq += graph.read_sequence[dst][overlap_length:]
 #     return seq
+#
+# test
 
 
 def translate_nodes_into_sequence2(graph, node_tr):
