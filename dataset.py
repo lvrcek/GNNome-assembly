@@ -11,10 +11,8 @@ class GraphDataset(Dataset):
     # TODO: Figure out if you even need the 'split' parameter here. Does it matter what is train/test?
     def __init__(self, root, device='cpu', split='train'):
         if 'raw' not in os.listdir(root):
-            print('here A')
             subprocess.run(f"mkdir 'raw'", shell=True, cwd=root)
         if 'processed' not in os.listdir(root):
-            print('here B')
             subprocess.run(f"mkdir 'processed'", shell=True, cwd=root)
 
         super(GraphDataset, self).__init__(root)
@@ -22,7 +20,7 @@ class GraphDataset(Dataset):
         self.split = split
 
     def len(self):
-        return len(os.listdir(self.processed_dir)) - 2
+        return len(os.listdir(self.processed_dir))  # - 2 if there are those other filter files
 
     def get(self, idx):
         return torch.load(os.path.join(self.processed_dir, str(idx) + '.pt'))
@@ -44,7 +42,7 @@ class GraphDataset(Dataset):
         subprocess.run(f'{raven_path} -t 2 -p 0 {reads_path} > assembly.fasta', shell=True, cwd=self.raw_dir)
 
     def process(self):
-        # TODO: Fix paths
+        # TODO: Fix everything! cnt can't always be zero, this has to be a loop
         # print('----Processing----')
         cnt = 0
         raw_path = os.path.join(self.raw_dir, 'graph_before.csv')
@@ -61,8 +59,8 @@ def main():
 
     assert graph.read_length is not None, \
         'Graph does not contain read_length field.'
-    assert graph.overlap_length is not None, \
-        'Graph does not contain overlap_length field.'
+    assert graph.prefix_length is not None, \
+        'Graph does not contain prefix_length field.'
     assert graph.overlap_similarity is not None, \
         'Graph does not contain overlap_similarity field.'
     assert len(graph.overlap_length) == len(graph.overlap_similarity), \

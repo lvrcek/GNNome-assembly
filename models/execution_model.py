@@ -21,7 +21,7 @@ class ExecutionModel(nn.Module):
         self.processor = MPNN(latent_features, latent_features, latent_features, bias=False)
         self.decoder = DecoderNetwork(2 * latent_features, latent_features, bias=bias)
 
-    def process(self, graph, optimizer, device='cpu'):
+    def process(self, graph, optimizer, mode, device='cpu'):
         print('Processing graph!')
         node_features = graph.read_length.clone().detach().to(device)
         edge_features = graph.overlap_similarity.clone().detach().to(device)
@@ -31,9 +31,13 @@ class ExecutionModel(nn.Module):
         neighbors = graph_parser.get_neighbors(graph)
         current = start
         walk = []
+        loss_list = []
         reference = '../data/references/lambda_reference.fasta'
         aligner = mp.Aligner(reference, preset='map_ont', best_n=5)
         print('Iterating through neighbors!')
+
+        total = 0
+        correct = 0
 
         while True:
             print(f'\nCurrent node: {current}')
@@ -49,8 +53,7 @@ class ExecutionModel(nn.Module):
                                            latent_features=last_latent, edge_index=graph.edge_index)
 
             actions = predict_actions.squeeze(1) * mask
-            # value, index = torch.topk(actions, k=1, dim=0)  # Check dimensions!
-            # TODO: Do I really need topk since I am performing teacher forcing?
+            value, index = torch.topk(actions, k=1, dim=0)  # For evaluation
             best_score = -1
             best_neighbor = -1
 
@@ -76,19 +79,33 @@ class ExecutionModel(nn.Module):
             # ----------------------
 
             # I take the best neighbor out of reference, which is teacher forcing - good or not?
+            # So far probably good, later I will do DFS-like search
             current = best_neighbor
+            if mode == 'train':
+                # Evaluate your choice - calculate loss
+                criterion = nn.CrossEntropyLoss()
+                actions = actions.unsqueeze(0)  # Dimensions need to be batch_size x number_of_actions
+                best = torch.tensor([best_neighbor])
+                loss = criterion(actions, best)
+                loss_list.append(loss.item())
 
-            # Evaluate your choice - calculate loss
-            criterion = nn.CrossEntropyLoss()
-            actions = actions.unsqueeze(0)  # Dimensions need to be batch_size x number_of_actions
-            best = torch.tensor([best_neighbor])
-            loss = criterion(actions, best)
+                # Update weights
+                # TODO: Probably I will need to accumulate losses and then do backprop once I'm done with the graph
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
 
-            # Update weights
-            # TODO: Probably I will need to accumulate losses and then do backprop once I'm done with the graph
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+            else:
+                index = index.item()
+                if index == best_neighbor:
+                    correct += 1
+                total += 1
+
+        if mode == 'train':
+            return loss_list
+        else:
+            accuracy = correct / total
+            return accuracy
 
     def predict(self, node_features, edge_features, latent_features, edge_index):
         node_features = node_features.unsqueeze(-1).float()
@@ -107,4 +124,7 @@ if __name__ == '__main__':
     model = ExecutionModel(1, 1, 1)
     params = list(model.parameters())
     opt = optim.Adam(params, lr=1e-5)
-    model.process(graph_torch, opt)
+    losses = model.process(graph_torch, opt, 'train')
+    print('losses:', losses)
+    accuracy = model.process(graph_torch, opt, 'eval')
+    print('accuracy:', accuracy)

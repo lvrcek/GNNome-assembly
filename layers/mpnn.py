@@ -15,7 +15,7 @@ class MPNN(nng.MessagePassing):
         self.gru = nn.GRUCell(out_channels, out_channels, bias=bias)
 
     def zero_hidden(self, num_nodes):
-        self.hidden = torch.zeros((num_nodes, self.out_channels))
+        self.hidden = torch.zeros((num_nodes, self.out_channels)).detach()
         return self.hidden
 
     def forward(self, x, edge_attr, edge_index):

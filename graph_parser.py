@@ -49,13 +49,21 @@ def translate_nodes_into_sequence2(graph, node_tr):
     for src, dst in zip(node_tr[:-1], node_tr[1:]):
         idx = find_edge_index(graph, src, dst)
         prefix_length = graph.prefix_length[idx]
-        seq += graph.read_sequence[src][:prefix_length]
-    seq += graph.read_sequence[node_tr[-1]]
+        # In graph, len(graph.read_sequence) == num_nodes. Same if I take it out from dataset
+        # But with DataLoader, len(graph.read_sequence) == 1. As if it was unsqueezed at some point during loading
+        if graph.batch is None:
+            seq += graph.read_sequence[src][:prefix_length]
+        else:
+            seq += graph.read_sequence[0][src][:prefix_length]  # Why is this so?!
+    if graph.batch is None:
+        seq += graph.read_sequence[node_tr[-1]]
+    else:
+        seq += graph.read_sequence[0][node_tr[-1]]
     return seq
 
 
 def get_quality(hits, seq_len):
-    # Returns the franction of the best mapping
+    # Returns the fraction of the best mapping
     # Could also include the number of mappings (-), mapping quality (+)
     # Maybe something else, a more sophisticated method of calculation
     return (hits[0].q_en - hits[0].q_st) / seq_len
