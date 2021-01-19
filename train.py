@@ -20,6 +20,30 @@ import hyperparameters
 # NUM_EPOCHS = 5
 
 
+def draw_loss_plot(train_loss, valid_loss, timestamp):
+    plt.figure()
+    plt.plot(train_loss, label='train')
+    plt.plot(valid_loss, label='validation')
+    plt.title('Loss over epochs')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.legend()
+    plt.savefig(f'figures/loss_{timestamp}.png')
+    plt.show()
+
+
+def draw_accuracy_plots(train_acc, valid_acc, timestamp):
+    plt.figure()
+    plt.plot(train_acc, label='train')
+    plt.plot(valid_acc, label='validation')
+    plt.title('Accuracy over epochs')
+    plt.xlabel('Epoch')
+    plt.ylabel('Accuracy')
+    plt.legend()
+    plt.savefig(f'figures/train_accuracy_{timestamp}.png')
+    plt.show()
+
+
 def train():
 
     hyperparams = hyperparameters.get_hyperparameters()
@@ -110,9 +134,11 @@ def train():
                 elif patience >= patience_limit:
                     break
 
-
                 loss_per_epoch_valid.append(np.mean(loss_per_graph))
                 accuracy_per_epoch_valid.append(np.mean(graph_acc))
+
+        draw_loss_plot(loss_per_epoch_train, loss_per_epoch_valid, time_now)
+        draw_accuracy_plots(accuracy_per_epoch_train, accuracy_per_epoch_valid, time_now)
 
     torch.save(best_model.state_dict(), model_path)
 
@@ -121,7 +147,10 @@ def train():
         with torch.no_grad():
             processor.eval()
             for data in dl_test:
-                graph_acc = best_model.process(data, optimizer, 'eval')
+                graph_loss, graph_acc = best_model.process(data, optimizer, 'eval')
+
+            average_test_accuracy = np.mean(graph_acc)
+            print(f'Average accuracy on the test set:', average_test_accuracy)
 
 
 if __name__ == '__main__':
