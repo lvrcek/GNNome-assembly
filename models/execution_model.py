@@ -81,31 +81,28 @@ class ExecutionModel(nn.Module):
             # I take the best neighbor out of reference, which is teacher forcing - good or not?
             # So far probably good, later I will do DFS-like search
             current = best_neighbor
-            if mode == 'train':
-                # Evaluate your choice - calculate loss
-                criterion = nn.CrossEntropyLoss()
-                actions = actions.unsqueeze(0)  # Dimensions need to be batch_size x number_of_actions
-                best = torch.tensor([best_neighbor])
-                loss = criterion(actions, best)
-                loss_list.append(loss.item())
 
+            # Evaluate your choice - calculate loss
+            criterion = nn.CrossEntropyLoss()
+            actions = actions.unsqueeze(0)  # Dimensions need to be batch_size x number_of_actions
+            best = torch.tensor([best_neighbor])
+            loss = criterion(actions, best)
+            loss_list.append(loss.item())
+
+            if mode == 'train':
                 # Update weights
                 # TODO: Probably I will need to accumulate losses and then do backprop once I'm done with the graph
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
 
-            else:
-                index = index.item()
-                if index == best_neighbor:
-                    correct += 1
-                total += 1
+            index = index.item()
+            if index == best_neighbor:
+                correct += 1
+            total += 1
 
-        if mode == 'train':
-            return loss_list
-        else:
-            accuracy = correct / total
-            return accuracy
+        accuracy = correct / total
+        return loss_list, accuracy
 
     def predict(self, node_features, edge_features, latent_features, edge_index):
         node_features = node_features.unsqueeze(-1).float()
@@ -124,7 +121,8 @@ if __name__ == '__main__':
     model = ExecutionModel(1, 1, 1)
     params = list(model.parameters())
     opt = optim.Adam(params, lr=1e-5)
-    losses = model.process(graph_torch, opt, 'train')
+    losses, acc = model.process(graph_torch, opt, 'train')
     print('losses:', losses)
-    accuracy = model.process(graph_torch, opt, 'eval')
-    print('accuracy:', accuracy)
+    print('accuracy:', acc)
+    # accuracy = model.process(graph_torch, opt, 'eval')
+    # print('accuracy:', accuracy)

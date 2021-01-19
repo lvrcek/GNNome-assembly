@@ -53,11 +53,13 @@ def translate_nodes_into_sequence2(graph, node_tr):
         prefix_length = graph.prefix_length[idx]
         # In graph, len(graph.read_sequence) == num_nodes. Same if I take it out from dataset
         # But with DataLoader, len(graph.read_sequence) == 1. As if it was unsqueezed at some point during loading
-        if graph.batch is None:
+
+        if not hasattr(graph, 'batch'):  # Implement with try
             seq += graph.read_sequence[src][:prefix_length]
         else:
             seq += graph.read_sequence[0][src][:prefix_length]  # Why is this so?!
-    if graph.batch is None:
+
+    if not hasattr(graph, 'batch'):
         seq += graph.read_sequence[node_tr[-1]]
     else:
         seq += graph.read_sequence[0][node_tr[-1]]

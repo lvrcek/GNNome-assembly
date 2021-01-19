@@ -45,14 +45,12 @@ def train():
 
     time_now = datetime.now().strftime('%Y-%b-%d-%H-%M')
     train_path = os.path.abspath('data/train')
-    # valid_path = os.path.abspath('data/train/processed')
     test_path = os.path.abspath('data/test')
 
     # TODO: Discuss with Mile how to train this thing - maybe through generated reads by some tools?
     # First with real data just to check if the thing works, then probably with the generated graphs
     # The problem is that generated graphs don't have chimeric reads
     ds_train = dataset.GraphDataset(train_path)
-    # ds_valid = dataset.GraphDataset(valid_path)
     ds_test = dataset.GraphDataset(test_path)
 
     ratio = 0.5
@@ -75,37 +73,46 @@ def train():
     best_model.load_state_dict(copy.deepcopy(processor.state_dict()))
 
     if mode == 'train':
-        loss_per_epoch = []
-        accuracy_per_epoch = []
+        loss_per_epoch_train, loss_per_epoch_valid = [], []
+        accuracy_per_epoch_train, accuracy_per_epoch_valid = [], []
+
         # Training
         for epoch in range(num_epochs):
             processor.train()
             print(f'Epoch: {epoch}')
+            patience += 1
             loss_per_graph = []
+            acc_per_graph = []
             for data in dl_train:
                 print(data)
-                graph_loss = processor.process(data, optimizer, 'train')  # Returns list of losses for each step in path finding
+                graph_loss, graph_accuracy = processor.process(data, optimizer, 'train')  # Returns list of losses for each step in path finding
                 loss_per_graph.append(np.mean(graph_loss))  # Take the mean of that for each graph
+                acc_per_graph.append(graph_accuracy)
 
-            loss_per_epoch.append(np.mean(loss_per_graph))
-
-            # Patience is a bit different than this
-            # if len(loss_per_graph) >= 10:
-            #     patience = loss_per_graph[-10:].copy()
-            # else:
-            #     patience = loss_per_graph.copy()
-            # if loss_per_graph > max(patience):
-            #     break
+            loss_per_epoch_train.append(np.mean(loss_per_graph))
+            accuracy_per_epoch_train.append(np.mean(acc_per_graph))
 
             # Validation
             with torch.no_grad():
                 processor.eval()
+                loss_per_graph = []
+                acc_per_graph = []
                 for data in dl_valid:
+                    graph_loss, graph_acc = processor.process(data, optimizer, 'eval')
+                    current_loss = np.mean(graph_loss)
+                    loss_per_graph.append(current_loss)
+                    acc_per_graph.append(graph_acc)
 
-                    graph_acc = processor.process(data, optimizer, 'eval')
-                    accuracy_per_epoch.append(graph_acc)
-                    if graph_acc > max(accuracy_per_epoch):
-                        best_model.load_state_dict(copy.deepcopy(processor.state_dict()))
+                if len(loss_per_epoch_valid) > 0 and current_loss < min(loss_per_epoch_valid):
+                    patience = 0
+                    best_model.load_state_dict(copy.deepcopy(processor.state_dict()))
+                    torch.save(best_model.state_dict(), model_path)
+                elif patience >= patience_limit:
+                    break
+
+
+                loss_per_epoch_valid.append(np.mean(loss_per_graph))
+                accuracy_per_epoch_valid.append(np.mean(graph_acc))
 
     torch.save(best_model.state_dict(), model_path)
 
