@@ -14,6 +14,7 @@ def draw_graph(graph_nx):
     plt.show()
 
 
+# TODO: Maybe put all these into a Graph class?
 def get_neighbors(graph):
     neighbor_dict = defaultdict(list)
     for src, dst in zip(graph.edge_index[0], graph.edge_index[1]):
@@ -131,8 +132,6 @@ def from_csv(graph_path):
     graph_torch = from_networkx(graph_nx)
 
     return graph_nx, graph_torch
-
-    # TODO: This keep both strands, and I only need one. I should fix that - maybe through parsing GFA
 
 
 def main():

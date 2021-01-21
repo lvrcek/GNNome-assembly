@@ -56,7 +56,7 @@ def train():
     learning_rate = hyperparams['lr']
 
     # --- DEBUGGING ---
-    num_epochs = 1
+    num_epochs = 3
     dim_node = 1
     dim_edge = 1
     dim_latent = 1

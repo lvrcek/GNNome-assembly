@@ -29,7 +29,7 @@ class GraphDataset(Dataset):
         self.device = device
 
     def len(self):
-        return len(os.listdir(self.processed_dir))  # - 2 if there are those other filter files
+        return len(os.listdir(self.processed_dir)) - 2 # if there are those other filter files
 
     def get(self, idx):
         return torch.load(os.path.join(self.processed_dir, str(idx) + '.pt'))
