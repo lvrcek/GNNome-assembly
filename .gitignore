@@ -6,3 +6,5 @@ __pycache__/
 data/
 figures/
 trained_models/
+
+vendor/raven_master/
