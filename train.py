@@ -14,7 +14,7 @@ from torch.utils.data import random_split
 
 import dataset
 import models
-import hyperparameters
+from hyperparameters import get_hyperparameters
 
 
 # NUM_EPOCHS = 5
@@ -46,14 +46,16 @@ def draw_accuracy_plots(train_acc, valid_acc, timestamp):
 
 def train():
 
-    hyperparams = hyperparameters.get_hyperparameters()
-    num_epochs = hyperparams['num_epochs']
-    dim_node = hyperparams['dim_nodes']
-    dim_edge = hyperparams['dim_edges']
-    dim_latent = hyperparams['dim_latent']
-    batch_size = hyperparams['batch_size']
-    patience_limit = hyperparams['patience_limit']
-    learning_rate = hyperparams['lr']
+    hyperparameters = get_hyperparameters()
+    num_epochs = hyperparameters['num_epochs']
+    dim_node = hyperparameters['dim_nodes']
+    dim_edge = hyperparameters['dim_edges']
+    dim_latent = hyperparameters['dim_latent']
+    batch_size = hyperparameters['batch_size']
+    patience_limit = hyperparameters['patience_limit']
+    learning_rate = hyperparameters['lr']
+    device = hyperparameters['device']
+
 
     # --- DEBUGGING ---
     num_epochs = 3
@@ -63,6 +65,7 @@ def train():
     batch_size = 1
     patience_limit = 10
     learning_rate = 1e-5
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
     # -----------------
 
     mode = 'train'
@@ -86,7 +89,7 @@ def train():
     dl_valid = DataLoader(ds_valid, batch_size=batch_size, shuffle=False)
     dl_test = DataLoader(ds_test, batch_size=batch_size, shuffle=False)
 
-    processor = models.ExecutionModel(dim_node, dim_edge, dim_latent)
+    processor = models.ExecutionModel(dim_node, dim_edge, dim_latent).to(device)
     params = list(processor.parameters())
     model_path = os.path.abspath(f'trained_models/{time_now}.pt)')
 
