@@ -91,6 +91,13 @@ def train():
     dl_test = DataLoader(ds_test, batch_size=batch_size, shuffle=False)
 
     processor = models.ExecutionModel(dim_node, dim_edge, dim_latent)
+
+    # Multi-GPU training not available as batch_size = 1
+    # Therefore, samples in a batch cannot be distributed over GPUs
+    # if torch.cuda.device_count() > 1:
+    #     print(f'We use {torch.cuda.device_count()} GPUs!')
+    #     processor = nn.DataParallel(processor)
+
     processor.to(device)
     params = list(processor.parameters())
     model_path = os.path.abspath(f'trained_models/{time_now}.pt)')
@@ -99,6 +106,8 @@ def train():
 
     patience = 0
     best_model = models.ExecutionModel(dim_node, dim_edge, dim_latent)
+    # if torch.cuda.device_count() > 1:
+    #     best_model = nn.DataParallel(best_model)
     best_model.load_state_dict(copy.deepcopy(processor.state_dict()))
     best_model.to(device)
 
@@ -115,7 +124,7 @@ def train():
             acc_per_graph = []
             for data in dl_train:
                 print(data)
-                data.to(device)
+                data = data.to(device)
                 graph_loss, graph_accuracy = processor.process(data, optimizer, 'train', device=device)  # Returns list of losses for each step in path finding
                 loss_per_graph.append(np.mean(graph_loss))  # Take the mean of that for each graph
                 acc_per_graph.append(graph_accuracy)
@@ -130,7 +139,7 @@ def train():
                 loss_per_graph = []
                 acc_per_graph = []
                 for data in dl_valid:
-                    data.to(device)
+                    data = data.to(device)
                     graph_loss, graph_acc = processor.process(data, optimizer, 'eval', device=device)
                     current_loss = np.mean(graph_loss)
                     loss_per_graph.append(current_loss)
@@ -158,7 +167,7 @@ def train():
             print('TESTING')
             processor.eval()
             for data in dl_test:
-                data.to(device)
+                data = data.to(device)
                 graph_loss, graph_acc = best_model.process(data, optimizer, 'eval', device=device)
 
             average_test_accuracy = np.mean(graph_acc)
