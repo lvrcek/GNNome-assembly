@@ -65,14 +65,15 @@ def train():
     batch_size = 1
     patience_limit = 10
     learning_rate = 1e-5
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    # device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    device = 'cuda:5'
     # -----------------
 
     mode = 'train'
 
     time_now = datetime.now().strftime('%Y-%b-%d-%H-%M')
-    train_path = os.path.abspath('data/train')
-    test_path = os.path.abspath('data/test')
+    train_path = os.path.abspath('data/debug')
+    test_path = os.path.abspath('data/debug')
 
     # TODO: Discuss with Mile how to train this thing - maybe through generated reads by some tools?
     # First with real data just to check if the thing works, then probably with the generated graphs
@@ -89,7 +90,8 @@ def train():
     dl_valid = DataLoader(ds_valid, batch_size=batch_size, shuffle=False)
     dl_test = DataLoader(ds_test, batch_size=batch_size, shuffle=False)
 
-    processor = models.ExecutionModel(dim_node, dim_edge, dim_latent).to(device)
+    processor = models.ExecutionModel(dim_node, dim_edge, dim_latent)
+    processor.to(device)
     params = list(processor.parameters())
     model_path = os.path.abspath(f'trained_models/{time_now}.pt)')
 
@@ -98,6 +100,7 @@ def train():
     patience = 0
     best_model = models.ExecutionModel(dim_node, dim_edge, dim_latent)
     best_model.load_state_dict(copy.deepcopy(processor.state_dict()))
+    best_model.to(device)
 
     if mode == 'train':
         loss_per_epoch_train, loss_per_epoch_valid = [], []
@@ -112,7 +115,8 @@ def train():
             acc_per_graph = []
             for data in dl_train:
                 print(data)
-                graph_loss, graph_accuracy = processor.process(data, optimizer, 'train')  # Returns list of losses for each step in path finding
+                data.to(device)
+                graph_loss, graph_accuracy = processor.process(data, optimizer, 'train', device=device)  # Returns list of losses for each step in path finding
                 loss_per_graph.append(np.mean(graph_loss))  # Take the mean of that for each graph
                 acc_per_graph.append(graph_accuracy)
 
@@ -121,11 +125,13 @@ def train():
 
             # Validation
             with torch.no_grad():
+                print('VALIDATION')
                 processor.eval()
                 loss_per_graph = []
                 acc_per_graph = []
                 for data in dl_valid:
-                    graph_loss, graph_acc = processor.process(data, optimizer, 'eval')
+                    data.to(device)
+                    graph_loss, graph_acc = processor.process(data, optimizer, 'eval', device=device)
                     current_loss = np.mean(graph_loss)
                     loss_per_graph.append(current_loss)
                     acc_per_graph.append(graph_acc)
@@ -133,6 +139,7 @@ def train():
                 if len(loss_per_epoch_valid) > 0 and current_loss < min(loss_per_epoch_valid):
                     patience = 0
                     best_model.load_state_dict(copy.deepcopy(processor.state_dict()))
+                    best_model.to(device)
                     torch.save(best_model.state_dict(), model_path)
                 elif patience >= patience_limit:
                     break
@@ -148,9 +155,11 @@ def train():
     # Testing
     if mode == 'test':  # TODO: put validation/testing into different functions
         with torch.no_grad():
+            print('TESTING')
             processor.eval()
             for data in dl_test:
-                graph_loss, graph_acc = best_model.process(data, optimizer, 'eval')
+                data.to(device)
+                graph_loss, graph_acc = best_model.process(data, optimizer, 'eval', device=device)
 
             average_test_accuracy = np.mean(graph_acc)
             print(f'Average accuracy on the test set:', average_test_accuracy)
@@ -158,3 +167,4 @@ def train():
 
 if __name__ == '__main__':
     train()
+

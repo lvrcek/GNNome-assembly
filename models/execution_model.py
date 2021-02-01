@@ -42,15 +42,16 @@ class ExecutionModel(nn.Module):
         while True:
             print(f'\nCurrent node: {current}')
             walk.append(current)
+            total += 1
             if len(neighbors[current]) == 0:
                 break
 
             # TODO: Maybe put masking before predictions, mask node features and edges?
-            mask = torch.tensor([1 if n in neighbors[current] else 0 for n in range(graph.num_nodes)])
+            mask = torch.tensor([1 if n in neighbors[current] else 0 for n in range(graph.num_nodes)]).to(device)
 
             # Get prediction for the next node out of those in list of neighbors (run the model)
             predict_actions = self.predict(node_features=node_features, edge_features=edge_features,
-                                           latent_features=last_latent, edge_index=graph.edge_index)
+                                           latent_features=last_latent, edge_index=graph.edge_index, device=device)
 
             actions = predict_actions.squeeze(1) * mask
             value, index = torch.topk(actions, k=1, dim=0)  # For evaluation
@@ -85,7 +86,7 @@ class ExecutionModel(nn.Module):
             # Evaluate your choice - calculate loss
             criterion = nn.CrossEntropyLoss()
             actions = actions.unsqueeze(0)  # Dimensions need to be batch_size x number_of_actions
-            best = torch.tensor([best_neighbor])
+            best = torch.tensor([best_neighbor]).to(device)
             loss = criterion(actions, best)
             loss_list.append(loss.item())
 
@@ -99,20 +100,19 @@ class ExecutionModel(nn.Module):
             index = index.item()
             if index == best_neighbor:
                 correct += 1
-            total += 1
 
         accuracy = correct / total
         return loss_list, accuracy
 
-    def predict(self, node_features, edge_features, latent_features, edge_index):
-        node_features = node_features.unsqueeze(-1).float()
-        latent_features = latent_features.float()
-        edge_features = edge_features.unsqueeze(-1).float()
-        t = torch.cat((node_features, latent_features), dim=1)
-        node_enc = self.node_encoder(t)
-        edge_enc = self.edge_encoder(edge_features)
-        latent_features = self.processor(node_enc, edge_enc, edge_index)  # Should I put clone here?
-        output = self.decoder(torch.cat((node_enc, latent_features), dim=1))
+    def predict(self, node_features, edge_features, latent_features, edge_index, device):
+        node_features = node_features.unsqueeze(-1).float().to(device)
+        latent_features = latent_features.float().to(device)
+        edge_features = edge_features.unsqueeze(-1).float().to(device)
+        t = torch.cat((node_features, latent_features), dim=1).to(device)
+        node_enc = self.node_encoder(t).to(device)
+        edge_enc = self.edge_encoder(edge_features).to(device)
+        latent_features = self.processor(node_enc, edge_enc, edge_index).to(device)  # Should I put clone here?
+        output = self.decoder(torch.cat((node_enc, latent_features), dim=1)).to(device)
         return output
 
 
