@@ -19,7 +19,7 @@ class ExecutionModel(nn.Module):
         self.node_encoder = EncoderNetwork(node_features + latent_features, latent_features, bias=bias)
         self.edge_encoder = EncoderNetwork(edge_features, latent_features, bias=bias)
         self.processor = MPNN(latent_features, latent_features, latent_features, bias=False)
-        self.decoder = DecoderNetwork(2 * latent_features, latent_features, bias=bias)
+        self.decoder = DecoderNetwork(2 * latent_features, 1, bias=bias)
 
     def process(self, graph, optimizer, mode, device='cpu'):
         print('Processing graph!')
@@ -53,23 +53,25 @@ class ExecutionModel(nn.Module):
             predict_actions = self.predict(node_features=node_features, edge_features=edge_features,
                                            latent_features=last_latent, edge_index=graph.edge_index, device=device)
 
+            print(mask.shape)
+            print(predict_actions.shape)
             actions = predict_actions.squeeze(1) * mask
             value, index = torch.topk(actions, k=1, dim=0)  # For evaluation
             best_score = -1
             best_neighbor = -1
 
             # ---- GET CORRECT -----
-            print('neighbors:', neighbors[current])
+            # print('neighbors:', neighbors[current])
             for neighbor in neighbors[current]:
                 # Get mappings for all the neighbors
-                print(f'walk = {walk}')
-                print(f'current neighbor {neighbor}')
+                # print(f'walk = {walk}')
+                # print(f'current neighbor {neighbor}')
                 node_tr = walk[-min(3, len(walk)):] + [neighbor]
                 sequence = graph_parser.translate_nodes_into_sequence2(graph, node_tr)
                 alignment = aligner.map(sequence)
                 hits = list(alignment)
-                print(f'length node_tr: {len(node_tr)}')
-                print(f'length hits: {len(hits)}')
+                # print(f'length node_tr: {len(node_tr)}')
+                # print(f'length hits: {len(hits)}')
                 try:
                     quality_score = graph_parser.get_quality(hits, len(sequence))
                 except:

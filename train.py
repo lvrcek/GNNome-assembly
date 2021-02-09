@@ -17,9 +17,6 @@ import models
 from hyperparameters import get_hyperparameters
 
 
-# NUM_EPOCHS = 5
-
-
 def draw_loss_plot(train_loss, valid_loss, timestamp):
     plt.figure()
     plt.plot(train_loss, label='train')
@@ -58,22 +55,22 @@ def train():
 
 
     # --- DEBUGGING ---
-    num_epochs = 3
-    dim_node = 1
-    dim_edge = 1
-    dim_latent = 1
-    batch_size = 1
-    patience_limit = 10
-    learning_rate = 1e-5
+    # num_epochs = 3
+    # dim_node = 1
+    # dim_edge = 1
+    # dim_latent = 1
+    # batch_size = 1
+    # patience_limit = 10
+    # learning_rate = 1e-5
     # device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    device = 'cuda:5'
+    # device = 'cuda:5' if torch.cuda.is_available() else 'cpu'
     # -----------------
 
     mode = 'train'
 
     time_now = datetime.now().strftime('%Y-%b-%d-%H-%M')
-    train_path = os.path.abspath('data/debug')
-    test_path = os.path.abspath('data/debug')
+    train_path = os.path.abspath('data/train')
+    test_path = os.path.abspath('data/train')
 
     # TODO: Discuss with Mile how to train this thing - maybe through generated reads by some tools?
     # First with real data just to check if the thing works, then probably with the generated graphs
@@ -125,7 +122,8 @@ def train():
             for data in dl_train:
                 print(data)
                 data = data.to(device)
-                graph_loss, graph_accuracy = processor.process(data, optimizer, 'train', device=device)  # Returns list of losses for each step in path finding
+                # Return list of losses for each step in path finding
+                graph_loss, graph_accuracy = processor.process(data, optimizer, 'train', device=device)
                 loss_per_graph.append(np.mean(graph_loss))  # Take the mean of that for each graph
                 acc_per_graph.append(graph_accuracy)
 
