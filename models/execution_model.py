@@ -26,13 +26,14 @@ class ExecutionModel(nn.Module):
         node_features = graph.read_length.clone().detach().to(device)
         edge_features = graph.overlap_similarity.clone().detach().to(device)
         last_latent = self.processor.zero_hidden(graph.num_nodes)  # TODO: Could this potentially be a problem?
+        visited = set()
 
         start = random.randint(0, graph.num_nodes - 1)
         neighbors = graph_parser.get_neighbors(graph)
         current = start
         walk = []
         loss_list = []
-        reference = '../data/references/lambda_reference.fasta'
+        reference = '../data/references/chm13/chr21.fasta'
         aligner = mp.Aligner(reference, preset='map_ont', best_n=5)
         print('Iterating through neighbors!')
 
@@ -42,9 +43,15 @@ class ExecutionModel(nn.Module):
         while True:
             print(f'\nCurrent node: {current}')
             walk.append(current)
+            if current in visited:
+                break
+            visited.add(current)
             total += 1
             if len(neighbors[current]) == 0:
                 break
+            if len(neighbors[current]) == 1:
+                current = neighbors[current][0]
+                continue
 
             # TODO: Maybe put masking before predictions, mask node features and edges?
             mask = torch.tensor([1 if n in neighbors[current] else 0 for n in range(graph.num_nodes)]).to(device)
@@ -53,8 +60,8 @@ class ExecutionModel(nn.Module):
             predict_actions = self.predict(node_features=node_features, edge_features=edge_features,
                                            latent_features=last_latent, edge_index=graph.edge_index, device=device)
 
-            print(mask.shape)
-            print(predict_actions.shape)
+            # print(mask.shape)
+            # print(predict_actions.shape)
             actions = predict_actions.squeeze(1) * mask
             value, index = torch.topk(actions, k=1, dim=0)  # For evaluation
             best_score = -1
