@@ -101,7 +101,7 @@ def train():
 
     processor.to(device)
     params = list(processor.parameters())
-    model_path = os.path.abspath(f'pretrained/{time_now}.pt)')
+    model_path = os.path.abspath(f'pretrained/{time_now}.pt')
 
     optimizer = optim.Adam(params, lr=learning_rate)
 
