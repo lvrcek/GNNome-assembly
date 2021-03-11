@@ -74,6 +74,12 @@ def get_quality(hits, seq_len):
     return (hits[0].q_en - hits[0].q_st) / seq_len
 
 
+def print_pairwise(graph):
+    with open('pairwise.txt', 'w') as f:
+        for src, dst in zip(graph.edge_index[0], graph.edge_index[1]):
+            f.write(f'{src}\t{dst}\n')
+
+
 def from_gfa(graph_path):
     read_sequences = deque()
     with open(graph_path) as f:
@@ -114,12 +120,15 @@ def from_csv(graph_path):
                     node_data[dst_id] = read_sequences.popleft()
                     graph_nx.add_node(dst_id)
             else:
-                graph_nx.add_edge(src_id, dst_id)
                 # ID, length, weight, similarity
                 # weight is always zero for some reason
                 # similarity = edit distance of prefix-suffix overlap divided by the length of overlap
                 overlap = overlap.split()
-                [edge_id, prefix_len, weight], similarity = map(int, overlap[:3]), float(overlap[3])
+                try:
+                    [edge_id, prefix_len, weight], similarity = map(int, overlap[:3]), float(overlap[3])
+                except IndexError:
+                    continue
+                graph_nx.add_edge(src_id, dst_id)
                 if (src_id, dst_id) not in edge_lengths.keys():
                     edge_ids[(src_id, dst_id)] = edge_id
                     edge_lengths[(src_id, dst_id)] = prefix_len

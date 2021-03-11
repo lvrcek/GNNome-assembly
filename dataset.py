@@ -29,7 +29,7 @@ class GraphDataset(Dataset):
         self.device = device
 
     def len(self):
-        return len(os.listdir(self.processed_dir)) - 2 # if there are those other filter files
+        return len(os.listdir(self.processed_dir)) -2 # if there are those other filter files
 
     def get(self, idx):
         return torch.load(os.path.join(self.processed_dir, str(idx) + '.pt'))
@@ -48,11 +48,15 @@ class GraphDataset(Dataset):
         graph_generator.generate_pacbio(self.num_graphs, self.reference_path, self.raw_dir)
 
     def process(self):
+        print(os.getcwd())
+        print(self.reads_path)
+        print(self.reference_path)
+        print(os.path.isfile(self.reads_path))
         for cnt, reads in enumerate(os.listdir(self.raw_dir)):
             print(cnt, reads)
             reads_path = os.path.abspath(os.path.join(self.raw_dir, reads))
             print(reads_path)
-            subprocess.run(f'{self.raven_path} -t2 -p0 {reads_path} > assembly.fasta', shell=True, cwd=self.tmp_dir)
+            subprocess.run(f'{self.raven_path} -t32 -p0 {reads_path} > assembly.fasta', shell=True, cwd=self.tmp_dir)
             processed_path = os.path.join(self.processed_dir, str(cnt) + '.pt')
             _, graph = graph_parser.from_csv(os.path.join(self.tmp_dir, 'graph_before.csv'))
             torch.save(graph, processed_path)

@@ -2,6 +2,7 @@ import argparse
 from datetime import datetime
 import copy
 import os
+import time
 
 
 import matplotlib.pyplot as plt
@@ -53,6 +54,8 @@ def train():
     learning_rate = hyperparameters['lr']
     device = hyperparameters['device']
 
+    num_epochs = 20
+
 
     # --- DEBUGGING ---
     # num_epochs = 3
@@ -69,8 +72,8 @@ def train():
     mode = 'train'
 
     time_now = datetime.now().strftime('%Y-%b-%d-%H-%M')
-    train_path = os.path.abspath('data/train')
-    test_path = os.path.abspath('data/train')
+    train_path = os.path.abspath('data/debug_3')
+    test_path = os.path.abspath('data/debug_3')
 
     # TODO: Discuss with Mile how to train this thing - maybe through generated reads by some tools?
     # First with real data just to check if the thing works, then probably with the generated graphs
@@ -81,10 +84,11 @@ def train():
     ratio = 0.5
     valid_size = int(len(ds_train) * ratio)
     train_size = len(ds_train) - valid_size
-    ds_train, ds_valid = random_split(ds_train, [train_size, valid_size])
+    # ds_train, ds_valid = random_split(ds_train, [train_size, valid_size])
 
     dl_train = DataLoader(ds_train, batch_size=batch_size, shuffle=True)
-    dl_valid = DataLoader(ds_valid, batch_size=batch_size, shuffle=False)
+    # dl_valid = DataLoader(ds_valid, batch_size=batch_size, shuffle=False)
+    dl_valid = DataLoader(ds_train, batch_size=batch_size, shuffle=False)
     dl_test = DataLoader(ds_test, batch_size=batch_size, shuffle=False)
 
     processor = models.ExecutionModel(dim_node, dim_edge, dim_latent)
@@ -97,7 +101,7 @@ def train():
 
     processor.to(device)
     params = list(processor.parameters())
-    model_path = os.path.abspath(f'trained_models/{time_now}.pt)')
+    model_path = os.path.abspath(f'pretrained/{time_now}.pt)')
 
     optimizer = optim.Adam(params, lr=learning_rate)
 
@@ -113,6 +117,7 @@ def train():
         accuracy_per_epoch_train, accuracy_per_epoch_valid = [], []
 
         # Training
+        start_time = time.time()
         for epoch in range(num_epochs):
             processor.train()
             print(f'Epoch: {epoch}')
@@ -129,6 +134,7 @@ def train():
 
             loss_per_epoch_train.append(np.mean(loss_per_graph))
             accuracy_per_epoch_train.append(np.mean(acc_per_graph))
+            print(f'Training in epoch {epoch} done. Elapsed time: {time.time()-start_time}s')
 
             # Validation
             with torch.no_grad():
@@ -153,6 +159,7 @@ def train():
 
                 loss_per_epoch_valid.append(np.mean(loss_per_graph))
                 accuracy_per_epoch_valid.append(np.mean(graph_acc))
+                print(f'Validation in epoch {epoch} done. Elapsed time: {time.time()-start_time}s')
 
         draw_loss_plot(loss_per_epoch_train, loss_per_epoch_valid, time_now)
         draw_accuracy_plots(accuracy_per_epoch_train, accuracy_per_epoch_valid, time_now)

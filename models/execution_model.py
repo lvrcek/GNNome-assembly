@@ -1,3 +1,4 @@
+import os
 import random
 
 import torch
@@ -33,7 +34,13 @@ class ExecutionModel(nn.Module):
         current = start
         walk = []
         loss_list = []
-        reference = '../data/references/chm13/chr21.fasta'
+        reference = 'data/references/chm13/chr21.fasta'
+        # print(os.path.relpath())
+        # print(os.path.relpath(__file__))
+        # if not os.path.isfile(reference):
+        #     raise Exception("Reference does not exist!!")
+        # else:
+        #     raise Exception("Reference exists!")
         aligner = mp.Aligner(reference, preset='map_ont', best_n=5)
         print('Iterating through neighbors!')
 
@@ -41,7 +48,7 @@ class ExecutionModel(nn.Module):
         correct = 0
 
         while True:
-            print(f'\nCurrent node: {current}')
+            # print(f'\nCurrent node: {current}')
             walk.append(current)
             if current in visited:
                 break
@@ -68,11 +75,13 @@ class ExecutionModel(nn.Module):
             best_neighbor = -1
 
             # ---- GET CORRECT -----
-            # print('neighbors:', neighbors[current])
+            print('previous:', None if len(walk)<2 else walk[-2])
+            print('current:', current)
+            print('neighbors:', neighbors[current])
             for neighbor in neighbors[current]:
                 # Get mappings for all the neighbors
                 # print(f'walk = {walk}')
-                # print(f'current neighbor {neighbor}')
+                print(f'\tcurrent neighbor {neighbor}')
                 node_tr = walk[-min(3, len(walk)):] + [neighbor]
                 sequence = graph_parser.translate_nodes_into_sequence2(graph, node_tr)
                 alignment = aligner.map(sequence)
@@ -83,6 +92,7 @@ class ExecutionModel(nn.Module):
                     quality_score = graph_parser.get_quality(hits, len(sequence))
                 except:
                     quality_score = 0
+                print(f'\t\tquality score:', quality_score)
                 if quality_score > best_score:
                     best_neighbor = neighbor
                     best_score = quality_score

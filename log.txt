@@ -1,0 +1,7 @@
+Processing...
+/home/neural-path-finding
+/home/neural-path-finding/data/reads/lambda_reads.fastq
+/home/neural-path-finding/data/references/lambda_reference.fasta
+False
+0 chr20_test3.fastq
+/home/neural-path-finding/data/debug_3/raw/chr20_test3.fastq
