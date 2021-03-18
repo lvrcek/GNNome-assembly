@@ -52,6 +52,9 @@ class GraphDataset(Dataset):
         print(self.reads_path)
         print(self.reference_path)
         print(os.path.isfile(self.reads_path))
+        sequences_path = os.path.join(root, 'sequences')
+        if not os.path.isdir(sequences_path):
+            os.mkdir(sequences_path)
         for cnt, reads in enumerate(os.listdir(self.raw_dir)):
             print(cnt, reads)
             reads_path = os.path.abspath(os.path.join(self.raw_dir, reads))
@@ -60,6 +63,10 @@ class GraphDataset(Dataset):
             processed_path = os.path.join(self.processed_dir, str(cnt) + '.pt')
             _, graph = graph_parser.from_csv(os.path.join(self.tmp_dir, 'graph_before.csv'))
             torch.save(graph, processed_path)
+            graph_path = os.path.join(sequences_path, f'graph_{cnt}')
+            if not os.path.isdir(graph_path):
+                os.mkdir(graph_path)
+            graph_parser.print_fasta(graph, graph_path)
 
 
 def main():

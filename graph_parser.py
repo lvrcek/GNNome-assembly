@@ -79,6 +79,12 @@ def print_pairwise(graph):
         for src, dst in zip(graph.edge_index[0], graph.edge_index[1]):
             f.write(f'{src}\t{dst}\n')
 
+def print_fasta(graph, path):
+    for idx, seq in enumerate(graph.read_sequence):
+        with open(f'{path}/{idx}.fasta', 'w') as f:
+            f.write(f'>node_{idx}\n')
+            f.write(str(seq + '\n'))
+
 
 def from_gfa(graph_path):
     read_sequences = deque()
@@ -139,6 +145,7 @@ def from_csv(graph_path):
     nx.set_edge_attributes(graph_nx, edge_lengths, 'prefix_length')
     nx.set_edge_attributes(graph_nx, edge_similarities, 'overlap_similarity')
     graph_torch = from_networkx(graph_nx)
+    print_pairwise(graph_torch)
 
     return graph_nx, graph_torch
 

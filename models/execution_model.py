@@ -34,14 +34,15 @@ class ExecutionModel(nn.Module):
         current = start
         walk = []
         loss_list = []
-        reference = 'data/references/chm13/chr21.fasta'
+        reference = 'data/references/chm13/chr20.fasta'
+        # criterion = nn.CrossEntropyLoss()
         # print(os.path.relpath())
         # print(os.path.relpath(__file__))
         # if not os.path.isfile(reference):
         #     raise Exception("Reference does not exist!!")
         # else:
         #     raise Exception("Reference exists!")
-        aligner = mp.Aligner(reference, preset='map_ont', best_n=5)
+        aligner = mp.Aligner(reference, preset='map_pb', best_n=5)
         print('Iterating through neighbors!')
 
         total = 0
@@ -70,6 +71,13 @@ class ExecutionModel(nn.Module):
             # print(mask.shape)
             # print(predict_actions.shape)
             actions = predict_actions.squeeze(1) * mask
+
+            # --- loss aggregation? ----
+            # neighborhood_losses = {}
+            # for idx, action in enumerate(actions):
+            #     if action > 0:
+            #         neighborhood_losses[idx] = action
+
             value, index = torch.topk(actions, k=1, dim=0)  # For evaluation
             best_score = -1
             best_neighbor = -1
@@ -83,7 +91,16 @@ class ExecutionModel(nn.Module):
                 # print(f'walk = {walk}')
                 print(f'\tcurrent neighbor {neighbor}')
                 node_tr = walk[-min(3, len(walk)):] + [neighbor]
+                ####
                 sequence = graph_parser.translate_nodes_into_sequence2(graph, node_tr)
+                ll = min(len(sequence), 50000)
+                sequence = sequence[-ll:]
+                sequence *= 10
+                name = '_'.join(map(str, node_tr)) + '.fasta'
+                with open(f'concat_reads/{name}', 'w') as fasta:
+                    fasta.write(f'>{name}\n')
+                    fasta.write(f'{str(sequence)}\n')
+                ####
                 alignment = aligner.map(sequence)
                 hits = list(alignment)
                 # print(f'length node_tr: {len(node_tr)}')
@@ -100,10 +117,12 @@ class ExecutionModel(nn.Module):
 
             # I take the best neighbor out of reference, which is teacher forcing - good or not?
             # So far probably good, later I will do DFS-like search
+            print('chosen:', best_neighbor)
             current = best_neighbor
 
             # Evaluate your choice - calculate loss
             criterion = nn.CrossEntropyLoss()
+
             actions = actions.unsqueeze(0)  # Dimensions need to be batch_size x number_of_actions
             best = torch.tensor([best_neighbor]).to(device)
             loss = criterion(actions, best)

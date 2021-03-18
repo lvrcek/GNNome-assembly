@@ -1,7 +1,807 @@
-Processing...
-/home/neural-path-finding
-/home/neural-path-finding/data/reads/lambda_reads.fastq
-/home/neural-path-finding/data/references/lambda_reference.fasta
-False
-0 chr20_test3.fastq
-/home/neural-path-finding/data/debug_3/raw/chr20_test3.fastq
+Epoch: 0
+Batch(batch=[9338], edge_index=[2, 9604], overlap_similarity=[9604], prefix_length=[9604], read_length=[9338], read_sequence=[1])
+Processing graph!
+Iterating through neighbors!
+previous: 9267
+current: 6480
+neighbors: [4375, 7750]
+	current neighbor 4375
+		quality score: 0.1000146487951366
+	current neighbor 7750
+		quality score: 0.061199833696104086
+chosen: 4375
+previous: 7656
+current: 3090
+neighbors: [6779, 7692, 8906]
+	current neighbor 6779
+		quality score: 0.10006819215032581
+	current neighbor 7692
+		quality score: 0.05442567113341998
+	current neighbor 8906
+		quality score: 0.05665876610424049
+chosen: 6779
+previous: 3090
+current: 6779
+neighbors: [1192, 3153]
+	current neighbor 1192
+		quality score: 0.1000225115371628
+	current neighbor 3153
+		quality score: 0.06242511877711217
+chosen: 1192
+previous: 3937
+current: 4503
+neighbors: [4540, 6308]
+	current neighbor 4540
+		quality score: 0.053295286408793066
+	current neighbor 6308
+		quality score: 0.10000356875200743
+chosen: 6308
+previous: 1497
+current: 834
+neighbors: [3180, 6724, 8889]
+	current neighbor 3180
+		quality score: 0.1
+	current neighbor 6724
+		quality score: 0.05136632200886263
+	current neighbor 8889
+		quality score: 0.05088821579141255
+chosen: 3180
+previous: 5840
+current: 6395
+neighbors: [1124, 9278]
+	current neighbor 1124
+		quality score: 0.10000377045471684
+	current neighbor 9278
+		quality score: 0.05521075622624383
+chosen: 1124
+previous: 3682
+current: 1074
+neighbors: [261, 8849]
+	current neighbor 261
+		quality score: 0.08407600013595731
+	current neighbor 8849
+		quality score: 0.10119338111941437
+chosen: 8849
+previous: 4696
+current: 1231
+neighbors: [4403, 8453]
+	current neighbor 4403
+		quality score: 0.052832377680105305
+	current neighbor 8453
+		quality score: 0.10140872627665819
+chosen: 8453
+previous: 6941
+current: 4783
+neighbors: [3434, 6256]
+	current neighbor 3434
+		quality score: 0.10003737339761558
+	current neighbor 6256
+		quality score: 0.057528323699421964
+chosen: 3434
+previous: 2545
+current: 7693
+neighbors: [3091, 6083]
+	current neighbor 3091
+		quality score: 0.051138488386587445
+	current neighbor 6083
+		quality score: 0.1000035213747447
+chosen: 6083
+previous: 5616
+current: 4565
+neighbors: [4034, 8711]
+	current neighbor 4034
+		quality score: 0.1
+	current neighbor 8711
+		quality score: 0.05736252950386764
+chosen: 4034
+previous: 2488
+current: 4342
+neighbors: [3587, 3611]
+	current neighbor 3587
+		quality score: 0.10000369480879365
+	current neighbor 3611
+		quality score: 0.05310082998445041
+chosen: 3587
+previous: 4745
+current: 3610
+neighbors: [4343, 8203]
+	current neighbor 4343
+		quality score: 0.053622
+	current neighbor 8203
+		quality score: 0.09999657017423515
+chosen: 8203
+previous: 598
+current: 2799
+neighbors: [7317, 7924]
+	current neighbor 7317
+		quality score: 0.05990510368746839
+	current neighbor 7924
+		quality score: 0.1
+chosen: 7924
+previous: 2190
+current: 8639
+neighbors: [6724, 7097]
+	current neighbor 6724
+		quality score: 0.0526
+	current neighbor 7097
+		quality score: 0.1
+chosen: 7097
+previous: 4365
+current: 8074
+neighbors: [43, 773]
+	current neighbor 43
+		quality score: 0.05343447385409942
+	current neighbor 773
+		quality score: 0.10057512580877066
+chosen: 773
+previous: 1791
+current: 9052
+neighbors: [2680, 4716]
+	current neighbor 2680
+		quality score: 0.1
+	current neighbor 4716
+		quality score: 0.07841675421057982
+chosen: 2680
+previous: 16
+current: 2272
+neighbors: [1902, 4261]
+	current neighbor 1902
+		quality score: 0.04939884787539391
+	current neighbor 4261
+		quality score: 0.10000377700558997
+chosen: 4261
+previous: 4261
+current: 7579
+neighbors: [3562, 3589]
+	current neighbor 3562
+		quality score: 0.051729856346261475
+	current neighbor 3589
+		quality score: 0.09999284129143103
+chosen: 3589
+previous: 1292
+current: 5849
+neighbors: [579, 5537]
+	current neighbor 579
+		quality score: 0.05758383876525146
+	current neighbor 5537
+		quality score: 0.10000368840365889
+chosen: 5537
+previous: 5849
+current: 5537
+neighbors: [2548, 7223]
+	current neighbor 2548
+		quality score: 0.10001512115828072
+	current neighbor 7223
+		quality score: 0.06539637416863334
+chosen: 2548
+previous: 8416
+current: 5018
+neighbors: [2393, 4387]
+	current neighbor 2393
+		quality score: 0.06456870548275076
+	current neighbor 4387
+		quality score: 0.1
+chosen: 4387
+previous: 5018
+current: 4387
+neighbors: [3746, 7508]
+	current neighbor 3746
+		quality score: 0.06570067592740433
+	current neighbor 7508
+		quality score: 0.10119232575784948
+chosen: 7508
+previous: 5350
+current: 4563
+neighbors: [1899, 5382]
+	current neighbor 1899
+		quality score: 0.1000071553790562
+	current neighbor 5382
+		quality score: 0.0618466416689735
+chosen: 1899
+previous: 7617
+current: 8578
+neighbors: [4340, 8918]
+	current neighbor 4340
+		quality score: 0.08351080543239185
+	current neighbor 8918
+		quality score: 0.10000373273609556
+chosen: 8918
+previous: 4064
+current: 3044
+neighbors: [7674, 7866]
+	current neighbor 7674
+		quality score: 0.0603691967204869
+	current neighbor 7866
+		quality score: 0.1
+chosen: 7866
+previous: 1993
+current: 2785
+neighbors: [3763, 5575, 8495]
+	current neighbor 3763
+		quality score: 0.0729242727593923
+	current neighbor 5575
+		quality score: 0.10000360763375302
+	current neighbor 8495
+		quality score: 0.061178836556843856
+chosen: 5575
+previous: 1238
+current: 870
+neighbors: [4156, 4839]
+	current neighbor 4156
+		quality score: 0.1
+	current neighbor 4839
+		quality score: 0.06283465369233512
+chosen: 4156
+previous: 870
+current: 4156
+neighbors: [90, 7898]
+	current neighbor 90
+		quality score: 0.1
+	current neighbor 7898
+		quality score: 0.06264774811493784
+chosen: 90
+previous: 869
+current: 7333
+neighbors: [5263, 7068]
+	current neighbor 5263
+		quality score: 0.10000376180265583
+	current neighbor 7068
+		quality score: 0.05121574139142657
+chosen: 5263
+previous: 3782
+current: 2977
+neighbors: [2998, 7741]
+	current neighbor 2998
+		quality score: 0.09999621498864497
+	current neighbor 7741
+		quality score: 0.0789654375598323
+chosen: 2998
+previous: 2316
+current: 7740
+neighbors: [2976, 6943]
+	current neighbor 2976
+		quality score: 0.078060207020987
+	current neighbor 6943
+		quality score: 0.1
+chosen: 6943
+previous: 2756
+current: 664
+neighbors: [394, 4180]
+	current neighbor 394
+		quality score: 0.1
+	current neighbor 4180
+		quality score: 0.05433333333333333
+chosen: 394
+previous: 6525
+current: 970
+neighbors: [723, 1872]
+	current neighbor 723
+		quality score: 0.052593641667371266
+	current neighbor 1872
+		quality score: 0.09998951268964552
+chosen: 1872
+previous: 1539
+current: 8019
+neighbors: [3402, 9127]
+	current neighbor 3402
+		quality score: 0.1
+	current neighbor 9127
+		quality score: 0.055102
+chosen: 3402
+Training in epoch 0 done. Elapsed time: 375.4434230327606s
+VALIDATION
+Processing graph!
+Iterating through neighbors!
+previous: 547
+current: 724
+neighbors: [3928, 5375]
+	current neighbor 3928
+		quality score: 0.10000400352310033
+	current neighbor 5375
+		quality score: 0.05314436015042497
+chosen: 3928
+previous: 5824
+current: 2130
+neighbors: [1243, 7155, 7370, 9027]
+	current neighbor 1243
+		quality score: 0.10000380560946835
+	current neighbor 7155
+		quality score: 0.061840783525866395
+	current neighbor 7370
+		quality score: 0.05559503483918601
+	current neighbor 9027
+		quality score: 0.062393118762602416
+chosen: 1243
+previous: 8914
+current: 1096
+neighbors: [1935, 5000, 7705]
+	current neighbor 1935
+		quality score: 0.0536308577637377
+	current neighbor 5000
+		quality score: 0.10004067896897303
+	current neighbor 7705
+		quality score: 0.053876355351221594
+chosen: 5000
+previous: 7267
+current: 4665
+neighbors: [2078, 8425]
+	current neighbor 2078
+		quality score: 0.052254470069966315
+	current neighbor 8425
+		quality score: 0.1
+chosen: 8425
+previous: 1106
+current: 8119
+neighbors: [1118, 8818]
+	current neighbor 1118
+		quality score: 0.05457132692991818
+	current neighbor 8818
+		quality score: 0.1000145327713995
+chosen: 8818
+previous: 8119
+current: 8818
+neighbors: [1304, 5659, 6202]
+	current neighbor 1304
+		quality score: 0.06229546037445499
+	current neighbor 5659
+		quality score: 0.058455070191691015
+	current neighbor 6202
+		quality score: 0.1
+chosen: 6202
+previous: 2073
+current: 3215
+neighbors: [901, 6735]
+	current neighbor 901
+		quality score: 0.09164448776099261
+	current neighbor 6735
+		quality score: 0.10001141161702613
+chosen: 6735
+previous: 2255
+current: 4960
+neighbors: [1281, 2088]
+	current neighbor 1281
+		quality score: 0.1
+	current neighbor 2088
+		quality score: 0.07038943598925694
+chosen: 1281
+previous: 1805
+current: 5374
+neighbors: [725, 8543]
+	current neighbor 725
+		quality score: 0.05613214695503453
+	current neighbor 8543
+		quality score: 0.10000391604010025
+chosen: 8543
+previous: 3660
+current: 1119
+neighbors: [2883, 8118]
+	current neighbor 2883
+		quality score: 0.10000356252226576
+	current neighbor 8118
+		quality score: 0.056531762879773566
+chosen: 2883
+previous: 283
+current: 42
+neighbors: [8075, 8888]
+	current neighbor 8075
+		quality score: 0.05704836709384043
+	current neighbor 8888
+		quality score: 0.1
+chosen: 8888
+previous: 42
+current: 8888
+neighbors: [835, 5030]
+	current neighbor 835
+		quality score: 0.05196342677060872
+	current neighbor 5030
+		quality score: 0.1
+chosen: 5030
+previous: 296
+current: 2094
+neighbors: [1563, 5272]
+	current neighbor 1563
+		quality score: 0.1
+	current neighbor 5272
+		quality score: 0.05314
+chosen: 1563
+previous: 1563
+current: 1715
+neighbors: [1114, 4543]
+	current neighbor 1114
+		quality score: 0.05924423464621134
+	current neighbor 4543
+		quality score: 0.1
+chosen: 4543
+previous: 1715
+current: 4543
+neighbors: [202, 447, 1468]
+	current neighbor 202
+		quality score: 0.05342957149379307
+	current neighbor 447
+		quality score: 0.10000333400013336
+	current neighbor 1468
+		quality score: 0.0568825958151578
+chosen: 447
+previous: 447
+current: 346
+neighbors: [737, 5442]
+	current neighbor 737
+		quality score: 0.10002273834659738
+	current neighbor 5442
+		quality score: 0.06925332731784345
+chosen: 737
+previous: 2074
+current: 4225
+neighbors: [1072, 6693]
+	current neighbor 1072
+		quality score: 0.05245
+	current neighbor 6693
+		quality score: 0.10000370411527207
+chosen: 6693
+previous: 6887
+current: 900
+neighbors: [422, 3214]
+	current neighbor 422
+		quality score: 0.1
+	current neighbor 3214
+		quality score: 0.08680186988155074
+chosen: 422
+previous: 6362
+current: 6534
+neighbors: [1673, 5917]
+	current neighbor 1673
+		quality score: 0.10000371291723907
+	current neighbor 5917
+		quality score: 0.07234648230988207
+chosen: 1673
+previous: 8385
+current: 1073
+neighbors: [1206, 4224]
+	current neighbor 1206
+		quality score: 0.1
+	current neighbor 4224
+		quality score: 0.052382197899480905
+chosen: 1206
+previous: 2153
+current: 7704
+neighbors: [1097, 9172]
+	current neighbor 1097
+		quality score: 0.054524
+	current neighbor 9172
+		quality score: 0.10000370041444642
+chosen: 9172
+previous: 7704
+current: 9172
+neighbors: [28, 529]
+	current neighbor 28
+		quality score: 0.10000363029114935
+	current neighbor 529
+		quality score: 0.053914202617547265
+chosen: 28
+previous: 4330
+current: 7222
+neighbors: [5536, 7482]
+	current neighbor 5536
+		quality score: 0.06702750469457638
+	current neighbor 7482
+		quality score: 0.1
+chosen: 7482
+previous: 1441
+current: 3476
+neighbors: [2877, 8443]
+	current neighbor 2877
+		quality score: 0.05593466095742994
+	current neighbor 8443
+		quality score: 0.10191171614134224
+chosen: 8443
+previous: 2819
+current: 4181
+neighbors: [665, 8280]
+	current neighbor 665
+		quality score: 0.055328
+	current neighbor 8280
+		quality score: 0.10000686294694942
+chosen: 8280
+previous: 4204
+current: 260
+neighbors: [1075, 6667]
+	current neighbor 1075
+		quality score: 0.07803522949681167
+	current neighbor 6667
+		quality score: 0.10104819612759437
+chosen: 6667
+previous: 208
+current: 3517
+neighbors: [3533, 7837]
+	current neighbor 3533
+		quality score: 0.1
+	current neighbor 7837
+		quality score: 0.0662720476735215
+chosen: 3533
+previous: 9267
+current: 6480
+neighbors: [4375, 7750]
+	current neighbor 4375
+		quality score: 0.1000146487951366
+	current neighbor 7750
+		quality score: 0.061199833696104086
+chosen: 4375
+previous: 7656
+current: 3090
+neighbors: [6779, 7692, 8906]
+	current neighbor 6779
+		quality score: 0.10006819215032581
+	current neighbor 7692
+		quality score: 0.05442567113341998
+	current neighbor 8906
+		quality score: 0.05665876610424049
+chosen: 6779
+previous: 3090
+current: 6779
+neighbors: [1192, 3153]
+	current neighbor 1192
+		quality score: 0.1000225115371628
+	current neighbor 3153
+		quality score: 0.06242511877711217
+chosen: 1192
+previous: 3937
+current: 4503
+neighbors: [4540, 6308]
+	current neighbor 4540
+		quality score: 0.053295286408793066
+	current neighbor 6308
+		quality score: 0.10000356875200743
+chosen: 6308
+previous: 1497
+current: 834
+neighbors: [3180, 6724, 8889]
+	current neighbor 3180
+		quality score: 0.1
+	current neighbor 6724
+		quality score: 0.05136632200886263
+	current neighbor 8889
+		quality score: 0.05088821579141255
+chosen: 3180
+previous: 5840
+current: 6395
+neighbors: [1124, 9278]
+	current neighbor 1124
+		quality score: 0.10000377045471684
+	current neighbor 9278
+		quality score: 0.05521075622624383
+chosen: 1124
+previous: 3682
+current: 1074
+neighbors: [261, 8849]
+	current neighbor 261
+		quality score: 0.08407600013595731
+	current neighbor 8849
+		quality score: 0.10119338111941437
+chosen: 8849
+previous: 4696
+current: 1231
+neighbors: [4403, 8453]
+	current neighbor 4403
+		quality score: 0.052832377680105305
+	current neighbor 8453
+		quality score: 0.10140872627665819
+chosen: 8453
+previous: 6941
+current: 4783
+neighbors: [3434, 6256]
+	current neighbor 3434
+		quality score: 0.10003737339761558
+	current neighbor 6256
+		quality score: 0.057528323699421964
+chosen: 3434
+previous: 2545
+current: 7693
+neighbors: [3091, 6083]
+	current neighbor 3091
+		quality score: 0.051138488386587445
+	current neighbor 6083
+		quality score: 0.1000035213747447
+chosen: 6083
+previous: 5616
+current: 4565
+neighbors: [4034, 8711]
+	current neighbor 4034
+		quality score: 0.1
+	current neighbor 8711
+		quality score: 0.05736252950386764
+chosen: 4034
+previous: 2488
+current: 4342
+neighbors: [3587, 3611]
+	current neighbor 3587
+		quality score: 0.10000369480879365
+	current neighbor 3611
+		quality score: 0.05310082998445041
+chosen: 3587
+previous: 4745
+current: 3610
+neighbors: [4343, 8203]
+	current neighbor 4343
+		quality score: 0.053622
+	current neighbor 8203
+		quality score: 0.09999657017423515
+chosen: 8203
+previous: 598
+current: 2799
+neighbors: [7317, 7924]
+	current neighbor 7317
+		quality score: 0.05990510368746839
+	current neighbor 7924
+		quality score: 0.1
+chosen: 7924
+previous: 2190
+current: 8639
+neighbors: [6724, 7097]
+	current neighbor 6724
+		quality score: 0.0526
+	current neighbor 7097
+		quality score: 0.1
+chosen: 7097
+previous: 4365
+current: 8074
+neighbors: [43, 773]
+	current neighbor 43
+		quality score: 0.05343447385409942
+	current neighbor 773
+		quality score: 0.10057512580877066
+chosen: 773
+previous: 1791
+current: 9052
+neighbors: [2680, 4716]
+	current neighbor 2680
+		quality score: 0.1
+	current neighbor 4716
+		quality score: 0.07841675421057982
+chosen: 2680
+previous: 16
+current: 2272
+neighbors: [1902, 4261]
+	current neighbor 1902
+		quality score: 0.04939884787539391
+	current neighbor 4261
+		quality score: 0.10000377700558997
+chosen: 4261
+previous: 4261
+current: 7579
+neighbors: [3562, 3589]
+	current neighbor 3562
+		quality score: 0.051729856346261475
+	current neighbor 3589
+		quality score: 0.09999284129143103
+chosen: 3589
+previous: 1292
+current: 5849
+neighbors: [579, 5537]
+	current neighbor 579
+		quality score: 0.05758383876525146
+	current neighbor 5537
+		quality score: 0.10000368840365889
+chosen: 5537
+previous: 5849
+current: 5537
+neighbors: [2548, 7223]
+	current neighbor 2548
+		quality score: 0.10001512115828072
+	current neighbor 7223
+		quality score: 0.06539637416863334
+chosen: 2548
+previous: 8416
+current: 5018
+neighbors: [2393, 4387]
+	current neighbor 2393
+		quality score: 0.06456870548275076
+	current neighbor 4387
+		quality score: 0.1
+chosen: 4387
+previous: 5018
+current: 4387
+neighbors: [3746, 7508]
+	current neighbor 3746
+		quality score: 0.06570067592740433
+	current neighbor 7508
+		quality score: 0.10119232575784948
+chosen: 7508
+previous: 5350
+current: 4563
+neighbors: [1899, 5382]
+	current neighbor 1899
+		quality score: 0.1000071553790562
+	current neighbor 5382
+		quality score: 0.0618466416689735
+chosen: 1899
+previous: 7617
+current: 8578
+neighbors: [4340, 8918]
+	current neighbor 4340
+		quality score: 0.08351080543239185
+	current neighbor 8918
+		quality score: 0.10000373273609556
+chosen: 8918
+previous: 4064
+current: 3044
+neighbors: [7674, 7866]
+	current neighbor 7674
+		quality score: 0.0603691967204869
+	current neighbor 7866
+		quality score: 0.1
+chosen: 7866
+previous: 1993
+current: 2785
+neighbors: [3763, 5575, 8495]
+	current neighbor 3763
+		quality score: 0.0729242727593923
+	current neighbor 5575
+		quality score: 0.10000360763375302
+	current neighbor 8495
+		quality score: 0.061178836556843856
+chosen: 5575
+previous: 1238
+current: 870
+neighbors: [4156, 4839]
+	current neighbor 4156
+		quality score: 0.1
+	current neighbor 4839
+		quality score: 0.06283465369233512
+chosen: 4156
+previous: 870
+current: 4156
+neighbors: [90, 7898]
+	current neighbor 90
+		quality score: 0.1
+	current neighbor 7898
+		quality score: 0.06264774811493784
+chosen: 90
+previous: 869
+current: 7333
+neighbors: [5263, 7068]
+	current neighbor 5263
+		quality score: 0.10000376180265583
+	current neighbor 7068
+		quality score: 0.05121574139142657
+chosen: 5263
+previous: 3782
+current: 2977
+neighbors: [2998, 7741]
+	current neighbor 2998
+		quality score: 0.09999621498864497
+	current neighbor 7741
+		quality score: 0.0789654375598323
+chosen: 2998
+previous: 2316
+current: 7740
+neighbors: [2976, 6943]
+	current neighbor 2976
+		quality score: 0.078060207020987
+	current neighbor 6943
+		quality score: 0.1
+chosen: 6943
+previous: 2756
+current: 664
+neighbors: [394, 4180]
+	current neighbor 394
+		quality score: 0.1
+	current neighbor 4180
+		quality score: 0.05433333333333333
+chosen: 394
+previous: 6525
+current: 970
+neighbors: [723, 1872]
+	current neighbor 723
+		quality score: 0.052593641667371266
+	current neighbor 1872
+		quality score: 0.09998951268964552
+chosen: 1872
+previous: 1539
+current: 8019
+neighbors: [3402, 9127]
+	current neighbor 3402
+		quality score: 0.1
+	current neighbor 9127
+		quality score: 0.055102
+chosen: 3402
+Validation in epoch 0 done. Elapsed time: 1008.7479918003082s

@@ -6,5 +6,6 @@ __pycache__/
 data/
 figures/
 pretrained/
+concat_reads/
 
 vendor/raven_master/

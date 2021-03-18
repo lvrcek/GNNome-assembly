@@ -54,7 +54,7 @@ def train():
     learning_rate = hyperparameters['lr']
     device = hyperparameters['device']
 
-    num_epochs = 20
+    num_epochs = 1
 
 
     # --- DEBUGGING ---
