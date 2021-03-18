@@ -3,10 +3,37 @@ import re
 from collections import deque, defaultdict
 
 import torch
-from torch_geometric.utils import from_networkx
+from torch_geometric.data import Data
+from torch_geometric.utils import from_networkx, undirected
 import networkx as nx
 from matplotlib import pyplot as plt
 from Bio.Seq import Seq
+
+
+# This is waay too slow!
+def to_undirected(graph):
+    new_edge_index = undirected.to_undirected(graph.edge_index)
+    new_read_length = graph.read_length.clone()
+    new_read_sequence = graph.read_sequence.copy()
+    new_prefix_length = []
+    new_overlap_similarity = []
+    print('1')
+    print(len(new_edge_index[0]))
+    for src, dst in zip(new_edge_index[0], new_edge_index[1]):
+        print(src)
+        idx = find_edge_index(graph, src, dst)
+        if idx is None:
+            idx = find_edge_index(graph, dst, src)
+        new_prefix_length.append(graph.prefix_length[idx])
+        new_overlap_similarity.append(graph.overlap_similarity[idx])
+
+    print('3')
+    new_graph = Data(edge_index=new_edge_index, read_length=new_read_length, \
+            read_sequence=new_read_sequence, \
+            prefix_length = torch.tensor(new_prefix_length), \
+            overlap_similarity=torch.tensor(new_overlap_similarity) \
+            )
+    return new_graph
 
 
 def draw_graph(graph_nx):
@@ -145,6 +172,7 @@ def from_csv(graph_path):
     nx.set_edge_attributes(graph_nx, edge_lengths, 'prefix_length')
     nx.set_edge_attributes(graph_nx, edge_similarities, 'overlap_similarity')
     graph_torch = from_networkx(graph_nx)
+    # graph_torch = from_netwoekx(nx.Graph(graph_nx))
     print_pairwise(graph_torch)
 
     return graph_nx, graph_torch
