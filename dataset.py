@@ -59,7 +59,7 @@ class GraphDataset(Dataset):
             print(cnt, reads)
             reads_path = os.path.abspath(os.path.join(self.raw_dir, reads))
             print(reads_path)
-            subprocess.run(f'{self.raven_path} -t32 -p0 {reads_path} > assembly.fasta', shell=True, cwd=self.tmp_dir)
+            subprocess.run(f'{self.raven_path} --weaken -t32 -p0 {reads_path} > assembly.fasta', shell=True, cwd=self.tmp_dir)
             processed_path = os.path.join(self.processed_dir, str(cnt) + '.pt')
             _, graph = graph_parser.from_csv(os.path.join(self.tmp_dir, 'graph_before.csv'))
             torch.save(graph, processed_path)

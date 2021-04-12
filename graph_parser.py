@@ -172,7 +172,7 @@ def from_csv(graph_path):
     nx.set_edge_attributes(graph_nx, edge_lengths, 'prefix_length')
     nx.set_edge_attributes(graph_nx, edge_similarities, 'overlap_similarity')
     graph_torch = from_networkx(graph_nx)
-    # graph_torch = from_netwoekx(nx.Graph(graph_nx))
+    # graph_torch = from_networkx(nx.Graph(graph_nx))
     print_pairwise(graph_torch)
 
     return graph_nx, graph_torch

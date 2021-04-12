@@ -58,8 +58,14 @@ class ExecutionModel(nn.Module):
             if len(neighbors[current]) == 0:
                 break
             if len(neighbors[current]) == 1:
+                # if not, start with anchoring and probing
                 current = neighbors[current][0]
                 continue
+
+            # We are out of the chain, so, this is the first node with more than 1 successor
+            # Which means this node is an anchor
+            # anchor()
+            # I can start with probing now - do edlib stuff here
 
             # TODO: Maybe put masking before predictions, mask node features and edges?
             mask = torch.tensor([1 if n in neighbors[current] else 0 for n in range(graph.num_nodes)]).to(device)
@@ -83,7 +89,7 @@ class ExecutionModel(nn.Module):
             best_neighbor = -1
 
             # ---- GET CORRECT -----
-            print('previous:', None if len(walk)<2 else walk[-2])
+            print('previous:', None if len(walk) < 2 else walk[-2])
             print('current:', current)
             print('neighbors:', neighbors[current])
             for neighbor in neighbors[current]:
@@ -95,11 +101,11 @@ class ExecutionModel(nn.Module):
                 sequence = graph_parser.translate_nodes_into_sequence2(graph, node_tr)
                 ll = min(len(sequence), 50000)
                 sequence = sequence[-ll:]
-                sequence *= 10
+                # sequence *= 10
                 name = '_'.join(map(str, node_tr)) + '.fasta'
                 with open(f'concat_reads/{name}', 'w') as fasta:
                     fasta.write(f'>{name}\n')
-                    fasta.write(f'{str(sequence)}\n')
+                    fasta.write(f'{str(sequence)*10}\n')
                 ####
                 alignment = aligner.map(sequence)
                 hits = list(alignment)
