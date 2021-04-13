@@ -22,7 +22,7 @@ class ExecutionModel(nn.Module):
         self.processor = MPNN(latent_features, latent_features, latent_features, bias=False)
         self.decoder = DecoderNetwork(2 * latent_features, 1, bias=bias)
 
-    def process(self, graph, optimizer, mode, device='cpu'):
+    def process(self, graph, pred, succ, optimizer, mode, device='cpu'):
         print('Processing graph!')
         node_features = graph.read_length.clone().detach().to(device)
         edge_features = graph.overlap_similarity.clone().detach().to(device)
@@ -30,7 +30,8 @@ class ExecutionModel(nn.Module):
         visited = set()
 
         start = random.randint(0, graph.num_nodes - 1)
-        neighbors = graph_parser.get_neighbors(graph)
+        # neighbors = graph_parser.get_neighbors(graph)
+        neighbors = {k: list(map(int, v)) for k, v in succ.items()}
         current = start
         walk = []
         loss_list = []
@@ -49,13 +50,16 @@ class ExecutionModel(nn.Module):
         correct = 0
 
         while True:
-            # print(f'\nCurrent node: {current}')
+            print(f'\nCurrent node: {current}')
             walk.append(current)
             if current in visited:
                 break
             visited.add(current)
             total += 1
-            if len(neighbors[current]) == 0:
+            try:
+                if len(neighbors[current]) == 0:
+                    break
+            except KeyError:
                 break
             if len(neighbors[current]) == 1:
                 # if not, start with anchoring and probing
@@ -97,6 +101,7 @@ class ExecutionModel(nn.Module):
                 # print(f'walk = {walk}')
                 print(f'\tcurrent neighbor {neighbor}')
                 node_tr = walk[-min(3, len(walk)):] + [neighbor]
+                # print(node_tr)
                 ####
                 sequence = graph_parser.translate_nodes_into_sequence2(graph, node_tr)
                 ll = min(len(sequence), 50000)

@@ -72,8 +72,8 @@ def train():
     mode = 'train'
 
     time_now = datetime.now().strftime('%Y-%b-%d-%H-%M')
-    train_path = os.path.abspath('data/debug_3')
-    test_path = os.path.abspath('data/debug_3')
+    train_path = os.path.abspath('data/debug_4')
+    test_path = os.path.abspath('data/debug_4')
 
     # TODO: Discuss with Mile how to train this thing - maybe through generated reads by some tools?
     # First with real data just to check if the thing works, then probably with the generated graphs
@@ -125,10 +125,13 @@ def train():
             loss_per_graph = []
             acc_per_graph = []
             for data in dl_train:
-                print(data)
-                data = data.to(device)
+                graph, pred, succ = data
+                print(graph)
+                # print(pred)
+                # print(type(pred))
+                graph = graph.to(device)
                 # Return list of losses for each step in path finding
-                graph_loss, graph_accuracy = processor.process(data, optimizer, 'train', device=device)
+                graph_loss, graph_accuracy = processor.process(graph, pred, succ, optimizer, 'train', device=device)
                 loss_per_graph.append(np.mean(graph_loss))  # Take the mean of that for each graph
                 acc_per_graph.append(graph_accuracy)
 
@@ -143,8 +146,9 @@ def train():
                 loss_per_graph = []
                 acc_per_graph = []
                 for data in dl_valid:
-                    data = data.to(device)
-                    graph_loss, graph_acc = processor.process(data, optimizer, 'eval', device=device)
+                    graph, pred, succ = data
+                    graph = graph.to(device)
+                    graph_loss, graph_acc = processor.process(graph, pred, succ, optimizer, 'eval', device=device)
                     current_loss = np.mean(graph_loss)
                     loss_per_graph.append(current_loss)
                     acc_per_graph.append(graph_acc)
@@ -172,8 +176,9 @@ def train():
             print('TESTING')
             processor.eval()
             for data in dl_test:
-                data = data.to(device)
-                graph_loss, graph_acc = best_model.process(data, optimizer, 'eval', device=device)
+                graph, pred, succ = data
+                graph = graph.to(device)
+                graph_loss, graph_acc = best_model.process(data, pred, succ, optimizer, 'eval', device=device)
 
             average_test_accuracy = np.mean(graph_acc)
             print(f'Average accuracy on the test set:', average_test_accuracy)

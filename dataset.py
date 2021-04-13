@@ -1,4 +1,5 @@
 import os
+import pickle
 import subprocess
 
 import torch
@@ -29,10 +30,13 @@ class GraphDataset(Dataset):
         self.device = device
 
     def len(self):
-        return len(os.listdir(self.processed_dir)) -2 # if there are those other filter files
+        return (len(os.listdir(self.processed_dir)) -2) // 3 # if there are those other filter files
 
     def get(self, idx):
-        return torch.load(os.path.join(self.processed_dir, str(idx) + '.pt'))
+        graph = torch.load(os.path.join(self.processed_dir, str(idx) + '.pt'))
+        pred = pickle.load(open(os.path.join(self.processed_dir, f'{idx}_pred.pkl'), 'rb'))
+        succ = pickle.load(open(os.path.join(self.processed_dir, f'{idx}_succ.pkl'), 'rb'))
+        return graph, pred, succ
 
     @property
     def raw_file_names(self):
@@ -52,7 +56,7 @@ class GraphDataset(Dataset):
         print(self.reads_path)
         print(self.reference_path)
         print(os.path.isfile(self.reads_path))
-        sequences_path = os.path.join(root, 'sequences')
+        sequences_path = os.path.join(self.root, 'sequences')
         if not os.path.isdir(sequences_path):
             os.mkdir(sequences_path)
         for cnt, reads in enumerate(os.listdir(self.raw_dir)):
@@ -61,12 +65,14 @@ class GraphDataset(Dataset):
             print(reads_path)
             subprocess.run(f'{self.raven_path} --weaken -t32 -p0 {reads_path} > assembly.fasta', shell=True, cwd=self.tmp_dir)
             processed_path = os.path.join(self.processed_dir, str(cnt) + '.pt')
-            _, graph = graph_parser.from_csv(os.path.join(self.tmp_dir, 'graph_before.csv'))
-            torch.save(graph, processed_path)
+            _, graph_dir, graph_und, pred, succ = graph_parser.from_csv(os.path.join(self.tmp_dir, 'graph_before.csv'))
+            torch.save(graph_und, processed_path)
+            pickle.dump(pred, open(f'{self.processed_dir}/{cnt}_pred.pkl', 'wb'))
+            pickle.dump(succ, open(f'{self.processed_dir}/{cnt}_succ.pkl', 'wb'))
             graph_path = os.path.join(sequences_path, f'graph_{cnt}')
             if not os.path.isdir(graph_path):
                 os.mkdir(graph_path)
-            graph_parser.print_fasta(graph, graph_path)
+            graph_parser.print_fasta(graph_und, graph_path)
 
 
 def main():

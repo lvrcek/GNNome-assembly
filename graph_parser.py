@@ -130,6 +130,7 @@ def from_gfa(graph_path):
 
 def from_csv(graph_path):
     graph_nx = nx.DiGraph()
+    graph_nx_und = nx.Graph()
     node_lengths = {}
     node_data = {}
     edge_ids, edge_lengths, edge_similarities = {}, {}, {}
@@ -148,10 +149,12 @@ def from_csv(graph_path):
                     node_lengths[src_id] = src_len
                     node_data[src_id] = read_sequences.popleft()
                     graph_nx.add_node(src_id)
+                    graph_nx_und.add_node(src_id)
                 if dst_id not in node_lengths.keys():
                     node_lengths[dst_id] = dst_len
                     node_data[dst_id] = read_sequences.popleft()
                     graph_nx.add_node(dst_id)
+                    graph_nx_und.add_node(dst_id)
             else:
                 # ID, length, weight, similarity
                 # weight is always zero for some reason
@@ -162,20 +165,30 @@ def from_csv(graph_path):
                 except IndexError:
                     continue
                 graph_nx.add_edge(src_id, dst_id)
+                graph_nx_und.add_edge(src_id, dst_id)
                 if (src_id, dst_id) not in edge_lengths.keys():
                     edge_ids[(src_id, dst_id)] = edge_id
                     edge_lengths[(src_id, dst_id)] = prefix_len
                     edge_similarities[(src_id, dst_id)] = similarity
 
-    nx.set_node_attributes(graph_nx, node_lengths, 'read_length')
-    nx.set_node_attributes(graph_nx, node_data, 'read_sequence')
-    nx.set_edge_attributes(graph_nx, edge_lengths, 'prefix_length')
-    nx.set_edge_attributes(graph_nx, edge_similarities, 'overlap_similarity')
+    nx.set_node_attributes(graph_nx_und, node_lengths, 'read_length')
+    nx.set_node_attributes(graph_nx_und, node_data, 'read_sequence')
+    nx.set_edge_attributes(graph_nx_und, edge_lengths, 'prefix_length')
+    nx.set_edge_attributes(graph_nx_und, edge_similarities, 'overlap_similarity')
     graph_torch = from_networkx(graph_nx)
+    predecessors = get_predecessors(graph_torch)
+    successors = get_neighbors(graph_torch)
     # graph_torch = from_networkx(nx.Graph(graph_nx))
     print_pairwise(graph_torch)
 
-    return graph_nx, graph_torch
+    graph_torch_und = from_networkx(graph_nx_und)
+    num_nodes = len(graph_nx)
+    assert num_nodes == graph_torch_und.read_length.shape[0]
+
+    graph_torch.num_nodes = num_nodes
+    graph_torch_und.num_nodes = num_nodes
+
+    return graph_nx, graph_torch, graph_torch_und, predecessors, successors
 
 
 def main():
