@@ -1,12 +1,13 @@
 import os
 import random
 
+from Bio.Seq import Seq
+import mappy as mp
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import mappy as mp
-from Bio.Seq import Seq
 import torch.optim as optim
+from torch_geometric.utils import add_self_loops
 
 from layers import MPNN, EncoderNetwork, DecoderNetwork
 import graph_parser
@@ -154,6 +155,7 @@ class ExecutionModel(nn.Module):
         return loss_list, accuracy
 
     def predict(self, node_features, edge_features, latent_features, edge_index, device):
+        edge_index, edge_features = add_self_loops(edge_index, edge_weight=edge_features)
         node_features = node_features.unsqueeze(-1).float().to(device)
         latent_features = latent_features.float().to(device)
         edge_features = edge_features.unsqueeze(-1).float().to(device)

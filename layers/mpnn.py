@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch_geometric.nn as nng
+from torch_geometric.utils import add_self_loops
 
 from hyperparameters import get_hyperparameters
 
@@ -21,6 +22,9 @@ class MPNN(nng.MessagePassing):
         return self.hidden
 
     def forward(self, x, edge_attr, edge_index):
+        # print(edge_index.shape)
+        # print(edge_attr.shape)
+        # edge_index, edge_attr = add_self_loops(edge_index, edge_attr)
         return self.propagate(edge_index, x=x, edge_attr=edge_attr).to(self.device)
 
     def message(self, x_i, x_j, edge_attr):
