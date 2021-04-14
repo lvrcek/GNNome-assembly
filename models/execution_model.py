@@ -1,7 +1,9 @@
 import os
 import random
 
+from Bio import SeqIO
 from Bio.Seq import Seq
+import edlib
 import mappy as mp
 import torch
 import torch.nn as nn
@@ -22,6 +24,51 @@ class ExecutionModel(nn.Module):
         self.edge_encoder = EncoderNetwork(edge_features, latent_features, bias=bias)
         self.processor = MPNN(latent_features, latent_features, latent_features, bias=False)
         self.decoder = DecoderNetwork(2 * latent_features, 1, bias=bias)
+
+    @staticmethod
+    def anchor(graph, current, aligner):
+        if not hasattr(graph, 'batch'):
+            sequence = graph.read_sequence[current]
+        else:
+            sequence = graph.read_sequence[0][current]
+        alignment = aligner.map(sequence)
+        hit = list(alignment)[0]
+        r_st, r_en = hit.r_st, hit.r_en
+        return r_st, r_en
+
+    @staticmethod
+    def get_overlap_length(graph, current, neighbor):
+        idx = graph_parser.find_edge_index(graph, current, neighbor)
+        if not hasattr(graph, 'batch'):
+            overlap_length = len(graph.read_sequence[current]) - graph.prefix_length[idx]
+        else:
+            overlap_length = len(graph.read_sequence[0][current]) - graph.prefix_length[idx]
+        return overlap_length
+
+    @staticmethod
+    def get_suffix(graph, node, overlap_length):
+        if not hasattr(graph, 'batch'):
+            return graph.read_sequence[node][overlap_length:]
+        else:
+            return graph.read_sequence[0][node][overlap_length:]
+
+    @staticmethod
+    def get_edlib_best(graph, current, neighbors, reference, aligner):
+        ref_start, ref_end = ExecutionModel.anchor(graph, current, aligner)
+        edlib_start = ref_end
+        distances = []
+        for neighbor in neighbors[current]:
+            overlap_length = ExecutionModel.get_overlap_length(graph, current, neighbor)
+            suffix = ExecutionModel.get_suffix(graph, neighbor, overlap_length)
+            reference_seq = next(SeqIO.parse(reference, 'fasta'))
+            edlib_end = edlib_start + len(suffix)
+            reference_query = reference_seq[edlib_start:edlib_end]
+            distance = edlib.align(reference_query, suffix)['editDistance']
+            score = distance / len(reference_query)
+
+            distances.append((neighbor, distance))
+        best_neighbor, min_distance = min(distances, key=lambda x: x[1])
+        return best_neighbor
 
     def process(self, graph, pred, succ, optimizer, mode, device='cpu'):
         print('Processing graph!')
@@ -71,6 +118,10 @@ class ExecutionModel(nn.Module):
             # Which means this node is an anchor
             # anchor()
             # I can start with probing now - do edlib stuff here
+            # -----------------------
+            #ref_start, ref_end = anchor(graph, current, aligner)
+             
+            # ----------------------
 
             # TODO: Maybe put masking before predictions, mask node features and edges?
             mask = torch.tensor([1 if n in neighbors[current] else 0 for n in range(graph.num_nodes)]).to(device)
@@ -93,11 +144,19 @@ class ExecutionModel(nn.Module):
             best_score = -1
             best_neighbor = -1
 
-            # ---- GET CORRECT -----
             print('previous:', None if len(walk) < 2 else walk[-2])
             print('current:', current)
             print('neighbors:', neighbors[current])
+
+            best_neighbor = ExecutionModel.get_edlib_best(graph, current, neighbors, reference, aligner)
+            print(best_neighbor)
+
+            # ---- GET CORRECT -----
+            # print('previous:', None if len(walk) < 2 else walk[-2])
+            # print('current:', current)
+            # print('neighbors:', neighbors[current])
             for neighbor in neighbors[current]:
+                break
                 # Get mappings for all the neighbors
                 # print(f'walk = {walk}')
                 print(f'\tcurrent neighbor {neighbor}')
@@ -127,6 +186,15 @@ class ExecutionModel(nn.Module):
                     best_score = quality_score
             # ----------------------
 
+            # We are out of the chain, so, this is the first node with more than 1 successor
+            # Which means this node is an anchor
+            # anchor()
+            # I can start with probing now - do edlib stuff here
+            # -----------------------
+
+            # best_neighbor = get_edlib_best(graph, current, neighbors, reference, aligner)
+
+
             # I take the best neighbor out of reference, which is teacher forcing - good or not?
             # So far probably good, later I will do DFS-like search
             print('chosen:', best_neighbor)
@@ -155,7 +223,7 @@ class ExecutionModel(nn.Module):
         return loss_list, accuracy
 
     def predict(self, node_features, edge_features, latent_features, edge_index, device):
-        edge_index, edge_features = add_self_loops(edge_index, edge_weight=edge_features)
+        edge_index, edge_features = add_self_loops(edge_index, edge_weight=edge_features)  # fill_value = 1.0
         node_features = node_features.unsqueeze(-1).float().to(device)
         latent_features = latent_features.float().to(device)
         edge_features = edge_features.unsqueeze(-1).float().to(device)
