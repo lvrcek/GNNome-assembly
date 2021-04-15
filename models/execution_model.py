@@ -60,14 +60,56 @@ class ExecutionModel(nn.Module):
         for neighbor in neighbors[current]:
             overlap_length = ExecutionModel.get_overlap_length(graph, current, neighbor)
             suffix = ExecutionModel.get_suffix(graph, neighbor, overlap_length)
-            reference_seq = next(SeqIO.parse(reference, 'fasta'))
+            reference_seq = next(SeqIO.parse(reference, 'fasta'))  # TODO: put this outside of the function
             edlib_end = edlib_start + len(suffix)
             reference_query = reference_seq[edlib_start:edlib_end]
             distance = edlib.align(reference_query, suffix)['editDistance']
-            score = distance / len(reference_query)
+            try:
+                score = distance / (edlib_end - edlib_start)
+            except ZeroDivisionError:
+                print('edlib start and end:', edlib_start, edlib_end)
+                print('current and neighbor', current, neighbor)
+                print('overlap length:', overlap_length)
+                print(len(graph.read_sequence[0][current]))
+                print(graph.prefix_length[graph_parser.find_edge_index(graph, current, neighbor)])
+                print(len(graph.read_sequence[0][neighbor]))
+                print('Somehow we are dividing with zero!')
+                raise
 
             distances.append((neighbor, distance))
         best_neighbor, min_distance = min(distances, key=lambda x: x[1])
+        return best_neighbor
+
+    @staticmethod
+    def get_minimap_best(graph, current, neighbors, walk, aligner):
+        scores = []
+        for neighbor in neighbors[current]:
+            # Get mappings for all the neighbors
+            # print(f'walk = {walk}')
+            print(f'\tcurrent neighbor {neighbor}')
+            node_tr = walk[-min(3, len(walk)):] + [neighbor]
+            # print(node_tr)
+            ####
+            sequence = graph_parser.translate_nodes_into_sequence2(graph, node_tr)
+            ll = min(len(sequence), 50000)
+            sequence = sequence[-ll:]
+            # sequence *= 10
+            name = '_'.join(map(str, node_tr)) + '.fasta'
+            with open(f'concat_reads/{name}', 'w') as fasta:
+                fasta.write(f'>{name}\n')
+                fasta.write(f'{str(sequence)*10}\n')
+            ####
+            alignment = aligner.map(sequence)
+            hits = list(alignment)
+            # print(f'length node_tr: {len(node_tr)}')
+            # print(f'length hits: {len(hits)}')
+            try:
+                quality_score = graph_parser.get_quality(hits, len(sequence))
+            except:
+                quality_score = 0
+            print(f'\t\tquality score:', quality_score)
+            scores.append((neighbor, quality_score))
+        best_neighbor, quality_score = max(scores, key=lambda x: x[1])
         return best_neighbor
 
     def process(self, graph, pred, succ, optimizer, mode, device='cpu'):
@@ -77,20 +119,19 @@ class ExecutionModel(nn.Module):
         last_latent = self.processor.zero_hidden(graph.num_nodes)  # TODO: Could this potentially be a problem?
         visited = set()
 
-        start = random.randint(0, graph.num_nodes - 1)
+        # start = random.randint(0, graph.num_nodes - 1)  # TODO: find a better way to start, maybe from pred = []
+        start = 3696  # Debugging edlib division by zero
         # neighbors = graph_parser.get_neighbors(graph)
         neighbors = {k: list(map(int, v)) for k, v in succ.items()}
         current = start
         walk = []
         loss_list = []
         reference = 'data/references/chm13/chr20.fasta'
-        # criterion = nn.CrossEntropyLoss()
+        criterion = nn.CrossEntropyLoss()
         # print(os.path.relpath())
         # print(os.path.relpath(__file__))
         # if not os.path.isfile(reference):
         #     raise Exception("Reference does not exist!!")
-        # else:
-        #     raise Exception("Reference exists!")
         aligner = mp.Aligner(reference, preset='map_pb', best_n=5)
         print('Iterating through neighbors!')
 
@@ -113,15 +154,6 @@ class ExecutionModel(nn.Module):
                 # if not, start with anchoring and probing
                 current = neighbors[current][0]
                 continue
-
-            # We are out of the chain, so, this is the first node with more than 1 successor
-            # Which means this node is an anchor
-            # anchor()
-            # I can start with probing now - do edlib stuff here
-            # -----------------------
-            #ref_start, ref_end = anchor(graph, current, aligner)
-             
-            # ----------------------
 
             # TODO: Maybe put masking before predictions, mask node features and edges?
             mask = torch.tensor([1 if n in neighbors[current] else 0 for n in range(graph.num_nodes)]).to(device)
@@ -148,63 +180,24 @@ class ExecutionModel(nn.Module):
             print('current:', current)
             print('neighbors:', neighbors[current])
 
-            best_neighbor = ExecutionModel.get_edlib_best(graph, current, neighbors, reference, aligner)
-            print(best_neighbor)
-
-            # ---- GET CORRECT -----
-            # print('previous:', None if len(walk) < 2 else walk[-2])
-            # print('current:', current)
-            # print('neighbors:', neighbors[current])
-            for neighbor in neighbors[current]:
-                break
-                # Get mappings for all the neighbors
-                # print(f'walk = {walk}')
-                print(f'\tcurrent neighbor {neighbor}')
-                node_tr = walk[-min(3, len(walk)):] + [neighbor]
-                # print(node_tr)
-                ####
-                sequence = graph_parser.translate_nodes_into_sequence2(graph, node_tr)
-                ll = min(len(sequence), 50000)
-                sequence = sequence[-ll:]
-                # sequence *= 10
-                name = '_'.join(map(str, node_tr)) + '.fasta'
-                with open(f'concat_reads/{name}', 'w') as fasta:
-                    fasta.write(f'>{name}\n')
-                    fasta.write(f'{str(sequence)*10}\n')
-                ####
-                alignment = aligner.map(sequence)
-                hits = list(alignment)
-                # print(f'length node_tr: {len(node_tr)}')
-                # print(f'length hits: {len(hits)}')
-                try:
-                    quality_score = graph_parser.get_quality(hits, len(sequence))
-                except:
-                    quality_score = 0
-                print(f'\t\tquality score:', quality_score)
-                if quality_score > best_score:
-                    best_neighbor = neighbor
-                    best_score = quality_score
-            # ----------------------
-
             # We are out of the chain, so, this is the first node with more than 1 successor
             # Which means this node is an anchor
-            # anchor()
             # I can start with probing now - do edlib stuff here
             # -----------------------
 
-            # best_neighbor = get_edlib_best(graph, current, neighbors, reference, aligner)
-
-
-            # I take the best neighbor out of reference, which is teacher forcing - good or not?
-            # So far probably good, later I will do DFS-like search
+            best_neighbor = ExecutionModel.get_edlib_best(graph, current, neighbors, reference, aligner)
+            # best_neighbor = ExecutionModel.get_minimap_best(graph, current, neighbors, walk, aligner)
             print('chosen:', best_neighbor)
             current = best_neighbor
 
             # Evaluate your choice - calculate loss
-            criterion = nn.CrossEntropyLoss()
+            # actions = actions.unsqueeze(0)  # Dimensions need to be batch_size x number_of_actions
 
-            actions = actions.unsqueeze(0)  # Dimensions need to be batch_size x number_of_actions
-            best = torch.tensor([best_neighbor]).to(device)
+            indices = torch.nonzero(actions).squeeze(-1)
+            new_best = torch.nonzero(indices == best_neighbor).item()
+            actions = actions[indices].unsqueeze(0)
+
+            best = torch.tensor([new_best]).to(device)
             loss = criterion(actions, best)
             loss_list.append(loss.item())
 
