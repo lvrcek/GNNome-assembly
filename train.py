@@ -14,7 +14,7 @@ from torch_geometric.data import DataLoader
 from torch.utils.data import random_split
 
 import dataset
-import models
+from solver import ExecutionModel
 from hyperparameters import get_hyperparameters
 
 
@@ -91,7 +91,7 @@ def train():
     dl_valid = DataLoader(ds_train, batch_size=batch_size, shuffle=False)
     dl_test = DataLoader(ds_test, batch_size=batch_size, shuffle=False)
 
-    processor = models.ExecutionModel(dim_node, dim_edge, dim_latent)
+    processor = ExecutionModel(dim_node, dim_edge, dim_latent)
 
     # Multi-GPU training not available as batch_size = 1
     # Therefore, samples in a batch cannot be distributed over GPUs
@@ -106,7 +106,7 @@ def train():
     optimizer = optim.Adam(params, lr=learning_rate)
 
     patience = 0
-    best_model = models.ExecutionModel(dim_node, dim_edge, dim_latent)
+    best_model = ExecutionModel(dim_node, dim_edge, dim_latent)
     # if torch.cuda.device_count() > 1:
     #     best_model = nn.DataParallel(best_model)
     best_model.load_state_dict(copy.deepcopy(processor.state_dict()))

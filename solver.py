@@ -112,6 +112,15 @@ class ExecutionModel(nn.Module):
         best_neighbor, quality_score = max(scores, key=lambda x: x[1])
         return best_neighbor
 
+    @staticmethod
+    def get_loss(actions, best_neighbor, criterion, device):
+        indices = torch.nonzero(actions).squeeze(-1)
+        new_best = torch.nonzero(indices == best_neighbor).item()
+        actions = actions[indices].unsqueeze(0)
+        best = torch.tensor([new_best]).to(device)
+        loss = criterion(actions, best)
+        return loss
+
     def process(self, graph, pred, succ, optimizer, mode, device='cpu'):
         print('Processing graph!')
         node_features = graph.read_length.clone().detach().to(device)
@@ -191,14 +200,7 @@ class ExecutionModel(nn.Module):
             current = best_neighbor
 
             # Evaluate your choice - calculate loss
-            # actions = actions.unsqueeze(0)  # Dimensions need to be batch_size x number_of_actions
-
-            indices = torch.nonzero(actions).squeeze(-1)
-            new_best = torch.nonzero(indices == best_neighbor).item()
-            actions = actions[indices].unsqueeze(0)
-
-            best = torch.tensor([new_best]).to(device)
-            loss = criterion(actions, best)
+            loss = get_loss(actions, best_neighbor, criterion, device)  # Might need to modify for batch_size > 1
             loss_list.append(loss.item())
 
             if mode == 'train':
