@@ -133,7 +133,7 @@ def from_csv(graph_path):
     graph_nx_und = nx.Graph()
     node_lengths = {}
     node_data = {}
-    edge_ids, edge_lengths, edge_similarities = {}, {}, {}
+    edge_ids, prefix_lengths, edge_similarities = {}, {}, {}
     read_sequences = from_gfa(graph_path[:-3] + 'gfa')
     with open(graph_path) as f:
         for line in f.readlines():
@@ -166,14 +166,14 @@ def from_csv(graph_path):
                     continue
                 graph_nx.add_edge(src_id, dst_id)
                 graph_nx_und.add_edge(src_id, dst_id)
-                if (src_id, dst_id) not in edge_lengths.keys():
+                if (src_id, dst_id) not in prefix_lengths.keys():
                     edge_ids[(src_id, dst_id)] = edge_id
-                    edge_lengths[(src_id, dst_id)] = prefix_len
+                    prefix_lengths[(src_id, dst_id)] = prefix_len
                     edge_similarities[(src_id, dst_id)] = similarity
 
     nx.set_node_attributes(graph_nx_und, node_lengths, 'read_length')
     nx.set_node_attributes(graph_nx_und, node_data, 'read_sequence')
-    nx.set_edge_attributes(graph_nx_und, edge_lengths, 'prefix_length')
+    nx.set_edge_attributes(graph_nx_und, prefix_lengths, 'prefix_length')
     nx.set_edge_attributes(graph_nx_und, edge_similarities, 'overlap_similarity')
     graph_torch = from_networkx(graph_nx)
     predecessors = get_predecessors(graph_torch)
@@ -188,7 +188,7 @@ def from_csv(graph_path):
     graph_torch.num_nodes = num_nodes
     graph_torch_und.num_nodes = num_nodes
 
-    return graph_nx, graph_torch, graph_torch_und, predecessors, successors
+    return graph_nx, graph_nx_und, graph_torch, graph_torch_und, predecessors, successors
 
 
 def main():
