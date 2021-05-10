@@ -11,29 +11,29 @@ from Bio.Seq import Seq
 
 
 # This is waay too slow!
-def to_undirected(graph):
-    new_edge_index = undirected.to_undirected(graph.edge_index)
-    new_read_length = graph.read_length.clone()
-    new_read_sequence = graph.read_sequence.copy()
-    new_prefix_length = []
-    new_overlap_similarity = []
-    print('1')
-    print(len(new_edge_index[0]))
-    for src, dst in zip(new_edge_index[0], new_edge_index[1]):
-        print(src)
-        idx = find_edge_index(graph, src, dst)
-        if idx is None:
-            idx = find_edge_index(graph, dst, src)
-        new_prefix_length.append(graph.prefix_length[idx])
-        new_overlap_similarity.append(graph.overlap_similarity[idx])
-
-    print('3')
-    new_graph = Data(edge_index=new_edge_index, read_length=new_read_length, \
-            read_sequence=new_read_sequence, \
-            prefix_length = torch.tensor(new_prefix_length), \
-            overlap_similarity=torch.tensor(new_overlap_similarity) \
-            )
-    return new_graph
+# def to_undirected(graph):
+#     new_edge_index = undirected.to_undirected(graph.edge_index)
+#     new_read_length = graph.read_length.clone()
+#     new_read_sequence = graph.read_sequence.copy()
+#     new_prefix_length = []
+#     new_overlap_similarity = []
+#     print('1')
+#     print(len(new_edge_index[0]))
+#     for src, dst in zip(new_edge_index[0], new_edge_index[1]):
+#         print(src)
+#         idx = find_edge_index(graph, src, dst)
+#         if idx is None:
+#             idx = find_edge_index(graph, dst, src)
+#         new_prefix_length.append(graph.prefix_length[idx])
+#         new_overlap_similarity.append(graph.overlap_similarity[idx])
+# 
+#     print('3')
+#     new_graph = Data(edge_index=new_edge_index, read_length=new_read_length, \
+#             read_sequence=new_read_sequence, \
+#             prefix_length = torch.tensor(new_prefix_length), \
+#             overlap_similarity=torch.tensor(new_overlap_similarity) \
+#             )
+#     return new_graph
 
 
 def draw_graph(graph_nx):
@@ -101,10 +101,11 @@ def get_quality(hits, seq_len):
     return (hits[0].q_en - hits[0].q_st) / seq_len
 
 
-def print_pairwise(graph):
-    with open('pairwise.txt', 'w') as f:
+def print_pairwise(graph, path):
+    with open(path, 'w') as f:
         for src, dst in zip(graph.edge_index[0], graph.edge_index[1]):
             f.write(f'{src}\t{dst}\n')
+
 
 def print_fasta(graph, path):
     for idx, seq in enumerate(graph.read_sequence):
@@ -179,7 +180,7 @@ def from_csv(graph_path):
     predecessors = get_predecessors(graph_torch)
     successors = get_neighbors(graph_torch)
     # graph_torch = from_networkx(nx.Graph(graph_nx))
-    print_pairwise(graph_torch)
+    # print_pairwise(graph_torch)
 
     graph_torch_und = from_networkx(graph_nx_und)
     num_nodes = len(graph_nx)

@@ -53,7 +53,7 @@ class ExecutionModel(nn.Module):
             return graph.read_sequence[0][node][overlap_length:]
 
     @staticmethod
-    def get_edlib_best(graph, current, neighbors, reference, aligner):
+    def get_edlib_best(graph, current, neighbors, reference, aligner, visited):
         ref_start, ref_end = ExecutionModel.anchor(graph, current, aligner)
         edlib_start = ref_end
         distances = []
@@ -61,9 +61,11 @@ class ExecutionModel(nn.Module):
             overlap_length = ExecutionModel.get_overlap_length(graph, current, neighbor)
             suffix = ExecutionModel.get_suffix(graph, neighbor, overlap_length)
             reference_seq = next(SeqIO.parse(reference, 'fasta'))  # TODO: put this outside of the function
-            edlib_end = edlib_start + len(suffix)
+            edlib_end = edlib_start + len(suffix)  # Should I not also put overlap_length here? Nope
             reference_query = reference_seq[edlib_start:edlib_end]
             distance = edlib.align(reference_query, suffix)['editDistance']
+            # This is why you don't do edlib with just one node
+            # I need at least one or a few more otherwise I won't be able to map anything
             try:
                 score = distance / (edlib_end - edlib_start)
             except ZeroDivisionError:
@@ -74,6 +76,9 @@ class ExecutionModel(nn.Module):
                 print(graph.prefix_length[graph_parser.find_edge_index(graph, current, neighbor)])
                 print(len(graph.read_sequence[0][neighbor]))
                 print('Somehow we are dividing with zero!')
+                # TODO: I didn't solve this still!
+                # TODO: We divide by zero because the reads appear to be contained, but they are not!
+                # TODO: If overlap > len(read_2) just take read 2, not overlap
                 raise
 
             distances.append((neighbor, distance))
@@ -128,8 +133,8 @@ class ExecutionModel(nn.Module):
         last_latent = self.processor.zero_hidden(graph.num_nodes)  # TODO: Could this potentially be a problem?
         visited = set()
 
-        # start = random.randint(0, graph.num_nodes - 1)  # TODO: find a better way to start, maybe from pred = []
-        start = 3696  # Debugging edlib division by zero
+        start = random.randint(0, graph.num_nodes - 1)  # TODO: find a better way to start, maybe from pred = []
+        # start = 3696  # Debugging edlib division by zero
         # neighbors = graph_parser.get_neighbors(graph)
         neighbors = {k: list(map(int, v)) for k, v in succ.items()}
         current = start
@@ -152,7 +157,8 @@ class ExecutionModel(nn.Module):
             walk.append(current)
             if current in visited:
                 break
-            visited.add(current)
+            visited.add(current)  # current node
+            visited.add(current ^ 1)  # virtual pair of the current node
             total += 1
             try:
                 if len(neighbors[current]) == 0:
@@ -194,13 +200,13 @@ class ExecutionModel(nn.Module):
             # I can start with probing now - do edlib stuff here
             # -----------------------
 
-            best_neighbor = ExecutionModel.get_edlib_best(graph, current, neighbors, reference, aligner)
+            best_neighbor = ExecutionModel.get_edlib_best(graph, current, neighbors, reference, aligner, visited)
             # best_neighbor = ExecutionModel.get_minimap_best(graph, current, neighbors, walk, aligner)
             print('chosen:', best_neighbor)
             current = best_neighbor
 
             # Evaluate your choice - calculate loss
-            loss = get_loss(actions, best_neighbor, criterion, device)  # Might need to modify for batch_size > 1
+            loss = ExecutionModel.get_loss(actions, best_neighbor, criterion, device)  # Might need to modify for batch_size > 1
             loss_list.append(loss.item())
 
             if mode == 'train':

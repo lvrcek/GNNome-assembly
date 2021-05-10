@@ -72,14 +72,15 @@ def train():
     mode = 'train'
 
     time_now = datetime.now().strftime('%Y-%b-%d-%H-%M')
-    train_path = os.path.abspath('data/debug_4')
-    test_path = os.path.abspath('data/debug_4')
+    train_path = os.path.abspath('data/debug_5')
+    test_path = os.path.abspath('data/debug_5')
 
     # TODO: Discuss with Mile how to train this thing - maybe through generated reads by some tools?
     # First with real data just to check if the thing works, then probably with the generated graphs
     # The problem is that generated graphs don't have chimeric reads
     ds_train = dataset.GraphDataset(train_path)
     ds_test = dataset.GraphDataset(test_path)
+    exit()
 
     ratio = 0.5
     valid_size = int(len(ds_train) * ratio)

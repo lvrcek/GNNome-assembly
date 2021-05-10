@@ -59,17 +59,25 @@ class GraphDataset(Dataset):
         sequences_path = os.path.join(self.root, 'sequences')
         if not os.path.isdir(sequences_path):
             os.mkdir(sequences_path)
+        graphia_dir = os.path.join(self.root, 'graphia')
+        if not os.path.isdir(graphia_dir):
+            os.mkdir(graphia_dir)
         for cnt, reads in enumerate(os.listdir(self.raw_dir)):
             print(cnt, reads)
             reads_path = os.path.abspath(os.path.join(self.raw_dir, reads))
             print(reads_path)
             subprocess.run(f'{self.raven_path} --weaken -t32 -p0 {reads_path} > assembly.fasta', shell=True, cwd=self.tmp_dir)
             processed_path = os.path.join(self.processed_dir, str(cnt) + '.pt')
-            _, graph_dir, graph_und, pred, succ = graph_parser.from_csv(os.path.join(self.tmp_dir, 'graph_before.csv'))
+            _, _, graph_dir, graph_und, pred, succ = graph_parser.from_csv(os.path.join(self.tmp_dir, 'graph_before.csv'))
             torch.save(graph_und, processed_path)
-            pickle.dump(pred, open(f'{self.processed_dir}/{cnt}_pred.pkl', 'wb'))
-            pickle.dump(succ, open(f'{self.processed_dir}/{cnt}_succ.pkl', 'wb'))
-            graph_path = os.path.join(sequences_path, f'graph_{cnt}')
+
+            pickle.dump(pred, open(f'{self.processed_dir}/{cnt}_pred.pkl', 'wb'))  # print predecessors
+            pickle.dump(succ, open(f'{self.processed_dir}/{cnt}_succ.pkl', 'wb'))  # print successors
+
+            graphia_path = os.path.join(graphia_dir, f'{cnt}_graph.txt')
+            graph_parser.print_pairwise(graph_dir, graphia_path)  # print pairwise-txt format for graphia visualization
+
+            graph_path = os.path.join(sequences_path, f'graph_{cnt}')  # print sequences, useful for gepard
             if not os.path.isdir(graph_path):
                 os.mkdir(graph_path)
             graph_parser.print_fasta(graph_und, graph_path)
