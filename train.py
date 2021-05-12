@@ -80,14 +80,14 @@ def train():
     # The problem is that generated graphs don't have chimeric reads
     ds_train = dataset.GraphDataset(train_path)
     ds_test = dataset.GraphDataset(test_path)
-    exit()
+    # exit()
 
     ratio = 0.5
     valid_size = int(len(ds_train) * ratio)
     train_size = len(ds_train) - valid_size
     # ds_train, ds_valid = random_split(ds_train, [train_size, valid_size])
 
-    dl_train = DataLoader(ds_train, batch_size=batch_size, shuffle=True)
+    dl_train = DataLoader(ds_train, batch_size=batch_size, shuffle=False)  # Change later to True
     # dl_valid = DataLoader(ds_valid, batch_size=batch_size, shuffle=False)
     dl_valid = DataLoader(ds_train, batch_size=batch_size, shuffle=False)
     dl_test = DataLoader(ds_test, batch_size=batch_size, shuffle=False)

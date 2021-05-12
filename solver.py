@@ -33,8 +33,8 @@ class ExecutionModel(nn.Module):
             sequence = graph.read_sequence[0][current]
         alignment = aligner.map(sequence)
         hit = list(alignment)[0]
-        r_st, r_en = hit.r_st, hit.r_en
-        return r_st, r_en
+        r_st, r_en, strand = hit.r_st, hit.r_en, hit.strand
+        return r_st, r_en, strand
 
     @staticmethod
     def get_overlap_length(graph, current, neighbor):
@@ -86,6 +86,47 @@ class ExecutionModel(nn.Module):
         return best_neighbor
 
     @staticmethod
+    def get_edlib_best2(graph, current, neighbors, reference, aligner, visited):
+        ref_start, ref_end, strand = ExecutionModel.anchor(graph, current, aligner)
+        edlib_start = ref_start
+        reference_seq = next(SeqIO.parse(reference, 'fasta'))
+        paths = [path[::-1] for path in ExecutionModel.get_paths(current, neighbors, num_nodes=4)]
+        distances = []
+        for path in paths:
+            _, _, next_strand = ExecutionModel.anchor(graph, path[1], aligner)
+            if next_strand != strand:
+                continue
+            sequence = graph_parser.translate_nodes_into_sequence2(graph, path[1:])
+            if strand == -1:
+                sequence = sequence.reverse_complement()
+            print(len(sequence))
+            edlib_start = ref_start + graph.prefix_length[graph_parser.find_edge_index(graph, path[0], path[1])].item()
+            edlib_end = edlib_start + len(sequence)
+            reference_query = reference_seq[edlib_start:edlib_end]
+            distance = edlib.align(reference_query, sequence)['editDistance']
+            score = distance / (edlib_end - edlib_start)
+            distances.append((path, score))
+        best_path, min_distance = min(distances, key=lambda x: x[1])
+        best_neighbor = best_path[1]
+        print(paths)
+        print(distances)
+        return best_neighbor              
+
+    @staticmethod
+    def get_paths(start, neighbors, num_nodes):
+        if num_nodes == 0:
+            # new_path = []
+            # new_path.append([start])
+            return [[start]]
+        paths = []
+        for neighbor in neighbors[start]:
+            next_paths = ExecutionModel.get_paths(neighbor, neighbors, num_nodes-1)
+            for path in next_paths:
+                path.append(start)
+                paths.append(path)
+        return paths
+            
+    @staticmethod
     def get_minimap_best(graph, current, neighbors, walk, aligner):
         scores = []
         for neighbor in neighbors[current]:
@@ -134,13 +175,14 @@ class ExecutionModel(nn.Module):
         visited = set()
 
         start = random.randint(0, graph.num_nodes - 1)  # TODO: find a better way to start, maybe from pred = []
+        start = 901  # Test get_edlib_best2 function
         # start = 3696  # Debugging edlib division by zero
         # neighbors = graph_parser.get_neighbors(graph)
         neighbors = {k: list(map(int, v)) for k, v in succ.items()}
         current = start
         walk = []
         loss_list = []
-        reference = 'data/references/chm13/chr20.fasta'
+        reference = 'data/references/chm13/chr11_20-30M.fasta'
         criterion = nn.CrossEntropyLoss()
         # print(os.path.relpath())
         # print(os.path.relpath(__file__))
@@ -191,6 +233,10 @@ class ExecutionModel(nn.Module):
             best_score = -1
             best_neighbor = -1
 
+            if mode == 'test':
+                current = index
+                continue
+
             print('previous:', None if len(walk) < 2 else walk[-2])
             print('current:', current)
             print('neighbors:', neighbors[current])
@@ -200,7 +246,7 @@ class ExecutionModel(nn.Module):
             # I can start with probing now - do edlib stuff here
             # -----------------------
 
-            best_neighbor = ExecutionModel.get_edlib_best(graph, current, neighbors, reference, aligner, visited)
+            best_neighbor = ExecutionModel.get_edlib_best2(graph, current, neighbors, reference, aligner, visited)
             # best_neighbor = ExecutionModel.get_minimap_best(graph, current, neighbors, walk, aligner)
             print('chosen:', best_neighbor)
             current = best_neighbor
