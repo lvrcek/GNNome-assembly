@@ -174,8 +174,10 @@ class ExecutionModel(nn.Module):
         last_latent = self.processor.zero_hidden(graph.num_nodes)  # TODO: Could this potentially be a problem?
         visited = set()
 
-        start = random.randint(0, graph.num_nodes - 1)  # TODO: find a better way to start, maybe from pred = []
-        start = 901  # Test get_edlib_best2 function
+        # start = random.randint(0, graph.num_nodes - 1)  # TODO: find a better way to start, maybe from pred = []
+        start_nodes = list(set(range(graph.num_nodes)) - set(pred.keys()))
+        start = start_nodes[0]  # Not really good, maybe iterate over all the start nodes?
+        # start = 901  # Test get_edlib_best2 function
         # start = 3696  # Debugging edlib division by zero
         # neighbors = graph_parser.get_neighbors(graph)
         neighbors = {k: list(map(int, v)) for k, v in succ.items()}
