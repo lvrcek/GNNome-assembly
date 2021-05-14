@@ -167,8 +167,21 @@ class ExecutionModel(nn.Module):
         loss = criterion(actions, best)
         return loss
 
+    @staticmethod
+    def get_loss2(actions, best_neighbor, curr_neighbors, criterion, device):
+        print(best_neighbor)
+        print(curr_neighbors)
+        idx = curr_neighbors.index(best_neighbor)
+        best = torch.tensor([idx]).to(device)
+        loss = criterion(actions, best)
+        return loss
+
+
     def process(self, graph, pred, succ, optimizer, mode, device='cpu'):
         print('Processing graph!')
+        # if mode == 'test':
+        #     print(graph)
+        #     print(type(graph))
         node_features = graph.read_length.clone().detach().to(device)
         edge_features = graph.overlap_similarity.clone().detach().to(device)
         last_latent = self.processor.zero_hidden(graph.num_nodes)  # TODO: Could this potentially be a problem?
@@ -180,7 +193,20 @@ class ExecutionModel(nn.Module):
         # start = 901  # Test get_edlib_best2 function
         # start = 3696  # Debugging edlib division by zero
         # neighbors = graph_parser.get_neighbors(graph)
-        neighbors = {k: list(map(int, v)) for k, v in succ.items()}
+        # print(type(succ))
+        # print(succ[0])
+        # print(succ)
+        
+        # neighbors = {k: v[0].tolist() for k, v in succ.items()}
+        neighbors = succ
+        # neighbors = {}
+        # for k, v in succ.items():
+        #     try:
+        #         neighbors[k] = v[0].tolist()
+        #     except:
+        #         print(k, v)
+        #         raise
+
         current = start
         walk = []
         loss_list = []
@@ -197,7 +223,7 @@ class ExecutionModel(nn.Module):
         correct = 0
 
         while True:
-            print(f'\nCurrent node: {current}')
+            # print(f'\nCurrent node: {current}')
             walk.append(current)
             if current in visited:
                 break
@@ -208,7 +234,8 @@ class ExecutionModel(nn.Module):
                 if len(neighbors[current]) == 0:
                     break
             except KeyError:
-                break
+                print(current)
+                raise
             if len(neighbors[current]) == 1:
                 # if not, start with anchoring and probing
                 current = neighbors[current][0]
@@ -223,7 +250,11 @@ class ExecutionModel(nn.Module):
 
             # print(mask.shape)
             # print(predict_actions.shape)
-            actions = predict_actions.squeeze(1) * mask
+            # old_actions = predict_actions.squeeze(1) * mask
+            actions = predict_actions.squeeze(1)[neighbors[current]]
+            print('-----actions------')
+            print(current)
+            print(neighbors[current])
 
             # --- loss aggregation? ----
             # neighborhood_losses = {}
@@ -232,12 +263,11 @@ class ExecutionModel(nn.Module):
             #         neighborhood_losses[idx] = action
 
             value, index = torch.topk(actions, k=1, dim=0)  # For evaluation
+            print('topk test')
+            print('actions', actions)
+            print('index', index)
             best_score = -1
             best_neighbor = -1
-
-            if mode == 'test':
-                current = index
-                continue
 
             print('previous:', None if len(walk) < 2 else walk[-2])
             print('current:', current)
@@ -251,11 +281,13 @@ class ExecutionModel(nn.Module):
             best_neighbor = ExecutionModel.get_edlib_best2(graph, current, neighbors, reference, aligner, visited)
             # best_neighbor = ExecutionModel.get_minimap_best(graph, current, neighbors, walk, aligner)
             print('chosen:', best_neighbor)
-            current = best_neighbor
 
             # Evaluate your choice - calculate loss
-            loss = ExecutionModel.get_loss(actions, best_neighbor, criterion, device)  # Might need to modify for batch_size > 1
+            # Might need to modify loss for batch_size > 1
+            loss = ExecutionModel.get_loss2(actions, best_neighbor, neighbors[current], criterion, device)
             loss_list.append(loss.item())
+
+            current = best_neighbor
 
             if mode == 'train':
                 # Update weights
@@ -265,6 +297,7 @@ class ExecutionModel(nn.Module):
                 optimizer.step()
 
             index = index.item()
+            print(index, best_neighbor)
             if index == best_neighbor:
                 correct += 1
 

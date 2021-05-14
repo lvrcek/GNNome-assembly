@@ -2,6 +2,7 @@ import argparse
 from datetime import datetime
 import copy
 import os
+import pickle
 import time
 
 
@@ -54,7 +55,8 @@ def train():
     learning_rate = hyperparameters['lr']
     device = hyperparameters['device']
 
-    num_epochs = 1
+    num_epochs = 10
+    # batch_size = 2
 
 
     # --- DEBUGGING ---
@@ -72,25 +74,24 @@ def train():
     mode = 'train'
 
     time_now = datetime.now().strftime('%Y-%b-%d-%H-%M')
-    train_path = os.path.abspath('data/debug_5')
-    test_path = os.path.abspath('data/debug_5')
+    train_path = os.path.abspath('data/train')
+    test_path = os.path.abspath('data/train')
 
     # TODO: Discuss with Mile how to train this thing - maybe through generated reads by some tools?
     # First with real data just to check if the thing works, then probably with the generated graphs
     # The problem is that generated graphs don't have chimeric reads
-    ds_train = dataset.GraphDataset(train_path)
-    ds_test = dataset.GraphDataset(test_path)
+    ds = dataset.GraphDataset(train_path)
+    # ds_test = dataset.GraphDataset(test_path)
     # exit()
 
-    ratio = 0.5
-    valid_size = int(len(ds_train) * ratio)
-    train_size = len(ds_train) - valid_size
-    # ds_train, ds_valid = random_split(ds_train, [train_size, valid_size])
+    ratio = 0.2
+    valid_size = test_size = int(len(ds) * ratio)
+    train_size = len(ds) - valid_size - test_size
+    # ds_train, ds_valid, ds_test = random_split(ds, [train_size, valid_size, test_size])
 
-    dl_train = DataLoader(ds_train, batch_size=batch_size, shuffle=False)  # Change later to True
+    # dl_train = DataLoader(ds_train, batch_size=batch_size, shuffle=False)  # Change later to True
     # dl_valid = DataLoader(ds_valid, batch_size=batch_size, shuffle=False)
-    dl_valid = DataLoader(ds_train, batch_size=batch_size, shuffle=False)
-    dl_test = DataLoader(ds_test, batch_size=batch_size, shuffle=False)
+    # dl_test = DataLoader(ds_test, batch_size=1, shuffle=False)
 
     processor = ExecutionModel(dim_node, dim_edge, dim_latent)
 
@@ -113,6 +114,8 @@ def train():
     best_model.load_state_dict(copy.deepcopy(processor.state_dict()))
     best_model.to(device)
 
+    mode = 'test'
+
     if mode == 'train':
         loss_per_epoch_train, loss_per_epoch_valid = [], []
         accuracy_per_epoch_train, accuracy_per_epoch_valid = [], []
@@ -126,7 +129,9 @@ def train():
             loss_per_graph = []
             acc_per_graph = []
             for data in dl_train:
-                graph, pred, succ = data
+                idx, graph, pred, succ = data
+                idx = idx.item()
+                print(idx)
                 print(graph)
                 # print(pred)
                 # print(type(pred))
@@ -147,7 +152,9 @@ def train():
                 loss_per_graph = []
                 acc_per_graph = []
                 for data in dl_valid:
-                    graph, pred, succ = data
+                    idx, graph, pred, succ = data
+                    idx = idx.item()
+                    print(idx)
                     graph = graph.to(device)
                     graph_loss, graph_acc = processor.process(graph, pred, succ, optimizer, 'eval', device=device)
                     current_loss = np.mean(graph_loss)
@@ -171,18 +178,33 @@ def train():
 
     torch.save(best_model.state_dict(), model_path)
 
+    just_for_testing = DataLoader(ds, batch_size=1, shuffle=False)
+
     # Testing
+    mode = 'test'  # Make this more sophisticated, separate inference into a separate file
     if mode == 'test':  # TODO: put validation/testing into different functions
         with torch.no_grad():
             print('TESTING')
             processor.eval()
-            for data in dl_test:
-                graph, pred, succ = data
+            for data in just_for_testing:
+                idx, graph = data
+                idx = idx.item()
+                pred, succ = get_neighbors_dicts(idx)
+                if idx != 2:
+                    continue
+                print(idx)
+                print(graph)
                 graph = graph.to(device)
-                graph_loss, graph_acc = best_model.process(data, pred, succ, optimizer, 'eval', device=device)
+                graph_loss, graph_acc = best_model.process(graph, pred, succ, optimizer, 'eval', device=device)
+                break
 
             average_test_accuracy = np.mean(graph_acc)
             print(f'Average accuracy on the test set:', average_test_accuracy)
+
+def get_neighbors_dicts(idx):
+    pred = pickle.load(open(f'data/train/processed/{idx}_pred.pkl', 'rb'))
+    succ = pickle.load(open(f'data/train/processed/{idx}_succ.pkl', 'rb'))
+    return pred, succ
 
 
 if __name__ == '__main__':

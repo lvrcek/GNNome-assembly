@@ -34,9 +34,9 @@ class GraphDataset(Dataset):
 
     def get(self, idx):
         graph = torch.load(os.path.join(self.processed_dir, str(idx) + '.pt'))
-        pred = pickle.load(open(os.path.join(self.processed_dir, f'{idx}_pred.pkl'), 'rb'))
-        succ = pickle.load(open(os.path.join(self.processed_dir, f'{idx}_succ.pkl'), 'rb'))
-        return graph, pred, succ
+        # pred = pickle.load(open(os.path.join(self.processed_dir, f'{idx}_pred.pkl'), 'rb'))
+        # succ = pickle.load(open(os.path.join(self.processed_dir, f'{idx}_succ.pkl'), 'rb'))
+        return idx, graph
 
     @property
     def raw_file_names(self):
@@ -62,6 +62,8 @@ class GraphDataset(Dataset):
         graphia_dir = os.path.join(self.root, 'graphia')
         if not os.path.isdir(graphia_dir):
             os.mkdir(graphia_dir)
+
+        f = open(f'{self.root}/dataset_log.txt', 'w')
         for cnt, reads in enumerate(os.listdir(self.raw_dir)):
             print(cnt, reads)
             reads_path = os.path.abspath(os.path.join(self.raw_dir, reads))
@@ -81,6 +83,9 @@ class GraphDataset(Dataset):
             if not os.path.isdir(graph_path):
                 os.mkdir(graph_path)
             graph_parser.print_fasta(graph_und, graph_path)
+            f.write(f'{cnt} - {reads}\n')
+
+        f.close()
 
 
 def main():

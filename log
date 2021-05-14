@@ -1,0 +1,21 @@
+TESTING
+2
+Batch(batch=[1916], edge_index=[2, 3856], overlap_similarity=[3856], prefix_length=[3856], read_length=[1916], read_sequence=[1])
+Processing graph!
+Iterating through neighbors!
+-----actions------
+426
+[1258, 1799]
+topk test
+actions tensor([88.3185, 88.1766], device='cuda:0')
+index tensor([0], device='cuda:0')
+previous: 1273
+current: 426
+neighbors: [1258, 1799]
+23790
+26754
+[[426, 1258, 402, 298, 872], [426, 1799, 973, 1119, 202]]
+[([426, 1258, 402, 298, 872], 0.517822614543926), ([426, 1799, 973, 1119, 202], 0.5211557150332661)]
+chosen: 1258
+1258
+[1258, 1799]
