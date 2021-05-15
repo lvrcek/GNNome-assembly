@@ -7,8 +7,10 @@ Iterating through neighbors!
 426
 [1258, 1799]
 topk test
-actions tensor([88.3185, 88.1766], device='cuda:0')
-index tensor([0], device='cuda:0')
+actions tensor([-102.0156, -101.8516], device='cuda:0')
+index tensor([1], device='cuda:0')
+value tensor([-101.8516], device='cuda:0')
+choice 1799
 previous: 1273
 current: 426
 neighbors: [1258, 1799]
@@ -16,6 +18,46 @@ neighbors: [1258, 1799]
 26754
 [[426, 1258, 402, 298, 872], [426, 1799, 973, 1119, 202]]
 [([426, 1258, 402, 298, 872], 0.517822614543926), ([426, 1799, 973, 1119, 202], 0.5211557150332661)]
-chosen: 1258
-1258
-[1258, 1799]
+ground truth: 1258
+aaaaaaa tensor([-102.0156, -101.8516], device='cuda:0')
+bbbbbbb tensor([1], device='cuda:0')
+1799 1258
+-----actions------
+88
+[1075, 1872]
+topk test
+actions tensor([-101.7607, -101.8430], device='cuda:0')
+index tensor([0], device='cuda:0')
+value tensor([-101.7607], device='cuda:0')
+choice 1075
+previous: 1774
+current: 88
+neighbors: [1075, 1872]
+21941
+21688
+[[88, 1075, 1218, 1315, 642], [88, 1872, 1011, 1455, 345]]
+[([88, 1075, 1218, 1315, 642], 0.5245886696139648), ([88, 1872, 1011, 1455, 345], 0.5289561047583917)]
+ground truth: 1075
+aaaaaaa tensor([-101.7607, -101.8430], device='cuda:0')
+bbbbbbb tensor([0], device='cuda:0')
+1075 1075
+-----actions------
+1271
+[152, 193]
+topk test
+actions tensor([-101.9223, -101.8401], device='cuda:0')
+index tensor([1], device='cuda:0')
+value tensor([-101.8401], device='cuda:0')
+choice 193
+previous: 1372
+current: 1271
+neighbors: [152, 193]
+24795
+21935
+[[1271, 152, 1645, 659, 1459], [1271, 193, 1613, 539, 120]]
+[([1271, 152, 1645, 659, 1459], 0.5246622302883646), ([1271, 193, 1613, 539, 120], 0.5274675176658309)]
+ground truth: 152
+aaaaaaa tensor([-101.9223, -101.8401], device='cuda:0')
+bbbbbbb tensor([1], device='cuda:0')
+193 152
+Average accuracy on the test set: 0.3333333333333333

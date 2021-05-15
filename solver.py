@@ -229,7 +229,6 @@ class ExecutionModel(nn.Module):
                 break
             visited.add(current)  # current node
             visited.add(current ^ 1)  # virtual pair of the current node
-            total += 1
             try:
                 if len(neighbors[current]) == 0:
                     break
@@ -266,8 +265,12 @@ class ExecutionModel(nn.Module):
             print('topk test')
             print('actions', actions)
             print('index', index)
+            print('value', value)
             best_score = -1
             best_neighbor = -1
+
+            choice = neighbors[current][index]
+            print('choice', choice)
 
             print('previous:', None if len(walk) < 2 else walk[-2])
             print('current:', current)
@@ -280,11 +283,14 @@ class ExecutionModel(nn.Module):
 
             best_neighbor = ExecutionModel.get_edlib_best2(graph, current, neighbors, reference, aligner, visited)
             # best_neighbor = ExecutionModel.get_minimap_best(graph, current, neighbors, walk, aligner)
-            print('chosen:', best_neighbor)
+            print('ground truth:', best_neighbor)
 
             # Evaluate your choice - calculate loss
             # Might need to modify loss for batch_size > 1
-            loss = ExecutionModel.get_loss2(actions, best_neighbor, neighbors[current], criterion, device)
+            # loss = ExecutionModel.get_loss2(actions, best_neighbor, neighbors[current], criterion, device)
+            print('aaaaaaa', actions)
+            print('bbbbbbb', index)
+            loss = criterion(actions.unsqueeze(0), index.to(device))
             loss_list.append(loss.item())
 
             current = best_neighbor
@@ -297,9 +303,10 @@ class ExecutionModel(nn.Module):
                 optimizer.step()
 
             index = index.item()
-            print(index, best_neighbor)
-            if index == best_neighbor:
+            print(choice, best_neighbor)
+            if choice == best_neighbor:
                 correct += 1
+            total += 1
 
         accuracy = correct / total
         return loss_list, accuracy
