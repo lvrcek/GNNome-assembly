@@ -87,11 +87,11 @@ def train():
     ratio = 0.2
     valid_size = test_size = int(len(ds) * ratio)
     train_size = len(ds) - valid_size - test_size
-    # ds_train, ds_valid, ds_test = random_split(ds, [train_size, valid_size, test_size])
+    ds_train, ds_valid, ds_test = random_split(ds, [train_size, valid_size, test_size])
 
-    # dl_train = DataLoader(ds_train, batch_size=batch_size, shuffle=False)  # Change later to True
-    # dl_valid = DataLoader(ds_valid, batch_size=batch_size, shuffle=False)
-    # dl_test = DataLoader(ds_test, batch_size=1, shuffle=False)
+    dl_train = DataLoader(ds_train, batch_size=batch_size, shuffle=False)  # Change later to True
+    dl_valid = DataLoader(ds_valid, batch_size=batch_size, shuffle=False)
+    dl_test = DataLoader(ds_test, batch_size=1, shuffle=False)
 
     processor = ExecutionModel(dim_node, dim_edge, dim_latent)
 
@@ -114,7 +114,7 @@ def train():
     best_model.load_state_dict(copy.deepcopy(processor.state_dict()))
     best_model.to(device)
 
-    mode = 'test'
+    mode = 'train'
 
     if mode == 'train':
         loss_per_epoch_train, loss_per_epoch_valid = [], []
@@ -129,15 +129,17 @@ def train():
             loss_per_graph = []
             acc_per_graph = []
             for data in dl_train:
-                idx, graph, pred, succ = data
+                idx, graph = data
                 idx = idx.item()
+                pred, succ = get_neighbors_dicts(idx)
+                reference = get_reference(idx)
                 print(idx)
                 print(graph)
                 # print(pred)
                 # print(type(pred))
                 graph = graph.to(device)
                 # Return list of losses for each step in path finding
-                graph_loss, graph_accuracy = processor.process(graph, pred, succ, optimizer, 'train', device=device)
+                graph_loss, graph_accuracy = processor.process(graph, pred, succ, reference, optimizer, 'train', device=device)
                 loss_per_graph.append(np.mean(graph_loss))  # Take the mean of that for each graph
                 acc_per_graph.append(graph_accuracy)
 
@@ -152,11 +154,13 @@ def train():
                 loss_per_graph = []
                 acc_per_graph = []
                 for data in dl_valid:
-                    idx, graph, pred, succ = data
+                    idx, graph = data
                     idx = idx.item()
+                    pred, succ = get_neighbors_dicts(idx)
+                    reference = get_reference(idx)
                     print(idx)
                     graph = graph.to(device)
-                    graph_loss, graph_acc = processor.process(graph, pred, succ, optimizer, 'eval', device=device)
+                    graph_loss, graph_acc = processor.process(graph, pred, succ, reference, optimizer, 'eval', device=device)
                     current_loss = np.mean(graph_loss)
                     loss_per_graph.append(current_loss)
                     acc_per_graph.append(graph_acc)
@@ -186,16 +190,17 @@ def train():
         with torch.no_grad():
             print('TESTING')
             processor.eval()
-            for data in just_for_testing:
+            for data in dl_test:
                 idx, graph = data
                 idx = idx.item()
                 pred, succ = get_neighbors_dicts(idx)
-                if idx != 2:
-                    continue
+                reference = get_reference(idx)
+                # if idx != 2:
+                #     continue
                 print(idx)
                 print(graph)
                 graph = graph.to(device)
-                graph_loss, graph_acc = best_model.process(graph, pred, succ, optimizer, 'eval', device=device)
+                graph_loss, graph_acc = best_model.process(graph, pred, succ, reference, optimizer, 'eval', device=device)
                 break
 
             average_test_accuracy = np.mean(graph_acc)
@@ -205,6 +210,11 @@ def get_neighbors_dicts(idx):
     pred = pickle.load(open(f'data/train/processed/{idx}_pred.pkl', 'rb'))
     succ = pickle.load(open(f'data/train/processed/{idx}_succ.pkl', 'rb'))
     return pred, succ
+
+
+def get_reference(idx):
+    reference = f'data/train/references/{idx}.fasta'
+    return reference
 
 
 if __name__ == '__main__':

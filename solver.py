@@ -106,11 +106,17 @@ class ExecutionModel(nn.Module):
             distance = edlib.align(reference_query, sequence)['editDistance']
             score = distance / (edlib_end - edlib_start)
             distances.append((path, score))
-        best_path, min_distance = min(distances, key=lambda x: x[1])
-        best_neighbor = best_path[1]
-        print(paths)
-        print(distances)
-        return best_neighbor              
+        try:
+            best_path, min_distance = min(distances, key=lambda x: x[1])
+            best_neighbor = best_path[1]
+            print(paths)
+            print(distances)
+            return best_neighbor
+        except ValueError:
+            print('\nAll the next neighbors have an opposite strand')
+            print('current:,', current)
+            print(paths)
+            return None
 
     @staticmethod
     def get_paths(start, neighbors, num_nodes):
@@ -177,7 +183,7 @@ class ExecutionModel(nn.Module):
         return loss
 
 
-    def process(self, graph, pred, succ, optimizer, mode, device='cpu'):
+    def process(self, graph, pred, succ, reference, optimizer, mode, device='cpu'):
         print('Processing graph!')
         # if mode == 'test':
         #     print(graph)
@@ -210,7 +216,7 @@ class ExecutionModel(nn.Module):
         current = start
         walk = []
         loss_list = []
-        reference = 'data/references/chm13/chr11_20-30M.fasta'
+        # reference = 'data/references/chm13/chr11_0-100M.fasta'
         criterion = nn.CrossEntropyLoss()
         # print(os.path.relpath())
         # print(os.path.relpath(__file__))
@@ -284,6 +290,9 @@ class ExecutionModel(nn.Module):
             best_neighbor = ExecutionModel.get_edlib_best2(graph, current, neighbors, reference, aligner, visited)
             # best_neighbor = ExecutionModel.get_minimap_best(graph, current, neighbors, walk, aligner)
             print('ground truth:', best_neighbor)
+
+            if best_neighbor is None:
+                break
 
             # Evaluate your choice - calculate loss
             # Might need to modify loss for batch_size > 1
