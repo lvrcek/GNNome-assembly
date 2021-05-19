@@ -4,7 +4,7 @@ import torch
 def get_hyperparameters():
     return {
         "num_epochs": 5,
-        "dim_latent": 32,
+        "dim_latent": 5,
         "dim_nodes": 1,
         # "dim_target": 2,
         "dim_edges": 1,

@@ -99,7 +99,7 @@ class ExecutionModel(nn.Module):
             sequence = graph_parser.translate_nodes_into_sequence2(graph, path[1:])
             if strand == -1:
                 sequence = sequence.reverse_complement()
-            print(len(sequence))
+            # print(len(sequence))
             edlib_start = ref_start + graph.prefix_length[graph_parser.find_edge_index(graph, path[0], path[1])].item()
             edlib_end = edlib_start + len(sequence)
             reference_query = reference_seq[edlib_start:edlib_end]
@@ -109,8 +109,8 @@ class ExecutionModel(nn.Module):
         try:
             best_path, min_distance = min(distances, key=lambda x: x[1])
             best_neighbor = best_path[1]
-            print(paths)
-            print(distances)
+            # print(paths)
+            # print(distances)
             return best_neighbor
         except ValueError:
             print('\nAll the next neighbors have an opposite strand')
@@ -182,13 +182,21 @@ class ExecutionModel(nn.Module):
         loss = criterion(actions, best)
         return loss
 
+    @staticmethod
+    def print_prediction(walk, current, neighbors, actions, index, value, choice, best_neighbor):
+        print('\n-----predicting-----')
+        print('previous:\t', None if len(walk) < 2 else walk[-2])
+        print('current:\t', current)
+        print('neighbors:\t', neighbors[current])
+        print('actions:\t', actions.tolist())
+        # print('index:\t\t', index)
+        # print('value:\t\t', value)
+        print('choice:\t\t', choice)
+        print('ground truth:\t', best_neighbor)
 
     def process(self, graph, pred, succ, reference, optimizer, mode, device='cpu'):
         print('Processing graph!')
-        # if mode == 'test':
-        #     print(graph)
-        #     print(type(graph))
-        node_features = graph.read_length.clone().detach().to(device)
+        node_features = graph.read_length.clone().detach().to(device) / 20000  # Kind of normalization
         edge_features = graph.overlap_similarity.clone().detach().to(device)
         last_latent = self.processor.zero_hidden(graph.num_nodes)  # TODO: Could this potentially be a problem?
         visited = set()
@@ -197,39 +205,25 @@ class ExecutionModel(nn.Module):
         start_nodes = list(set(range(graph.num_nodes)) - set(pred.keys()))
         start = start_nodes[0]  # Not really good, maybe iterate over all the start nodes?
         # start = 901  # Test get_edlib_best2 function
-        # start = 3696  # Debugging edlib division by zero
         # neighbors = graph_parser.get_neighbors(graph)
-        # print(type(succ))
-        # print(succ[0])
-        # print(succ)
         
-        # neighbors = {k: v[0].tolist() for k, v in succ.items()}
         neighbors = succ
-        # neighbors = {}
-        # for k, v in succ.items():
-        #     try:
-        #         neighbors[k] = v[0].tolist()
-        #     except:
-        #         print(k, v)
-        #         raise
 
         current = start
         walk = []
         loss_list = []
-        # reference = 'data/references/chm13/chr11_0-100M.fasta'
         criterion = nn.CrossEntropyLoss()
         # print(os.path.relpath())
         # print(os.path.relpath(__file__))
         # if not os.path.isfile(reference):
         #     raise Exception("Reference does not exist!!")
-        aligner = mp.Aligner(reference, preset='map_pb', best_n=5)
+        aligner = mp.Aligner(reference, preset='map_pb', best_n=1)
         print('Iterating through neighbors!')
 
         total = 0
         correct = 0
 
         while True:
-            # print(f'\nCurrent node: {current}')
             walk.append(current)
             if current in visited:
                 break
@@ -250,37 +244,18 @@ class ExecutionModel(nn.Module):
             mask = torch.tensor([1 if n in neighbors[current] else 0 for n in range(graph.num_nodes)]).to(device)
 
             # Get prediction for the next node out of those in list of neighbors (run the model)
-            predict_actions = self.predict(node_features=node_features, edge_features=edge_features,
+            predict_actions, last_latent = self.predict(node_features=node_features, edge_features=edge_features,
                                            latent_features=last_latent, edge_index=graph.edge_index, device=device)
 
-            # print(mask.shape)
-            # print(predict_actions.shape)
             # old_actions = predict_actions.squeeze(1) * mask
             actions = predict_actions.squeeze(1)[neighbors[current]]
-            print('-----actions------')
-            print(current)
-            print(neighbors[current])
-
-            # --- loss aggregation? ----
-            # neighborhood_losses = {}
-            # for idx, action in enumerate(actions):
-            #     if action > 0:
-            #         neighborhood_losses[idx] = action
 
             value, index = torch.topk(actions, k=1, dim=0)  # For evaluation
-            print('topk test')
-            print('actions', actions)
-            print('index', index)
-            print('value', value)
+
             best_score = -1
             best_neighbor = -1
 
             choice = neighbors[current][index]
-            print('choice', choice)
-
-            print('previous:', None if len(walk) < 2 else walk[-2])
-            print('current:', current)
-            print('neighbors:', neighbors[current])
 
             # We are out of the chain, so, this is the first node with more than 1 successor
             # Which means this node is an anchor
@@ -289,7 +264,8 @@ class ExecutionModel(nn.Module):
 
             best_neighbor = ExecutionModel.get_edlib_best2(graph, current, neighbors, reference, aligner, visited)
             # best_neighbor = ExecutionModel.get_minimap_best(graph, current, neighbors, walk, aligner)
-            print('ground truth:', best_neighbor)
+
+            ExecutionModel.print_prediction(walk, current, neighbors, actions, index, value, choice, best_neighbor)
 
             if best_neighbor is None:
                 break
@@ -297,22 +273,19 @@ class ExecutionModel(nn.Module):
             # Evaluate your choice - calculate loss
             # Might need to modify loss for batch_size > 1
             # loss = ExecutionModel.get_loss2(actions, best_neighbor, neighbors[current], criterion, device)
-            print('aaaaaaa', actions)
-            print('bbbbbbb', index)
             loss = criterion(actions.unsqueeze(0), index.to(device))
             loss_list.append(loss.item())
 
+            # Teacher forcing
             current = best_neighbor
 
             if mode == 'train':
                 # Update weights
-                # TODO: Probably I will need to accumulate losses and then do backprop once I'm done with the graph
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
 
             index = index.item()
-            print(choice, best_neighbor)
             if choice == best_neighbor:
                 correct += 1
             total += 1
@@ -321,16 +294,25 @@ class ExecutionModel(nn.Module):
         return loss_list, accuracy
 
     def predict(self, node_features, edge_features, latent_features, edge_index, device):
+        print('\n\t-----inside NN-----')
+        print('\tedge features:\t', edge_features)
         edge_index, edge_features = add_self_loops(edge_index, edge_weight=edge_features)  # fill_value = 1.0
+        print('\tedge features:\t', edge_features)
+        print('\tnode features:\t', node_features)
         node_features = node_features.unsqueeze(-1).float().to(device)
         latent_features = latent_features.float().to(device)
+        print('\tlatent before:\t', latent_features)
         edge_features = edge_features.unsqueeze(-1).float().to(device)
         t = torch.cat((node_features, latent_features), dim=1).to(device)
         node_enc = self.node_encoder(t).to(device)
+        print('\tnode encoded:\t', node_enc)
         edge_enc = self.edge_encoder(edge_features).to(device)
+        print('\tedge encoded:\t', edge_enc)
         latent_features = self.processor(node_enc, edge_enc, edge_index).to(device)  # Should I put clone here?
+        print('\tlatent after:\t', latent_features)
         output = self.decoder(torch.cat((node_enc, latent_features), dim=1)).to(device)
-        return output
+        print('\toutput:\t\t', output)
+        return output, latent_features
 
 
 if __name__ == '__main__':

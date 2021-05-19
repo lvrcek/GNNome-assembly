@@ -55,10 +55,6 @@ def train():
     learning_rate = hyperparameters['lr']
     device = hyperparameters['device']
 
-    num_epochs = 10
-    # batch_size = 2
-
-
     # --- DEBUGGING ---
     # num_epochs = 3
     # dim_node = 1

@@ -7,7 +7,7 @@ from hyperparameters import get_hyperparameters
 
 class MPNN(nng.MessagePassing):
 
-    def __init__(self, in_channels, out_channels, edge_features, aggr='max', bias=False, flow='source_to_target'):
+    def __init__(self, in_channels, out_channels, edge_features, aggr='add', bias=False, flow='source_to_target'):
         super(MPNN, self).__init__(aggr=aggr, flow=flow)
         self.device = get_hyperparameters()['device']
         self.out_channels = out_channels
@@ -32,5 +32,6 @@ class MPNN(nng.MessagePassing):
 
     def update(self, aggr_out, x):
         # TODO: Doesn't detach() defeat the purpose of GRU?
-        self.hidden = self.gru(self.U(torch.cat((x, aggr_out), dim=1)), self.hidden).to(self.device).detach()
+        # self.hidden = self.gru(self.U(torch.cat((x, aggr_out), dim=1)), self.hidden).to(self.device).detach()
+        self.hidden = self.U(torch.cat((x, aggr_out), dim=1)).to(self.device).detach()
         return self.hidden
