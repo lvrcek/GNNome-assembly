@@ -3,6 +3,7 @@ from datetime import datetime
 import copy
 import os
 import pickle
+import random
 import time
 
 
@@ -41,6 +42,16 @@ def draw_accuracy_plots(train_acc, valid_acc, timestamp):
     plt.legend()
     plt.savefig(f'figures/train_accuracy_{timestamp}.png')
     plt.show()
+
+
+def set_seed(seed=42):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 
 def train():
