@@ -6,8 +6,38 @@ from Bio import SeqIO
 import numpy as np
 
 
-def get_normal_dist(mean, std):
-    return np.random.normal(loc=mean, scale=std)
+def get_step(reference_length, length_mean, depth):
+    num_reads = reference_length // length_mean * depth
+    step_mean = (reference_length - length_mean) / (num_reads - 1)
+    step_mean = round(step_mean / 100) * 100
+    step_std = step_mean * 0.1
+    return step_mean, step_std
+
+
+def sample_strand(reference, reads_list, length_mean, length_std, step_mean, step_std, strand):
+    idx = len(reads_list)
+    position = 0
+    stop = len(reference)
+
+    while position < stop:
+        length = int(np.random.normal(length_mean, length_std))
+        if position + length < len(reference):
+            read = reference[position:position+length]
+        else:
+            break
+        read.id = str(idx)
+        if strand == '+':
+            read.description = f'idx={idx}, strand=+, start={position}, end={position+length}'
+        else:
+            read.description = f'idx={idx}, strand=-, start={len(reference)-position}, end={len(reference)-position-length}'
+
+        read.letter_annotations = {'phred_quality': [50] * len(read)} 
+        reads_list.append(read)
+        step = int(np.random.normal(step_mean, step_std))
+        position += step
+        idx += 1
+
+    return reads_list
 
 
 def main(args):
@@ -19,54 +49,17 @@ def main(args):
     length_mean = args.length_mean
     length_std = args.length_std if args.length_std is not None else length_mean * 0.075
 
-    accuracy = 1.0
+    accuracy = 1.0  # TODO: Simulate mismatches, indels
     reference = next(SeqIO.parse(reference_path, 'fasta'))
     reference_rc = reference.reverse_complement()
-    num_reads = len(reference) // length_mean * depth
-    step_mean = (len(reference) - length_mean) / (num_reads - 1)
-    step_mean = round(step_mean / 100) * 100
-    step_std = step_mean * 0.1
-    start, stop = 0, len(reference)
+
+    step_mean, step_std = get_step(len(reference), length_mean, depth)
     reads_list = []
 
-    idx = 0
-    position = 0
-    while position < stop:
-        length = int(get_normal_dist(length_mean, length_std))
-        if position + length < len(reference):
-            read = reference[position:position+length]
-        else:
-            break
+    # Sample positive and negative strand
+    reads_list += sample_strand(reference, reads_list, length_mean, length_std, step_mean, step_std, strand='+')
+    reads_list += sample_strand(reference_rc, reads_list, length_mean, length_std, step_mean, step_std, strand='-')
 
-        read.id = str(idx)
-        read.description = f'idx={idx}, strand=+, start={position}, end={position+length}'
-        quality = {'phred_quality': [50] * len(read)}
-        read.letter_annotations = quality  
-        reads_list.append(read)
-
-        step = int(get_normal_dist(step_mean, step_std))
-        position += step
-        idx += 1
-
-    idx = len(reads_list)
-    position = 0
-    while position < stop:
-        length = int(get_normal_dist(length_mean, length_std))
-        if position + length < len(reference):
-            read = reference_rc[position:position+length]
-        else:
-            break
-
-        read.id = str(idx)
-        read.description = f'idx={idx}, strand=-, start={len(reference)-position}, end={len(reference)-position-length}'
-        quality = {'phred_quality': [50] * len(read)}
-        read.letter_annotations = quality
-        reads_list.append(read)
-
-        step = int(get_normal_dist(step_mean, step_std))
-        position += step
-        idx += 1
-    
     SeqIO.write(reads_list, out_path, 'fastq')
 
 
