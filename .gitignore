@@ -1,11 +1,12 @@
-read_info.txt
+log*
 
 .idea/
 __pycache__/
 
-data/
-figures/
-pretrained/
-concat_reads/
+figures/*
+pretrained/*
+debug/*
 
-vendor/raven_master/
+data/*
+!data/example/
+

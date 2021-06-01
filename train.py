@@ -54,7 +54,7 @@ def set_seed(seed=42):
     torch.backends.cudnn.benchmark = False
 
 
-def train():
+def train(args):
 
     hyperparameters = get_hyperparameters()
     num_epochs = hyperparameters['num_epochs']
@@ -81,15 +81,12 @@ def train():
     mode = 'train'
 
     time_now = datetime.now().strftime('%Y-%b-%d-%H-%M')
-    train_path = os.path.abspath('data/train')
-    test_path = os.path.abspath('data/train')
+    data_path = os.path.abspath(args.data_path)
 
     # TODO: Discuss with Mile how to train this thing - maybe through generated reads by some tools?
     # First with real data just to check if the thing works, then probably with the generated graphs
     # The problem is that generated graphs don't have chimeric reads
-    ds = dataset.GraphDataset(train_path)
-    # ds_test = dataset.GraphDataset(test_path)
-    # exit()
+    ds = dataset.GraphDataset(data_path)
 
     ratio = 0.2
     valid_size = test_size = int(len(ds) * ratio)
@@ -138,15 +135,15 @@ def train():
             for data in dl_train:
                 idx, graph = data
                 idx = idx.item()
-                pred, succ = get_neighbors_dicts(idx)
-                reference = get_reference(idx)
+                pred, succ = get_neighbors_dicts(idx, data_path)
+                reference = get_reference(idx, data_path)
                 print(idx)
                 print(graph)
                 # print(pred)
                 # print(type(pred))
                 graph = graph.to(device)
                 # Return list of losses for each step in path finding
-                graph_loss, graph_accuracy = processor.process(graph, pred, succ, reference, optimizer, 'train', device=device)
+                graph_loss, graph_accuracy = processor.process(idx, graph, pred, succ, reference, optimizer, 'train', device=device)
                 loss_per_graph.append(np.mean(graph_loss))  # Take the mean of that for each graph
                 acc_per_graph.append(graph_accuracy)
 
@@ -163,11 +160,11 @@ def train():
                 for data in dl_valid:
                     idx, graph = data
                     idx = idx.item()
-                    pred, succ = get_neighbors_dicts(idx)
-                    reference = get_reference(idx)
+                    pred, succ = get_neighbors_dicts(idx, data_path)
+                    reference = get_reference(idx, data_path)
                     print(idx)
                     graph = graph.to(device)
-                    graph_loss, graph_acc = processor.process(graph, pred, succ, reference, optimizer, 'eval', device=device)
+                    graph_loss, graph_acc = processor.process(idx, graph, pred, succ, reference, optimizer, 'eval', device=device)
                     current_loss = np.mean(graph_loss)
                     loss_per_graph.append(current_loss)
                     acc_per_graph.append(graph_acc)
@@ -200,30 +197,36 @@ def train():
             for data in dl_test:
                 idx, graph = data
                 idx = idx.item()
-                pred, succ = get_neighbors_dicts(idx)
-                reference = get_reference(idx)
+                pred, succ = get_neighbors_dicts(idx, data_path)
+                reference = get_reference(idx, data_path)
                 # if idx != 2:
                 #     continue
                 print(idx)
                 print(graph)
                 graph = graph.to(device)
-                graph_loss, graph_acc = best_model.process(graph, pred, succ, reference, optimizer, 'eval', device=device)
+                graph_loss, graph_acc = best_model.process(idx, graph, pred, succ, reference, optimizer, 'eval', device=device)
                 break
 
             average_test_accuracy = np.mean(graph_acc)
             print(f'Average accuracy on the test set:', average_test_accuracy)
 
-def get_neighbors_dicts(idx):
-    pred = pickle.load(open(f'data/train/processed/{idx}_pred.pkl', 'rb'))
-    succ = pickle.load(open(f'data/train/processed/{idx}_succ.pkl', 'rb'))
+
+def get_neighbors_dicts(idx, data_path):
+    pred_path = os.path.join(data_path, f'processed/{idx}_pred.pkl')
+    succ_path = os.path.join(data_path, f'processed/{idx}_succ.pkl')
+    pred = pickle.load(open(pred_path, 'rb'))
+    succ = pickle.load(open(succ_path, 'rb'))
     return pred, succ
 
 
-def get_reference(idx):
-    reference = f'data/train/references/{idx}.fasta'
-    return reference
+def get_reference(idx, data_path):
+    ref_path = os.path.join(data_path, f'references/{idx}.fasta')
+    return ref_path
 
 
 if __name__ == '__main__':
-    train()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--data-path', type=str, default='data/train', help='path to directory with training data')
+    args = parser.parse_args()
+    train(args)
 

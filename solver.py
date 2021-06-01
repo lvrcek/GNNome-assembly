@@ -86,7 +86,7 @@ class ExecutionModel(nn.Module):
         return best_neighbor
 
     @staticmethod
-    def get_edlib_best2(graph, current, neighbors, reference, aligner, visited):
+    def get_edlib_best2(idx, graph, current, neighbors, reference, aligner, visited):
         ref_start, ref_end, strand = ExecutionModel.anchor(graph, current, aligner)
         edlib_start = ref_start
         reference_seq = next(SeqIO.parse(reference, 'fasta'))
@@ -114,6 +114,7 @@ class ExecutionModel(nn.Module):
             return best_neighbor
         except ValueError:
             print('\nAll the next neighbors have an opposite strand')
+            print('Graph index:', idx)
             print('current:,', current)
             print(paths)
             return None
@@ -194,7 +195,7 @@ class ExecutionModel(nn.Module):
         print('choice:\t\t', choice)
         print('ground truth:\t', best_neighbor)
 
-    def process(self, graph, pred, succ, reference, optimizer, mode, device='cpu'):
+    def process(self, idx, graph, pred, succ, reference, optimizer, mode, device='cpu'):
         print('Processing graph!')
         node_features = graph.read_length.clone().detach().to(device) / 20000  # Kind of normalization
         edge_features = graph.overlap_similarity.clone().detach().to(device)
@@ -262,10 +263,10 @@ class ExecutionModel(nn.Module):
             # I can start with probing now - do edlib stuff here
             # -----------------------
 
-            best_neighbor = ExecutionModel.get_edlib_best2(graph, current, neighbors, reference, aligner, visited)
+            best_neighbor = ExecutionModel.get_edlib_best2(idx, graph, current, neighbors, reference, aligner, visited)
             # best_neighbor = ExecutionModel.get_minimap_best(graph, current, neighbors, walk, aligner)
 
-            ExecutionModel.print_prediction(walk, current, neighbors, actions, index, value, choice, best_neighbor)
+            # ExecutionModel.print_prediction(walk, current, neighbors, actions, index, value, choice, best_neighbor)
 
             if best_neighbor is None:
                 break
@@ -294,24 +295,24 @@ class ExecutionModel(nn.Module):
         return loss_list, accuracy
 
     def predict(self, node_features, edge_features, latent_features, edge_index, device):
-        print('\n\t-----inside NN-----')
-        print('\tedge features:\t', edge_features)
+        # print('\n\t-----inside NN-----')
+        # print('\tedge features:\t', edge_features)
         edge_index, edge_features = add_self_loops(edge_index, edge_weight=edge_features)  # fill_value = 1.0
-        print('\tedge features:\t', edge_features)
-        print('\tnode features:\t', node_features)
+        # print('\tedge features:\t', edge_features)
+        # print('\tnode features:\t', node_features)
         node_features = node_features.unsqueeze(-1).float().to(device)
         latent_features = latent_features.float().to(device)
-        print('\tlatent before:\t', latent_features)
+        # print('\tlatent before:\t', latent_features)
         edge_features = edge_features.unsqueeze(-1).float().to(device)
         t = torch.cat((node_features, latent_features), dim=1).to(device)
         node_enc = self.node_encoder(t).to(device)
-        print('\tnode encoded:\t', node_enc)
+        # print('\tnode encoded:\t', node_enc)
         edge_enc = self.edge_encoder(edge_features).to(device)
-        print('\tedge encoded:\t', edge_enc)
+        # print('\tedge encoded:\t', edge_enc)
         latent_features = self.processor(node_enc, edge_enc, edge_index).to(device)  # Should I put clone here?
-        print('\tlatent after:\t', latent_features)
+        # print('\tlatent after:\t', latent_features)
         output = self.decoder(torch.cat((node_enc, latent_features), dim=1)).to(device)
-        print('\toutput:\t\t', output)
+        # print('\toutput:\t\t', output)
         return output, latent_features
 
 
