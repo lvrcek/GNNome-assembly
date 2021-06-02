@@ -2,6 +2,7 @@ log*
 
 .idea/
 __pycache__/
+.vscode/
 
 figures/*
 pretrained/*
@@ -9,4 +10,4 @@ debug/*
 
 data/*
 !data/example/
-
+data/example/raw/reads.fastq

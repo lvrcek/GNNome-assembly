@@ -49,7 +49,8 @@ class GraphDataset(Dataset):
         return [str(n) + '.pt' for n in range(self.len())]
 
     def download(self):
-        graph_generator.generate_pacbio(self.num_graphs, self.reference_path, self.raw_dir)
+        # graph_generator.generate_pacbio(self.num_graphs, self.reference_path, self.raw_dir)
+        pass
 
     def process(self):
         print(os.getcwd())
