@@ -10,32 +10,6 @@ from matplotlib import pyplot as plt
 from Bio.Seq import Seq
 
 
-# This is waay too slow!
-# def to_undirected(graph):
-#     new_edge_index = undirected.to_undirected(graph.edge_index)
-#     new_read_length = graph.read_length.clone()
-#     new_read_sequence = graph.read_sequence.copy()
-#     new_prefix_length = []
-#     new_overlap_similarity = []
-#     print('1')
-#     print(len(new_edge_index[0]))
-#     for src, dst in zip(new_edge_index[0], new_edge_index[1]):
-#         print(src)
-#         idx = find_edge_index(graph, src, dst)
-#         if idx is None:
-#             idx = find_edge_index(graph, dst, src)
-#         new_prefix_length.append(graph.prefix_length[idx])
-#         new_overlap_similarity.append(graph.overlap_similarity[idx])
-# 
-#     print('3')
-#     new_graph = Data(edge_index=new_edge_index, read_length=new_read_length, \
-#             read_sequence=new_read_sequence, \
-#             prefix_length = torch.tensor(new_prefix_length), \
-#             overlap_similarity=torch.tensor(new_overlap_similarity) \
-#             )
-#     return new_graph
-
-
 def draw_graph(graph_nx):
     nx.draw(graph_nx, node_size=6, width=.2, arrowsize=3)
     plt.show()
@@ -70,8 +44,6 @@ def find_edge_index(graph, src, dst):
 #         overlap_length = graph.overlap_length[idx]
 #         seq += graph.read_sequence[dst][overlap_length:]
 #     return seq
-#
-# test
 
 
 def translate_nodes_into_sequence2(graph, node_tr):
@@ -82,7 +54,7 @@ def translate_nodes_into_sequence2(graph, node_tr):
         # In graph, len(graph.read_sequence) == num_nodes. Same if I take it out from dataset
         # But with DataLoader, len(graph.read_sequence) == 1. As if it was unsqueezed at some point during loading
 
-        if not hasattr(graph, 'batch'):  # Implement with try
+        if not hasattr(graph, 'batch'):
             seq += graph.read_sequence[src][:prefix_length]
         else:
             seq += graph.read_sequence[0][src][:prefix_length]  # Why is this so?!
@@ -158,7 +130,6 @@ def from_csv(graph_path):
                     graph_nx_und.add_node(dst_id)
             else:
                 # ID, length, weight, similarity
-                # weight is always zero for some reason
                 # similarity = edit distance of prefix-suffix overlap divided by the length of overlap
                 overlap = overlap.split()
                 try:
@@ -179,8 +150,6 @@ def from_csv(graph_path):
     graph_torch = from_networkx(graph_nx)
     predecessors = get_predecessors(graph_torch)
     successors = get_neighbors(graph_torch)
-    # graph_torch = from_networkx(nx.Graph(graph_nx))
-    # print_pairwise(graph_torch)
 
     graph_torch_und = from_networkx(graph_nx_und)
     num_nodes = len(graph_nx)

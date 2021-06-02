@@ -18,7 +18,7 @@ from torch.utils.data import random_split
 import dataset
 from hyperparameters import get_hyperparameters
 import models
-from solver import ExecutionModel
+# from solver import ExecutionModel
 import utils
 
 
@@ -68,18 +68,6 @@ def train(args):
     learning_rate = hyperparameters['lr']
     device = hyperparameters['device']
 
-    # --- DEBUGGING ---
-    # num_epochs = 3
-    # dim_node = 1
-    # dim_edge = 1
-    # dim_latent = 1
-    # batch_size = 1
-    # patience_limit = 10
-    # learning_rate = 1e-5
-    # device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    # device = 'cuda:5' if torch.cuda.is_available() else 'cpu'
-    # -----------------
-
     mode = 'train'
 
     time_now = datetime.now().strftime('%Y-%b-%d-%H-%M')
@@ -96,7 +84,6 @@ def train(args):
     dl_valid = DataLoader(ds_valid, batch_size=batch_size, shuffle=False)
     dl_test = DataLoader(ds_test, batch_size=1, shuffle=False)
 
-    # processor = ExecutionModel(dim_node, dim_edge, dim_latent)
     processor = models.SequentialModel(dim_node, dim_edge, dim_latent)
 
     # Multi-GPU training not available as batch_size = 1
@@ -112,7 +99,6 @@ def train(args):
     optimizer = optim.Adam(params, lr=learning_rate)
 
     patience = 0
-    # best_model = ExecutionModel(dim_node, dim_edge, dim_latent)
     best_model = models.SequentialModel(dim_node, dim_edge, dim_latent)
     
     # if torch.cuda.device_count() > 1:
@@ -141,8 +127,6 @@ def train(args):
                 reference = get_reference(idx, data_path)
                 print(idx)
                 print(graph)
-                # print(pred)
-                # print(type(pred))
                 graph = graph.to(device)
                 # Return list of losses for each step in path finding
                 graph_loss, graph_accuracy = utils.process(processor, idx, graph, pred, succ, reference, optimizer, 'train', device=device)
@@ -190,8 +174,6 @@ def train(args):
 
     torch.save(best_model.state_dict(), model_path)
 
-    just_for_testing = DataLoader(ds, batch_size=1, shuffle=False)
-
     # Testing
     if len(ds_test) == 0:
         return
@@ -205,8 +187,6 @@ def train(args):
                 idx = idx.item()
                 pred, succ = get_neighbors_dicts(idx, data_path)
                 reference = get_reference(idx, data_path)
-                # if idx != 2:
-                #     continue
                 print(idx)
                 print(graph)
                 graph = graph.to(device)

@@ -31,7 +31,5 @@ class MPNN(nng.MessagePassing):
         return self.M(torch.cat((x_i, x_j, edge_attr), dim=1)).to(self.device)
 
     def update(self, aggr_out, x):
-        # TODO: Doesn't detach() defeat the purpose of GRU?
-        # self.hidden = self.gru(self.U(torch.cat((x, aggr_out), dim=1)), self.hidden).to(self.device).detach()
         self.hidden = self.U(torch.cat((x, aggr_out), dim=1)).to(self.device).detach()
         return self.hidden
