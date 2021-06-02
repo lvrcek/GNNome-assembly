@@ -19,3 +19,63 @@ Iterating through neighbors!
 Batch(batch=[9912], edge_index=[2, 31224], overlap_similarity=[31224], prefix_length=[31224], read_length=[9912], read_sequence=[1])
 Processing graph!
 Iterating through neighbors!
+8
+Batch(batch=[2812], edge_index=[2, 5668], overlap_similarity=[5668], prefix_length=[5668], read_length=[2812], read_sequence=[1])
+Processing graph!
+Iterating through neighbors!
+13
+Batch(batch=[8490], edge_index=[2, 17460], overlap_similarity=[17460], prefix_length=[17460], read_length=[8490], read_sequence=[1])
+Processing graph!
+Iterating through neighbors!
+11
+Batch(batch=[4662], edge_index=[2, 9444], overlap_similarity=[9444], prefix_length=[9444], read_length=[4662], read_sequence=[1])
+Processing graph!
+Iterating through neighbors!
+14
+Batch(batch=[3406], edge_index=[2, 6868], overlap_similarity=[6868], prefix_length=[6868], read_length=[3406], read_sequence=[1])
+Processing graph!
+Iterating through neighbors!
+6
+Batch(batch=[4762], edge_index=[2, 9668], overlap_similarity=[9668], prefix_length=[9668], read_length=[4762], read_sequence=[1])
+Processing graph!
+Iterating through neighbors!
+9
+Batch(batch=[4798], edge_index=[2, 9744], overlap_similarity=[9744], prefix_length=[9744], read_length=[4798], read_sequence=[1])
+Processing graph!
+Iterating through neighbors!
+16
+Batch(batch=[4930], edge_index=[2, 9976], overlap_similarity=[9976], prefix_length=[9976], read_length=[4930], read_sequence=[1])
+Processing graph!
+Iterating through neighbors!
+
+All the next neighbors have an opposite strand
+Graph index: 16
+current:, 2407
+[[2407, 2348, 2482, 2475, 2350], [2407, 2551, 2549, 2284, 2547]]
+7
+Batch(batch=[4414], edge_index=[2, 8944], overlap_similarity=[8944], prefix_length=[8944], read_length=[4414], read_sequence=[1])
+Processing graph!
+Iterating through neighbors!
+
+All the next neighbors have an opposite strand
+Graph index: 7
+current:, 1230
+[[1230, 1371, 1232, 3028, 1369], [1230, 3134, 3077, 3075, 3073]]
+Training in epoch 0 done. Elapsed time: 68370.83003306389s
+VALIDATION
+4
+Processing graph!
+Iterating through neighbors!
+17
+Processing graph!
+Iterating through neighbors!
+0
+Processing graph!
+Iterating through neighbors!
+Validation in epoch 0 done. Elapsed time: 68434.13277363777s
+TESTING
+1
+Batch(batch=[3938], edge_index=[2, 8256], overlap_similarity=[8256], prefix_length=[8256], read_length=[3938], read_sequence=[1])
+Processing graph!
+Iterating through neighbors!
+Average accuracy on the test set: 0.7692307692307693
