@@ -16,8 +16,10 @@ from torch_geometric.data import DataLoader
 from torch.utils.data import random_split
 
 import dataset
-from solver import ExecutionModel
 from hyperparameters import get_hyperparameters
+import models
+from solver import ExecutionModel
+import utils
 
 
 def draw_loss_plot(train_loss, valid_loss, timestamp):
@@ -83,9 +85,6 @@ def train(args):
     time_now = datetime.now().strftime('%Y-%b-%d-%H-%M')
     data_path = os.path.abspath(args.data_path)
 
-    # TODO: Discuss with Mile how to train this thing - maybe through generated reads by some tools?
-    # First with real data just to check if the thing works, then probably with the generated graphs
-    # The problem is that generated graphs don't have chimeric reads
     ds = dataset.GraphDataset(data_path)
 
     ratio = 0.2
@@ -97,7 +96,8 @@ def train(args):
     dl_valid = DataLoader(ds_valid, batch_size=batch_size, shuffle=False)
     dl_test = DataLoader(ds_test, batch_size=1, shuffle=False)
 
-    processor = ExecutionModel(dim_node, dim_edge, dim_latent)
+    # processor = ExecutionModel(dim_node, dim_edge, dim_latent)
+    processor = models.SequentialModel(dim_node, dim_edge, dim_latent)
 
     # Multi-GPU training not available as batch_size = 1
     # Therefore, samples in a batch cannot be distributed over GPUs
@@ -112,7 +112,9 @@ def train(args):
     optimizer = optim.Adam(params, lr=learning_rate)
 
     patience = 0
-    best_model = ExecutionModel(dim_node, dim_edge, dim_latent)
+    # best_model = ExecutionModel(dim_node, dim_edge, dim_latent)
+    best_model = models.SequentialModel(dim_node, dim_edge, dim_latent)
+    
     # if torch.cuda.device_count() > 1:
     #     best_model = nn.DataParallel(best_model)
     best_model.load_state_dict(copy.deepcopy(processor.state_dict()))
@@ -143,7 +145,7 @@ def train(args):
                 # print(type(pred))
                 graph = graph.to(device)
                 # Return list of losses for each step in path finding
-                graph_loss, graph_accuracy = processor.process(idx, graph, pred, succ, reference, optimizer, 'train', device=device)
+                graph_loss, graph_accuracy = utils.process(processor, idx, graph, pred, succ, reference, optimizer, 'train', device=device)
                 loss_per_graph.append(np.mean(graph_loss))  # Take the mean of that for each graph
                 acc_per_graph.append(graph_accuracy)
 
@@ -152,6 +154,8 @@ def train(args):
             print(f'Training in epoch {epoch} done. Elapsed time: {time.time()-start_time}s')
 
             # Validation
+            if len(ds_valid) == 0:
+                continue
             with torch.no_grad():
                 print('VALIDATION')
                 processor.eval()
@@ -164,7 +168,7 @@ def train(args):
                     reference = get_reference(idx, data_path)
                     print(idx)
                     graph = graph.to(device)
-                    graph_loss, graph_acc = processor.process(idx, graph, pred, succ, reference, optimizer, 'eval', device=device)
+                    graph_loss, graph_acc = utils.process(processor, idx, graph, pred, succ, reference, optimizer, 'eval', device=device)
                     current_loss = np.mean(graph_loss)
                     loss_per_graph.append(current_loss)
                     acc_per_graph.append(graph_acc)
@@ -189,7 +193,9 @@ def train(args):
     just_for_testing = DataLoader(ds, batch_size=1, shuffle=False)
 
     # Testing
-    mode = 'test'  # Make this more sophisticated, separate inference into a separate file
+    if len(ds_test) == 0:
+        return
+    mode = 'test'
     if mode == 'test':  # TODO: put validation/testing into different functions
         with torch.no_grad():
             print('TESTING')
@@ -204,8 +210,7 @@ def train(args):
                 print(idx)
                 print(graph)
                 graph = graph.to(device)
-                graph_loss, graph_acc = best_model.process(idx, graph, pred, succ, reference, optimizer, 'eval', device=device)
-                break
+                graph_loss, graph_acc = utils.process(best_model, idx, graph, pred, succ, reference, optimizer, 'eval', device=device)
 
             average_test_accuracy = np.mean(graph_acc)
             print(f'Average accuracy on the test set:', average_test_accuracy)
