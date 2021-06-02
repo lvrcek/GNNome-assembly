@@ -10,4 +10,4 @@ debug/*
 
 data/*
 !data/example/
-data/example/raw/reads.fastq
+data/example/raw/*.fastq
