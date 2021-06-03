@@ -1,3 +1,3 @@
 # neural-path-finding
 
-Finding path through and assembly graph.
+Finding path through an assembly graph using graph neural networks.
