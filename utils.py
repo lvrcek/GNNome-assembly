@@ -1,19 +1,11 @@
 import math
-import os
-import random
 
 from Bio import SeqIO
-from Bio.Seq import Seq
 import edlib
 import mappy as mp
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
-from torch_geometric.utils import add_self_loops
 
-from layers import MPNN, EncoderNetwork, DecoderNetwork
-from models.sequential import SequentialModel
 import graph_parser
 from hyperparameters import get_hyperparameters
 
@@ -69,7 +61,6 @@ def get_edlib_best(idx, graph, current, neighbors, reference_seq, aligner, visit
         sequence = graph_parser.translate_nodes_into_sequence2(graph, path[1:])
         if strand == -1:
             sequence = sequence.reverse_complement()
-        # print(len(sequence))
         edlib_start = ref_start + graph.prefix_length[graph_parser.find_edge_index(graph, path[0], path[1])].item()
         edlib_end = edlib_start + len(sequence)
         reference_query = reference_seq[edlib_start:edlib_end]
@@ -79,8 +70,6 @@ def get_edlib_best(idx, graph, current, neighbors, reference_seq, aligner, visit
     try:
         best_path, min_distance = min(distances, key=lambda x: x[1])
         best_neighbor = best_path[1]
-        # print(paths)
-        # print(distances)
         return best_neighbor
     except ValueError:
         print('\nAll the next neighbors have an opposite strand')
@@ -114,14 +103,12 @@ def get_minimap_best(graph, current, neighbors, walk, aligner):
     return best_neighbor
 
 
-def print_prediction(walk, current, neighbors, actions, index, value, choice, best_neighbor):
+def print_prediction(walk, current, neighbors, actions, choice, best_neighbor):
     print('\n-----predicting-----')
     print('previous:\t', None if len(walk) < 2 else walk[-2])
     print('current:\t', current)
     print('neighbors:\t', neighbors[current])
     print('actions:\t', actions.tolist())
-    # print('index:\t\t', index)
-    # print('value:\t\t', value)
     print('choice:\t\t', choice)
     print('ground truth:\t', best_neighbor)
 
@@ -165,14 +152,13 @@ def process(model, idx, graph, pred, neighbors, reference, optimizer, mode, devi
 
         # Get prediction for the next node out of those in list of neighbors (run the model)
         predict_actions, last_latent = model(graph, latent_features=last_latent, device=device)
-
         actions = predict_actions.squeeze(1)[neighbors[current]]
         value, index = torch.topk(actions, k=1, dim=0)  # For evaluation
         choice = neighbors[current][index]
 
         # Branching found - find the best neighbor with edlib
         best_neighbor = get_edlib_best(idx, graph, current, neighbors, reference_seq, aligner, visited)
-        # print_prediction(walk, current, neighbors, actions, index, value, choice, best_neighbor)
+        print_prediction(walk, current, neighbors, actions, choice, best_neighbor)
         if best_neighbor is None:
             break
 
