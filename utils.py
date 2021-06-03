@@ -148,6 +148,7 @@ def process(model, idx, graph, pred, neighbors, reference, optimizer, mode, devi
             current = neighbors[current][0]
             continue
 
+        # Currently not used, but could be used for calculating loss
         mask = torch.tensor([1 if n in neighbors[current] else -math.inf for n in range(graph.num_nodes)]).to(device)
 
         # Get prediction for the next node out of those in list of neighbors (run the model)

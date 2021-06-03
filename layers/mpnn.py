@@ -7,7 +7,7 @@ from hyperparameters import get_hyperparameters
 
 class MPNN(nng.MessagePassing):
 
-    def __init__(self, in_channels, out_channels, edge_features, aggr='add', bias=False, flow='source_to_target'):
+    def __init__(self, in_channels, out_channels, edge_features, aggr='mean', bias=False, flow='source_to_target'):
         super(MPNN, self).__init__(aggr=aggr, flow=flow)
         self.device = get_hyperparameters()['device']
         self.out_channels = out_channels
