@@ -143,7 +143,7 @@ def train(args):
             for data in dl_train:
                 idx, graph, pred, succ, reference = unpack_data(data, data_path, device)
                 print_graph_info(idx, graph)
-                loss_list, accuracy = utils.process2(model, idx, graph, pred, succ, reference, optimizer, 'train', device=device)
+                loss_list, accuracy = utils.process(model, idx, graph, pred, succ, reference, optimizer, 'train', device=device)
                 loss_per_graph.append(np.mean(loss_list))
                 accuracy_per_graph.append(accuracy)
 
