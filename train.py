@@ -93,6 +93,7 @@ def unpack_data(data, data_path, device):
 
 
 def print_graph_info(idx, graph):
+    print('\n---- GRAPH INFO ----')
     print('Graph index:', idx)
     print('Number of nodes:', graph.num_nodes)
     print('Number of edges:', len(graph.edge_index[0]))
@@ -115,12 +116,14 @@ def train(args):
 
     dl_train, dl_valid, dl_test = get_dataloaders(data_path, batch_size, eval, ratio=0.2)
 
-    model = models.SequentialModel(dim_node, dim_edge, dim_latent).to(device)
+    # model = models.SequentialModel(dim_node, dim_edge, dim_latent).to(device)
+    model = models.GCNModel(dim_node, dim_edge, dim_latent).to(device)
     params = list(model.parameters())
     optimizer = optim.Adam(params, lr=learning_rate)
     model_path = os.path.abspath(f'pretrained/{time_now}.pt')
 
-    best_model = models.SequentialModel(dim_node, dim_edge, dim_latent)
+    # best_model = models.SequentialModel(dim_node, dim_edge, dim_latent)
+    best_model = models.GCNModel(dim_node, dim_edge, dim_latent)
     best_model.load_state_dict(copy.deepcopy(model.state_dict()))
     best_model.to(device)
 
@@ -140,7 +143,7 @@ def train(args):
             for data in dl_train:
                 idx, graph, pred, succ, reference = unpack_data(data, data_path, device)
                 print_graph_info(idx, graph)
-                loss_list, accuracy = utils.process(model, idx, graph, pred, succ, reference, optimizer, 'train', device=device)
+                loss_list, accuracy = utils.process2(model, idx, graph, pred, succ, reference, optimizer, 'train', device=device)
                 loss_per_graph.append(np.mean(loss_list))
                 accuracy_per_graph.append(accuracy)
 

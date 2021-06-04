@@ -182,3 +182,83 @@ def process(model, idx, graph, pred, neighbors, reference, optimizer, mode, devi
 
     accuracy = correct / total
     return loss_list, accuracy
+
+
+def process2(model, idx, graph, pred, neighbors, reference, optimizer, mode, device='cpu'):
+    hyperparameters = get_hyperparameters()
+    dim_latent = hyperparameters['dim_latent']
+    last_latent = torch.zeros((graph.num_nodes, dim_latent)).to(device).detach()
+    start_nodes = list(set(range(graph.num_nodes)) - set(pred.keys()))
+    start = start_nodes[0]  # TODO: Maybe iterate over all the start nodes?
+
+    criterion = nn.CrossEntropyLoss()
+    aligner = mp.Aligner(reference, preset='map_pb', best_n=1)
+    reference_seq = next(SeqIO.parse(reference, 'fasta'))
+
+    current = start
+    visited = set()
+    walk = []
+    loss_list = []
+    total = 0
+    correct = 0
+    print('Iterating through nodes!')
+
+    # Embed the graph
+    last_latent = model(graph, last_latent, device, 'embed').detach()
+    predict_actions = model(graph, last_latent, device, 'classify')
+    print(predict_actions.shape)
+    total_loss = 0
+
+    while True:
+        walk.append(current)
+        if current in visited:
+            break
+        visited.add(current)  # current node
+        visited.add(current ^ 1)  # virtual pair of the current node
+        try:
+            if len(neighbors[current]) == 0:
+                break
+        except KeyError:
+            print(current)
+            raise
+        if len(neighbors[current]) == 1:
+            current = neighbors[current][0]
+            continue
+
+        # Currently not used, but could be used for calculating loss
+        mask = torch.tensor([1 if n in neighbors[current] else -math.inf for n in range(graph.num_nodes)]).to(device)
+
+        # Get prediction for the next node out of those in list of neighbors (run the model)
+        # predict_actions, last_latent = model(graph, latent_features=last_latent, device=device)
+        actions = predict_actions.squeeze(1)[neighbors[current]]
+        value, index = torch.topk(actions, k=1, dim=0)  # For evaluation
+        choice = neighbors[current][index]
+
+        # Branching found - find the best neighbor with edlib
+        best_neighbor = get_edlib_best(idx, graph, current, neighbors, reference_seq, aligner, visited)
+        print_prediction(walk, current, neighbors, actions, choice, best_neighbor)
+
+        if best_neighbor is None:
+            break
+
+        # Calculate loss
+        # TODO: Modify for batch_size > 1
+        loss = criterion(actions.unsqueeze(0), index.to(device))
+        total_loss += loss
+        # loss_list.append(loss)
+
+        if choice == best_neighbor:
+            correct += 1
+        total += 1
+
+        # Teacher forcing
+        current = best_neighbor
+
+    # Update weights
+    if mode == 'train':
+        optimizer.zero_grad()
+        total_loss.backward()
+        optimizer.step()
+
+    accuracy = correct / total
+    return loss_list, accuracy
