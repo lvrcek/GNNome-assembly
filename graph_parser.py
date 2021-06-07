@@ -134,9 +134,9 @@ def from_csv(graph_path, reads_path):
                 description = description_queue.popleft()
                 id, idx, strand, start, end = description.split()
                 idx = int(re.findall(r'idx=(\d+)', idx)[0])
-                strand = 1 if strand[-1] == '+' else -1
+                strand = 1 if strand[-2] == '+' else -1
                 start = int(re.findall(r'start=(\d+)', start)[0])
-                end = int(re.findall(r'end=(:\d+)', end)[0])
+                end = int(re.findall(r'end=(\d+)', end)[0])
                 if strand == -1:
                     start, end = end, start
                 
