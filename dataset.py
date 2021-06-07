@@ -71,7 +71,7 @@ class GraphDataset(Dataset):
             print(reads_path)
             subprocess.run(f'{self.raven_path} --weaken -t32 -p0 {reads_path} > assembly.fasta', shell=True, cwd=self.tmp_dir)
             processed_path = os.path.join(self.processed_dir, str(cnt) + '.pt')
-            _, _, graph_dir, graph_und, pred, succ = graph_parser.from_csv(os.path.join(self.tmp_dir, 'graph_before.csv'))
+            _, _, graph_dir, graph_und, pred, succ = graph_parser.from_csv(os.path.join(self.tmp_dir, 'graph_before.csv'), reads_path)
             torch.save(graph_und, processed_path)
 
             pickle.dump(pred, open(f'{self.processed_dir}/{cnt}_pred.pkl', 'wb'))  # print predecessors

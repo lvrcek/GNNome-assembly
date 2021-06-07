@@ -7,6 +7,7 @@ from torch_geometric.data import Data
 from torch_geometric.utils import from_networkx, undirected
 import networkx as nx
 from matplotlib import pyplot as plt
+from Bio import SeqIO
 from Bio.Seq import Seq
 
 
@@ -86,28 +87,35 @@ def print_fasta(graph, path):
             f.write(str(seq + '\n'))
 
 
-def from_gfa(graph_path):
+def from_gfa(graph_path, reads_path):
     read_sequences = deque()
+    description_queue = deque()
+    # TODO: Parsing of reads won't work for alrger datasets nor gzipped files
+    reads_list = list(SeqIO.parse(reads_path, 'fastq'))
     with open(graph_path) as f:
         for line in f.readlines():
             line = line.strip().split()
             if len(line) == 5:
-                tag, name, sequence, length, count = line
+                tag, id, sequence, length, count = line
                 sequence = Seq(sequence)
                 read_sequences.append(sequence)
                 read_sequences.append(sequence.reverse_complement())
+                description = reads_list[int(id)].description
+                description_queue.append(description)
             else:
                 break
-    return read_sequences
+    return read_sequences, description_queue
 
 
-def from_csv(graph_path):
+def from_csv(graph_path, reads_path):
     graph_nx = nx.DiGraph()
     graph_nx_und = nx.Graph()
     node_lengths = {}
     node_data = {}
+    node_idx, node_strand, node_start, node_end = {}, {}, {}, {}
     edge_ids, prefix_lengths, edge_similarities = {}, {}, {}
-    read_sequences = from_gfa(graph_path[:-3] + 'gfa')
+    read_sequences, description_queue = from_gfa(graph_path[:-3] + 'gfa', reads_path)
+
     with open(graph_path) as f:
         for line in f.readlines():
             src, dst, flag, overlap = line.strip().split(',')
@@ -118,14 +126,36 @@ def from_csv(graph_path):
             dst_id, dst_len = int(dst[0]), int(re.findall(pattern, dst[2])[0])
 
             if flag == 0:
+                
+                description = description_queue.popleft()
+                id, idx, strand, start, end = description.split()
+                idx = int(re.findall(r'idx=(\d+)', idx)[0])
+                strand = 1 if strand[-1] == '+' else -1
+                start = int(re.findall(r'start=(\d+)', start)[0])
+                end = int(re.findall(r'end=(:\d+)', end)[0])
+                if strand == -1:
+                    start, end = end, start
+                
                 if src_id not in node_lengths.keys():
                     node_lengths[src_id] = src_len
                     node_data[src_id] = read_sequences.popleft()
+
+                    node_idx[src_id] = idx
+                    node_strand[src_id] = strand
+                    node_start[src_id] = start
+                    node_end[src_id] = end
+
                     graph_nx.add_node(src_id)
                     graph_nx_und.add_node(src_id)
                 if dst_id not in node_lengths.keys():
                     node_lengths[dst_id] = dst_len
                     node_data[dst_id] = read_sequences.popleft()
+
+                    node_idx[dst_id] = idx
+                    node_strand[dst_id] = -strand
+                    node_start[dst_id] = end
+                    node_end[dst_id] = start
+
                     graph_nx.add_node(dst_id)
                     graph_nx_und.add_node(dst_id)
             else:
@@ -144,6 +174,10 @@ def from_csv(graph_path):
                     edge_similarities[(src_id, dst_id)] = similarity
 
     nx.set_node_attributes(graph_nx_und, node_lengths, 'read_length')
+    nx.set_node_attributes(graph_nx_und, node_idx, 'read_idx')
+    nx.set_node_attributes(graph_nx_und, node_strand, 'read_strand')
+    nx.set_node_attributes(graph_nx_und, node_start, 'read_start')
+    nx.set_node_attributes(graph_nx_und, node_end, 'read_end')
     nx.set_node_attributes(graph_nx_und, node_data, 'read_sequence')
     nx.set_edge_attributes(graph_nx_und, prefix_lengths, 'prefix_length')
     nx.set_edge_attributes(graph_nx_und, edge_similarities, 'overlap_similarity')
@@ -162,19 +196,20 @@ def from_csv(graph_path):
 
 
 def main():
-    graph_path = os.path.abspath('data/raw/graph_before.csv')
-    graph_nx, graph_torch = from_csv(graph_path)
-    graph_torch.x = torch.zeros(graph_torch.num_nodes, dtype=int)
-    # --- TESTING ---
-    print(graph_torch)
-    print(graph_torch.x)
-    print(graph_torch.read_length[:10])
-    print(graph_torch.edge_index[0][:10])
-    print(graph_torch.edge_index[1][:10])
-    print(graph_torch.prefix_length[:10])
-    print(graph_torch.overlap_similarity[:10])
-    draw_graph(graph_nx)
-    # ---------------
+    pass
+    # graph_path = os.path.abspath('data/raw/graph_before.csv')
+    # graph_nx, graph_torch = from_csv(graph_path)
+    # graph_torch.x = torch.zeros(graph_torch.num_nodes, dtype=int)
+    # # --- TESTING ---
+    # print(graph_torch)
+    # print(graph_torch.x)
+    # print(graph_torch.read_length[:10])
+    # print(graph_torch.edge_index[0][:10])
+    # print(graph_torch.edge_index[1][:10])
+    # print(graph_torch.prefix_length[:10])
+    # print(graph_torch.overlap_similarity[:10])
+    # draw_graph(graph_nx)
+    # # ---------------
 
 
 if __name__ == '__main__':
