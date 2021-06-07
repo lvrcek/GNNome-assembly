@@ -100,7 +100,11 @@ def from_gfa(graph_path, reads_path):
                 sequence = Seq(sequence)
                 read_sequences.append(sequence)
                 read_sequences.append(sequence.reverse_complement())
-                description = reads_list[int(id)].description
+                try:
+                    description = reads_list[int(id)].description
+                except ValueError:
+                    # TODO: The parsing above does not work for unitigs, find a better workaround
+                    description = '0 idx=0, strand=+, start=0, end=0'
                 description_queue.append(description)
             else:
                 break
