@@ -11,3 +11,5 @@ debug/*
 data/*
 !data/example/
 data/example/raw/*.fastq
+data/example/tmp/*
+data/example/sequences/*
