@@ -22,20 +22,20 @@ import dgl
 # TODO: Maybe put all these into a Graph class?
 def get_neighbors(graph):
     neighbor_dict = defaultdict(list)
-    for src, dst in zip(graph.edge_index[0], graph.edge_index[1]):
+    for src, dst in zip(graph.edges()[0], graph.edges()[1]):
         neighbor_dict[src.item()].append(dst.item())
     return neighbor_dict
 
 
 def get_predecessors(graph):
     predecessor_dict = defaultdict(list)
-    for src, dst in zip(graph.edge_index[0], graph.edge_index[1]):
+    for src, dst in zip(graph.edges()[0], graph.edges()[1]):
         predecessor_dict[dst.item()].append(src.item())
     return predecessor_dict
 
 
 def find_edge_index(graph, src, dst):
-    for idx, (node1, node2) in enumerate(zip(graph.edge_index[0], graph.edge_index[1])):
+    for idx, (node1, node2) in enumerate(zip(graph.edges()[0], graph.edges()[1])):
         if node1 == src and node2 == dst:
             return idx
 
@@ -79,7 +79,7 @@ def get_quality(hits, seq_len):
 
 def print_pairwise(graph, path):
     with open(path, 'w') as f:
-        for src, dst in zip(graph.edge_index[0], graph.edge_index[1]):
+        for src, dst in zip(graph.edges()[0], graph.edges()[1]):
             f.write(f'{src}\t{dst}\n')
 
 
@@ -267,7 +267,6 @@ def from_csv_dgl(graph_path, reads_path):
                     edge_ids[(src_id, dst_id)] = edge_id
                     prefix_lengths[(src_id, dst_id)] = prefix_len
                     edge_similarities[(src_id, dst_id)] = similarity
-                    print(similarity)
 
     # nx.set_node_attributes(graph_nx_und, node_lengths, 'read_length')
     # nx.set_node_attributes(graph_nx_und, node_idx, 'read_idx')
@@ -286,14 +285,13 @@ def from_csv_dgl(graph_path, reads_path):
     nx.set_node_attributes(graph_nx, node_data, 'read_sequence')
     nx.set_edge_attributes(graph_nx, prefix_lengths, 'prefix_length')
     nx.set_edge_attributes(graph_nx, edge_similarities, 'overlap_similarity')
-    # print(edge_similarities)
     
     graph_dgl = dgl.from_networkx(graph_nx, node_attrs=['read_length', 'read_strand', 'read_start', 'read_end'], 
                                   edge_attrs=['prefix_length', 'overlap_similarity'])
 
     # graph_torch = from_networkx(graph_nx)
-    # predecessors = get_predecessors(graph_torch)
-    # successors = get_neighbors(graph_torch)
+    predecessors = get_predecessors(graph_dgl)
+    successors = get_neighbors(graph_dgl)
 
     # graph_torch_und = from_networkx(graph_nx_und)
     # num_nodes = len(graph_nx)
@@ -301,7 +299,7 @@ def from_csv_dgl(graph_path, reads_path):
 
     # graph_torch.num_nodes = num_nodes
     # graph_torch_und.num_nodes = num_nodes
-    return graph_dgl
+    return graph_dgl, predecessors, successors
     # return graph_nx, graph_nx_und, graph_torch, graph_torch_und, predecessors, successors
 
 

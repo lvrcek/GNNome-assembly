@@ -11,27 +11,31 @@ import graph_parser
 
 class GraphDataset(DGLDataset):
 
-    def __init__(self, root, device='cpu'):
-        super().__init__()
-        if 'raw' not in os.listdir(root):
-            subprocess.run(f"mkdir 'raw'", shell=True, cwd=root)
-        if 'tmp' not in os.listdir(root):
-            subprocess.run(f"mkdir 'tmp'", shell=True, cwd=root)
-        if 'processed' not in os.listdir(root):
-            subprocess.run(f"mkdir 'processed'", shell=True, cwd=root)
-
+    def __init__(self, name='chr11_90-100M.fastq', root='data/test'):
+        print('here 1')
+        # super(GraphDataset, self).__init__(name='AssemblyGraph')
+        print('here 2')
         self.root = root
-        self.raw_dir = os.path.join(root, 'raw')
-        self.processed_dir = os.path.join(root, 'processed')
-        self.tmp_dir = os.path.join(root, 'tmp')
+        # self.raw_dir = root
+        if 'raw' not in os.listdir(self.root):
+            subprocess.run(f"mkdir 'raw'", shell=True, cwd=self.root)
+        if 'tmp' not in os.listdir(self.root):
+            subprocess.run(f"mkdir 'tmp'", shell=True, cwd=self.root)
+        if 'processed' not in os.listdir(self.root):
+            subprocess.run(f"mkdir 'processed'", shell=True, cwd=self.root)
+
+        self.raww_dir = os.path.join(self.root, 'raw')
+        self.processed_dir = os.path.join(self.root, 'processed')
+        self.tmp_dir = os.path.join(self.root, 'tmp')
         self.raven_path = os.path.abspath('vendor/raven/build/bin/raven')
-        self.device = device
+        super().__init__(name='AssemblyGraph')
+
 
     def __len__(self):
-        return (len(os.listdir(self.processed_dir)) -2) // 3 # if there are those other filter files
+        return len(os.listdir(self.processed_dir)) // 3# if there are those other filter files
 
     def __getitem__(self, idx):
-        (graph,), _ = dgl.load_graphs(os.path.join(self.processed_dir, str(idx) + '.pt'))
+        (graph,), _ = dgl.load_graphs(os.path.join(self.processed_dir, str(idx) + '.dgl'))
         # pred = pickle.load(open(os.path.join(self.processed_dir, f'{idx}_pred.pkl'), 'rb'))
         # succ = pickle.load(open(os.path.join(self.processed_dir, f'{idx}_succ.pkl'), 'rb'))
         return idx, graph
@@ -51,6 +55,8 @@ class GraphDataset(DGLDataset):
     #     pass
 
     def process(self):
+        print(self)
+        print(self.root)
         sequences_path = os.path.join(self.root, 'sequences')
         if not os.path.isdir(sequences_path):
             os.mkdir(sequences_path)
@@ -59,21 +65,21 @@ class GraphDataset(DGLDataset):
             os.mkdir(graphia_dir)
 
         with open(f'{self.root}/dataset_log.txt', 'w') as f:
-            for cnt, reads in enumerate(os.listdir(self.raw_dir)):
+            for cnt, reads in enumerate(os.listdir(self.raww_dir)):
                 print(cnt, reads)
-                reads_path = os.path.abspath(os.path.join(self.raw_dir, reads))
+                reads_path = os.path.abspath(os.path.join(self.raww_dir, reads))
                 print(reads_path)
                 subprocess.run(f'{self.raven_path} --weaken -t32 -p0 {reads_path} > assembly.fasta', shell=True, cwd=self.tmp_dir)
-                processed_path = os.path.join(self.processed_dir, str(cnt) + '.pt')
-                graph = graph_parser.from_csv_dgl(os.path.join(self.tmp_dir, 'graph_before.csv'), reads_path)
+                processed_path = os.path.join(self.processed_dir, str(cnt) + '.dgl')
+                graph, pred, succ = graph_parser.from_csv_dgl(os.path.join(self.tmp_dir, 'graph_before.csv'), reads_path)
                 dgl.save_graphs(processed_path, graph)
                 # torch.save(graph_und, processed_path)
 
-                # pickle.dump(pred, open(f'{self.processed_dir}/{cnt}_pred.pkl', 'wb'))  # print predecessors
-                # pickle.dump(succ, open(f'{self.processed_dir}/{cnt}_succ.pkl', 'wb'))  # print successors
+                pickle.dump(pred, open(f'{self.processed_dir}/{cnt}_pred.pkl', 'wb'))  # print predecessors
+                pickle.dump(succ, open(f'{self.processed_dir}/{cnt}_succ.pkl', 'wb'))  # print successors
 
                 graphia_path = os.path.join(graphia_dir, f'{cnt}_graph.txt')
-                # graph_parser.print_pairwise(graph_dir, graphia_path)  # print pairwise-txt format for graphia visualization
+                graph_parser.print_pairwise(graph, graphia_path)  # print pairwise-txt format for graphia visualization
 
                 # graph_path = os.path.join(sequences_path, f'graph_{cnt}')  # print sequences, useful for gepard
                 # if not os.path.isdir(graph_path):
