@@ -11,31 +11,22 @@ from hyperparameters import get_hyperparameters
 import models
 
 
-def anchor(graph, current, aligner):
-    if not hasattr(graph, 'batch'):
-        sequence = graph.read_sequence[current]
-    else:
-        sequence = graph.read_sequence[0][current]
+def anchor(reads, current, aligner):
+    sequence = reads[current]
     alignment = aligner.map(sequence)
     hit = list(alignment)[0]
     r_st, r_en, strand = hit.r_st, hit.r_en, hit.strand
     return r_st, r_en, strand
 
 
-def get_overlap_length(graph, current, neighbor):
+def get_overlap_length(graph, reads, current, neighbor):
     idx = graph_parser.find_edge_index(graph, current, neighbor)
-    if not hasattr(graph, 'batch'):
-        overlap_length = len(graph.read_sequence[current]) - graph.prefix_length[idx]
-    else:
-        overlap_length = len(graph.read_sequence[0][current]) - graph.prefix_length[idx]
+    overlap_length = len(reads[current]) - graph.prefix_length[idx]
     return overlap_length
 
 
-def get_suffix(graph, node, overlap_length):
-    if not hasattr(graph, 'batch'):
-        return graph.read_sequence[node][overlap_length:]
-    else:
-        return graph.read_sequence[0][node][overlap_length:]
+def get_suffix(reads, node, overlap_length):
+    return reads[node][overlap_length:]
 
 
 def get_paths(start, neighbors, num_nodes):
@@ -50,13 +41,13 @@ def get_paths(start, neighbors, num_nodes):
     return paths
 
 
-def get_edlib_best(idx, graph, current, neighbors, reference_seq, aligner, visited):
-    ref_start, ref_end, strand = anchor(graph, current, aligner)
+def get_edlib_best(idx, graph, reads, current, neighbors, reference_seq, aligner, visited):
+    ref_start, ref_end, strand = anchor(reads, current, aligner)
     edlib_start = ref_start
     paths = [path[::-1] for path in get_paths(current, neighbors, num_nodes=4)]
     distances = []
     for path in paths:
-        _, _, next_strand = anchor(graph, path[1], aligner)
+        _, _, next_strand = anchor(reads, path[1], aligner)
         if next_strand != strand:
             continue
         sequence = graph_parser.translate_nodes_into_sequence2(graph, path[1:])
@@ -168,7 +159,7 @@ def process(model, idx, graph, pred, neighbors, reads, reference, optimizer, mod
         choice = neighbors[current][index]
 
         # Branching found - find the best neighbor with edlib
-        # best_neighbor = get_edlib_best(idx, graph, current, neighbors, reference_seq, aligner, visited)
+        best_neighbor = get_edlib_best(idx, graph, reads, current, neighbors, reference_seq, aligner, visited)
         best_neighbor = neighbors[current][0]
         print_prediction(walk, current, neighbors, actions, choice, best_neighbor)
 

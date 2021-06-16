@@ -45,23 +45,13 @@ def find_edge_index(graph, src, dst):
 #     return seq
 
 
-def translate_nodes_into_sequence2(graph, node_tr):
+def translate_nodes_into_sequence2(graph, reads, node_tr):
     seq = ''
     for src, dst in zip(node_tr[:-1], node_tr[1:]):
         idx = find_edge_index(graph, src, dst)
         prefix_length = graph.prefix_length[idx]
-        # In graph, len(graph.read_sequence) == num_nodes. Same if I take it out from dataset
-        # But with DataLoader, len(graph.read_sequence) == 1. As if it was unsqueezed at some point during loading
-
-        if not hasattr(graph, 'batch'):
-            seq += graph.read_sequence[src][:prefix_length]
-        else:
-            seq += graph.read_sequence[0][src][:prefix_length]  # Why is this so?!
-
-    if not hasattr(graph, 'batch'):
-        seq += graph.read_sequence[node_tr[-1]]
-    else:
-        seq += graph.read_sequence[0][node_tr[-1]]
+        seq += reads[src][:prefix_length]
+    seq += reads[node_tr[-1]]
     return seq
 
 
