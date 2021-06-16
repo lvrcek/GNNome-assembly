@@ -11,10 +11,11 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch_geometric.data import DataLoader
 from torch.utils.data import random_split
 
-import dataset
+from dgl.dataloading import GraphDataLoader
+
+import dataset_dgl
 from hyperparameters import get_hyperparameters
 import models
 import utils
@@ -68,17 +69,17 @@ def get_reference(idx, data_path):
 
 
 def get_dataloaders(data_path, batch_size, eval, ratio):
-    ds = dataset.GraphDataset(data_path)
+    ds = dataset_dgl.GraphDataset(data_path)
     if eval:
         dl_train, dl_valid = None, None
-        dl_test = DataLoader(ds, batch_size=batch_size, shuffle=False)
+        dl_test = GraphDataLoader(ds, batch_size=batch_size, shuffle=False)
     else:
         valid_size = test_size = int(len(ds) * ratio)
         train_size = len(ds) - valid_size - test_size
         ds_train, ds_valid, ds_test = random_split(ds, [train_size, valid_size, test_size])
-        dl_train = DataLoader(ds_train, batch_size=batch_size, shuffle=True)
-        dl_valid = DataLoader(ds_valid, batch_size=batch_size, shuffle=False)
-        dl_test = DataLoader(ds_test, batch_size=batch_size, shuffle=False)
+        dl_train = GraphDataLoader(ds_train, batch_size=batch_size, shuffle=True)
+        dl_valid = GraphDataLoader(ds_valid, batch_size=batch_size, shuffle=False)
+        dl_test = GraphDataLoader(ds_test, batch_size=batch_size, shuffle=False)
     
     return dl_train, dl_valid, dl_test
 
@@ -95,8 +96,8 @@ def unpack_data(data, data_path, device):
 def print_graph_info(idx, graph):
     print('\n---- GRAPH INFO ----')
     print('Graph index:', idx)
-    print('Number of nodes:', graph.num_nodes)
-    print('Number of edges:', len(graph.edge_index[0]))
+    print('Number of nodes:', graph.num_nodes())
+    print('Number of edges:', len(graph.edges()[0]))
 
 
 def train(args):
@@ -116,14 +117,14 @@ def train(args):
 
     dl_train, dl_valid, dl_test = get_dataloaders(data_path, batch_size, eval, ratio=0.2)
 
-    # model = models.SequentialModel(dim_node, dim_edge, dim_latent).to(device)
-    model = models.GCNModel(dim_node, dim_edge, dim_latent).to(device)
+    model = models.SequentialModel(dim_node, dim_edge, dim_latent).to(device)
+    # model = models.GCNModel(dim_node, dim_edge, dim_latent).to(device)
     params = list(model.parameters())
     optimizer = optim.Adam(params, lr=learning_rate)
     model_path = os.path.abspath(f'pretrained/{time_now}.pt')
 
-    # best_model = models.SequentialModel(dim_node, dim_edge, dim_latent)
-    best_model = models.GCNModel(dim_node, dim_edge, dim_latent)
+    best_model = models.SequentialModel(dim_node, dim_edge, dim_latent)
+    # best_model = models.GCNModel(dim_node, dim_edge, dim_latent)
     best_model.load_state_dict(copy.deepcopy(model.state_dict()))
     best_model.to(device)
 
@@ -135,7 +136,7 @@ def train(args):
         # --- Training ---
         start_time = time.time()
         for epoch in range(num_epochs):
-            model.train()
+            # model.train()
             print(f'Epoch: {epoch}')
             patience += 1
             loss_per_graph = []
@@ -143,6 +144,8 @@ def train(args):
             for data in dl_train:
                 idx, graph, pred, succ, reference = unpack_data(data, data_path, device)
                 print_graph_info(idx, graph)
+                print('HERE')
+                print(graph)
                 loss_list, accuracy = utils.process(model, idx, graph, pred, succ, reference, optimizer, 'train', device=device)
                 loss_per_graph.append(np.mean(loss_list))
                 accuracy_per_graph.append(accuracy)

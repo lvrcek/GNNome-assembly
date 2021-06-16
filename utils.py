@@ -116,9 +116,10 @@ def print_prediction(walk, current, neighbors, actions, choice, best_neighbor):
 
 def process(model, idx, graph, pred, neighbors, reference, optimizer, mode, device='cpu'):
     hyperparameters = get_hyperparameters()
+    print('ENTER UTILS')
     dim_latent = hyperparameters['dim_latent']
-    last_latent = torch.zeros((graph.num_nodes, dim_latent)).to(device).detach()
-    start_nodes = list(set(range(graph.num_nodes)) - set(pred.keys()))
+    last_latent = torch.zeros((graph.num_nodes(), dim_latent)).to(device).detach()
+    start_nodes = list(set(range(graph.num_nodes())) - set(pred.keys()))
     start = start_nodes[0]  # TODO: Maybe iterate over all the start nodes?
 
     criterion = nn.CrossEntropyLoss()
@@ -134,11 +135,11 @@ def process(model, idx, graph, pred, neighbors, reference, optimizer, mode, devi
     correct = 0
     print('Iterating through nodes!')
 
-    # Embed the graph with GCN model
-    if isinstance(model, models.GCNModel):
-        last_latent = model(graph, last_latent, device, 'embed')
-        predict_actions = model(graph, last_latent, device, 'classify')
-        print(predict_actions.shape)
+    # # Embed the graph with GCN model
+    # if isinstance(model, models.GCNModel):
+    #     last_latent = model(graph, last_latent, device, 'embed')
+    #     predict_actions = model(graph, last_latent, device, 'classify')
+    #     print(predict_actions.shape)
 
     while True:
         walk.append(current)
@@ -157,7 +158,7 @@ def process(model, idx, graph, pred, neighbors, reference, optimizer, mode, devi
             continue
 
         # Currently not used, but could be used for calculating loss
-        mask = torch.tensor([1 if n in neighbors[current] else -math.inf for n in range(graph.num_nodes)]).to(device)
+        mask = torch.tensor([1 if n in neighbors[current] else -math.inf for n in range(graph.num_nodes())]).to(device)
 
         # Get prediction for the next node out of those in list of neighbors (run the model)
         if isinstance(model, models.SequentialModel):
@@ -167,7 +168,8 @@ def process(model, idx, graph, pred, neighbors, reference, optimizer, mode, devi
         choice = neighbors[current][index]
 
         # Branching found - find the best neighbor with edlib
-        best_neighbor = get_edlib_best(idx, graph, current, neighbors, reference_seq, aligner, visited)
+        # best_neighbor = get_edlib_best(idx, graph, current, neighbors, reference_seq, aligner, visited)
+        best_neighbor = neighbors[current][0]
         print_prediction(walk, current, neighbors, actions, choice, best_neighbor)
 
         if best_neighbor is None:
@@ -192,11 +194,11 @@ def process(model, idx, graph, pred, neighbors, reference, optimizer, mode, devi
             loss.backward()
             optimizer.step()
 
-    # Update weights for non-sequential model
-    if isinstance(model, models.GCNModel) and mode == 'train':
-        optimizer.zero_grad()
-        total_loss.backward()
-        optimizer.step()
+    # # Update weights for non-sequential model
+    # if isinstance(model, models.GCNModel) and mode == 'train':
+    #     optimizer.zero_grad()
+    #     total_loss.backward()
+    #     optimizer.step()
 
     accuracy = correct / total
     return loss_list, accuracy

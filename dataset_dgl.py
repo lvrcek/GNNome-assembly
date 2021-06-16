@@ -11,7 +11,7 @@ import graph_parser
 
 class GraphDataset(DGLDataset):
 
-    def __init__(self, name='chr11_90-100M.fastq', root='data/test'):
+    def __init__(self, name='chr11_90-100M.fastq', root='data/example'):
         print('here 1')
         # super(GraphDataset, self).__init__(name='AssemblyGraph')
         print('here 2')
@@ -31,8 +31,11 @@ class GraphDataset(DGLDataset):
         super().__init__(name='AssemblyGraph')
 
 
+    def has_cache(self):
+        return len(self.processed_dir) > 0
+
     def __len__(self):
-        return len(os.listdir(self.processed_dir)) // 3# if there are those other filter files
+        return len(os.listdir(self.processed_dir)) // 3  # if there are those other filter files
 
     def __getitem__(self, idx):
         (graph,), _ = dgl.load_graphs(os.path.join(self.processed_dir, str(idx) + '.dgl'))
