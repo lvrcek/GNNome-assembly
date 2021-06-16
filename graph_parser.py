@@ -109,7 +109,7 @@ def from_gfa(graph_path, reads_path):
     return read_sequences, description_queue
 
 
-def from_csv_dgl(graph_path, reads_path):
+def from_csv(graph_path, reads_path):
     graph_nx = nx.DiGraph()
     graph_nx_und = nx.Graph()
     read_length = {}
@@ -177,7 +177,6 @@ def from_csv_dgl(graph_path, reads_path):
     nx.set_node_attributes(graph_nx, read_strand, 'read_strand')
     nx.set_node_attributes(graph_nx, read_start, 'read_start')
     nx.set_node_attributes(graph_nx, read_end, 'read_end')
-    # nx.set_node_attributes(graph_nx, node_data, 'read_sequence')
     nx.set_edge_attributes(graph_nx, prefix_length, 'prefix_length')
     nx.set_edge_attributes(graph_nx, overlap_similarity, 'overlap_similarity')
     
@@ -187,4 +186,4 @@ def from_csv_dgl(graph_path, reads_path):
     predecessors = get_predecessors(graph_dgl)
     successors = get_neighbors(graph_dgl)
 
-    return graph_dgl, predecessors, successors
+    return graph_dgl, predecessors, successors, node_data

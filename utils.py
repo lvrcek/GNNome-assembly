@@ -114,7 +114,7 @@ def print_prediction(walk, current, neighbors, actions, choice, best_neighbor):
     print('ground truth:\t', best_neighbor)
 
 
-def process(model, idx, graph, pred, neighbors, reference, optimizer, mode, device='cpu'):
+def process(model, idx, graph, pred, neighbors, reads, reference, optimizer, mode, device='cpu'):
     hyperparameters = get_hyperparameters()
     print('ENTER UTILS')
     dim_latent = hyperparameters['dim_latent']
