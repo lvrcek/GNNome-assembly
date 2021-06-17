@@ -50,10 +50,10 @@ def get_edlib_best(idx, graph, reads, current, neighbors, reference_seq, aligner
         _, _, next_strand = anchor(reads, path[1], aligner)
         if next_strand != strand:
             continue
-        sequence = graph_parser.translate_nodes_into_sequence2(graph, path[1:])
+        sequence = graph_parser.translate_nodes_into_sequence2(graph, reads, path[1:])
         if strand == -1:
             sequence = sequence.reverse_complement()
-        edlib_start = ref_start + graph.prefix_length[graph_parser.find_edge_index(graph, path[0], path[1])].item()
+        edlib_start = ref_start + graph.edata['prefix_length'][graph_parser.find_edge_index(graph, path[0], path[1])].item()
         edlib_end = edlib_start + len(sequence)
         reference_query = reference_seq[edlib_start:edlib_end]
         distance = edlib.align(reference_query, sequence)['editDistance']
@@ -71,12 +71,12 @@ def get_edlib_best(idx, graph, reads, current, neighbors, reference_seq, aligner
         return None
         
 
-def get_minimap_best(graph, current, neighbors, walk, aligner):
+def get_minimap_best(graph, reads, current, neighbors, walk, aligner):
     scores = []
     for neighbor in neighbors[current]:
         print(f'\tcurrent neighbor {neighbor}')
         node_tr = walk[-min(3, len(walk)):] + [neighbor]
-        sequence = graph_parser.translate_nodes_into_sequence2(graph, node_tr)
+        sequence = graph_parser.translate_nodes_into_sequence2(graph, reads, node_tr)
         ll = min(len(sequence), 50000)
         sequence = sequence[-ll:]
         name = '_'.join(map(str, node_tr)) + '.fasta'
@@ -107,7 +107,6 @@ def print_prediction(walk, current, neighbors, actions, choice, best_neighbor):
 
 def process(model, idx, graph, pred, neighbors, reads, reference, optimizer, mode, device='cpu'):
     hyperparameters = get_hyperparameters()
-    print('ENTER UTILS')
     dim_latent = hyperparameters['dim_latent']
     last_latent = torch.zeros((graph.num_nodes(), dim_latent)).to(device).detach()
     start_nodes = list(set(range(graph.num_nodes())) - set(pred.keys()))
@@ -126,11 +125,11 @@ def process(model, idx, graph, pred, neighbors, reads, reference, optimizer, mod
     correct = 0
     print('Iterating through nodes!')
 
-    # # Embed the graph with GCN model
-    # if isinstance(model, models.GCNModel):
-    #     last_latent = model(graph, last_latent, device, 'embed')
-    #     predict_actions = model(graph, last_latent, device, 'classify')
-    #     print(predict_actions.shape)
+    # Embed the graph with GCN model
+    if isinstance(model, models.GCNModel):
+        last_latent = model(graph, last_latent, device, 'embed')
+        predict_actions = model(graph, last_latent, device, 'classify')
+        print(predict_actions.shape)
 
     while True:
         walk.append(current)
@@ -160,7 +159,6 @@ def process(model, idx, graph, pred, neighbors, reads, reference, optimizer, mod
 
         # Branching found - find the best neighbor with edlib
         best_neighbor = get_edlib_best(idx, graph, reads, current, neighbors, reference_seq, aligner, visited)
-        best_neighbor = neighbors[current][0]
         print_prediction(walk, current, neighbors, actions, choice, best_neighbor)
 
         if best_neighbor is None:
@@ -185,11 +183,11 @@ def process(model, idx, graph, pred, neighbors, reads, reference, optimizer, mod
             loss.backward()
             optimizer.step()
 
-    # # Update weights for non-sequential model
-    # if isinstance(model, models.GCNModel) and mode == 'train':
-    #     optimizer.zero_grad()
-    #     total_loss.backward()
-    #     optimizer.step()
+    # Update weights for non-sequential model
+    if isinstance(model, models.GCNModel) and mode == 'train':
+        optimizer.zero_grad()
+        total_loss.backward()
+        optimizer.step()
 
     accuracy = correct / total
     return loss_list, accuracy

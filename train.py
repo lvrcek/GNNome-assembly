@@ -123,14 +123,14 @@ def train(args):
 
     dl_train, dl_valid, dl_test = get_dataloaders(data_path, batch_size, eval, ratio=0.2)
 
-    model = models.SequentialModel(dim_node, dim_edge, dim_latent).to(device)
-    # model = models.GCNModel(dim_node, dim_edge, dim_latent).to(device)
+    # model = models.SequentialModel(dim_node, dim_edge, dim_latent).to(device)
+    model = models.GCNModel(dim_node, dim_edge, dim_latent).to(device)
     params = list(model.parameters())
     optimizer = optim.Adam(params, lr=learning_rate)
     model_path = os.path.abspath(f'pretrained/{time_now}.pt')
 
-    best_model = models.SequentialModel(dim_node, dim_edge, dim_latent)
-    # best_model = models.GCNModel(dim_node, dim_edge, dim_latent)
+    # best_model = models.SequentialModel(dim_node, dim_edge, dim_latent)
+    best_model = models.GCNModel(dim_node, dim_edge, dim_latent)
     best_model.load_state_dict(copy.deepcopy(model.state_dict()))
     best_model.to(device)
 

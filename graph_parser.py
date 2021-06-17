@@ -49,7 +49,7 @@ def translate_nodes_into_sequence2(graph, reads, node_tr):
     seq = ''
     for src, dst in zip(node_tr[:-1], node_tr[1:]):
         idx = find_edge_index(graph, src, dst)
-        prefix_length = graph.prefix_length[idx]
+        prefix_length = graph.edata['prefix_length'][idx]
         seq += reads[src][:prefix_length]
     seq += reads[node_tr[-1]]
     return seq
@@ -66,13 +66,6 @@ def print_pairwise(graph, path):
     with open(path, 'w') as f:
         for src, dst in zip(graph.edges()[0], graph.edges()[1]):
             f.write(f'{src}\t{dst}\n')
-
-
-def print_fasta(graph, path):
-    for idx, seq in enumerate(graph.read_sequence):
-        with open(f'{path}/{idx}.fasta', 'w') as f:
-            f.write(f'>node_{idx}\n')
-            f.write(str(seq + '\n'))
 
 
 def from_gfa(graph_path, reads_path):
@@ -175,5 +168,8 @@ def from_csv(graph_path, reads_path):
                                   edge_attrs=['prefix_length', 'overlap_similarity'])
     predecessors = get_predecessors(graph_dgl)
     successors = get_neighbors(graph_dgl)
+    reads = {}
+    for i, key in enumerate(sorted(node_data)):
+        reads[i] = node_data[key]
 
-    return graph_dgl, predecessors, successors, node_data
+    return graph_dgl, predecessors, successors, reads

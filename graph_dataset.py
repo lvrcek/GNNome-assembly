@@ -11,7 +11,7 @@ import graph_parser
 class AssemblyGraphDataset(DGLDataset):
 
     def __init__(self, root):
-        self.root = root
+        self.root = os.path.abspath(root)
         if 'raw' not in os.listdir(self.root):
             subprocess.run(f"mkdir 'raw'", shell=True, cwd=self.root)
         if 'tmp' not in os.listdir(self.root):
@@ -28,10 +28,10 @@ class AssemblyGraphDataset(DGLDataset):
         super().__init__(name='assembly_graphs', raw_dir=raw_dir, save_dir=save_dir)
 
     def has_cache(self):
-        return len(self.save_dir) > 0
+        return len(os.listdir(self.save_dir)) == len(os.listdir(self.raw_dir))
 
     def __len__(self):
-        return len(os.listdir(self.save_dir)) // 3
+        return len(os.listdir(self.save_dir))
 
     def __getitem__(self, idx):
         (graph,), _ = dgl.load_graphs(os.path.join(self.save_dir, str(idx) + '.dgl'))
@@ -49,7 +49,7 @@ class AssemblyGraphDataset(DGLDataset):
                 print(reads_path)
                 subprocess.run(f'{self.raven_path} --weaken -t32 -p0 {reads_path} > assembly.fasta', shell=True, cwd=self.tmp_dir)
                 processed_path = os.path.join(self.save_dir, str(cnt) + '.dgl')
-                graph, pred, succ, reads = graph_parser.from_csv_dgl(os.path.join(self.tmp_dir, 'graph_before.csv'), reads_path)
+                graph, pred, succ, reads = graph_parser.from_csv(os.path.join(self.tmp_dir, 'graph_before.csv'), reads_path)
                 dgl.save_graphs(processed_path, graph)
 
                 pickle.dump(pred, open(f'{self.info_dir}/{cnt}_pred.pkl', 'wb'))
