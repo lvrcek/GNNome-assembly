@@ -7,7 +7,7 @@ import dgl.function as fn
 
 class GatedGCN(nn.Module):
     
-    def __init__(self, in_channels, out_channels, dropout, batch_norm, residual=False):
+    def __init__(self, in_channels, out_channels, dropout=0.5, batch_norm=True, residual=True):
         super().__init__()
         self.dropout = dropout
         self.batch_norm = batch_norm
@@ -23,10 +23,21 @@ class GatedGCN(nn.Module):
         self.B_2 = nn.Linear(in_channels, out_channels)
         self.B_3 = nn.Linear(in_channels, out_channels)
 
+        self.bn_h = nn.BatchNorm1d(out_channels)
+        self.bn_e = nn.BatchNorm1d(out_channels)
+
     def message_forward(self, edges):
         A2h_j = edges.src['A2h']
         e_ji = edges.src['B1h'] + edges.dst['B2h'] + edges.data['B3e']  # e_ji = B_1*h_j + B_2*h_i + B_3*e_ji
-        # Add relu, batchnorm, residual connection
+
+        if self.batch_norm:
+            e_ji = self.bn_e(e_ji)
+
+        e_ji = F.relu(e_ji)
+
+        if self.residual:
+            e_ji += edges.data['e']
+
         return {'A2h_j': A2h_j, 'e_ji': e_ji}
 
     def reduce_forward(self, nodes):
@@ -39,7 +50,15 @@ class GatedGCN(nn.Module):
     def message_backward(self, edges):
         A3h_k = edges.src['A3h']
         e_ik = edges.dst['B1h'] + edges.src['B2h'] + edges.data['B3e']  # e_ik = B_1*h_i + B_2*h_k + B_3*e_ik
-        # Add relu, batchnorm, residual connection
+
+        if self.batch_norm:
+            e_ik = self.bn_e(e_ik)
+
+        e_ik = F.relu(e_ik)
+
+        if self.residual:
+            e_ik += edges.data['e']
+        
         return {'A3h_k': A3h_k, 'e_ik': e_ik}
 
     def reduce_backward(self, nodes):
@@ -60,13 +79,13 @@ class GatedGCN(nn.Module):
         g.ndata['A3h'] = self.A_3(h)
         g.ndata['B1h'] = self.B_1(h)
         g.ndata['B2h'] = self.B_2(h)
-        g.edata['B3h'] = self.B_3(e)
+        g.edata['B3e'] = self.B_3(e)
 
-        gg = dgl.reverse(g, copy_ndata=True, copy_edata=True)
+        g_reverse = dgl.reverse(g, copy_ndata=True, copy_edata=True)
         g.update_all(self.message_forward, self.reduce_forward)
-        gg.update_all(self.message_backward, self.reduce_backward)
-
-        h = g.ndata['A1h'] + g.ndata['h_forward'] + gg.ndata['h_backward']
+        g_reverse.update_all(self.message_backward, self.reduce_backward)
+    
+        h = g.ndata['A1h'] + g.ndata['h_forward'] + g_reverse.ndata['h_backward']
         
         if self.batch_norm:
             h = self.bn_h(h)
@@ -79,5 +98,3 @@ class GatedGCN(nn.Module):
         h = F.dropout(h, self.dropout, training=self.training)
 
         return h
-
-
