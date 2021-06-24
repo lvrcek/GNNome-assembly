@@ -118,8 +118,6 @@ def from_csv(graph_path, reads_path):
                 strand = 1 if strand[-2] == '+' else -1
                 start = int(re.findall(r'start=(\d+)', start)[0])
                 end = int(re.findall(r'end=(\d+)', end)[0])
-                if strand == -1:
-                    start, end = end, start
                 
                 if src_id not in read_length.keys():
                     read_length[src_id] = src_len
@@ -136,6 +134,8 @@ def from_csv(graph_path, reads_path):
                     node_data[dst_id] = read_sequences.popleft()
                     read_idx[dst_id] = idx
                     read_strand[dst_id] = -strand
+                    # This is on purpose so that positive strand reads are 'forwards'
+                    # While negative strand reads become 'backwards' (start < end)
                     read_start[dst_id] = end
                     read_end[dst_id] = start
                     graph_nx.add_node(dst_id)
@@ -164,7 +164,7 @@ def from_csv(graph_path, reads_path):
     nx.set_edge_attributes(graph_nx, overlap_similarity, 'overlap_similarity')
     
     # This produces vector-like features (e.g. shape=(num_nodes,))
-    graph_dgl = dgl.from_networkx(graph_nx, node_attrs=['read_length', 'read_strand', 'read_start', 'read_end'], 
+    graph_dgl = dgl.from_networkx(graph_nx, node_attrs=['read_length', 'read_idx', 'read_strand', 'read_start', 'read_end'], 
                                   edge_attrs=['prefix_length', 'overlap_similarity'])
     predecessors = get_predecessors(graph_dgl)
     successors = get_neighbors(graph_dgl)
