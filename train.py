@@ -11,10 +11,10 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch_geometric.data import DataLoader
 from torch.utils.data import random_split
+from dgl.dataloading import GraphDataLoader
 
-import dataset
+from graph_dataset import AssemblyGraphDataset
 from hyperparameters import get_hyperparameters
 import models
 import utils
@@ -55,11 +55,17 @@ def set_seed(seed=42):
 
 
 def get_neighbors_dicts(idx, data_path):
-    pred_path = os.path.join(data_path, f'processed/{idx}_pred.pkl')
-    succ_path = os.path.join(data_path, f'processed/{idx}_succ.pkl')
+    pred_path = os.path.join(data_path, f'info/{idx}_pred.pkl')
+    succ_path = os.path.join(data_path, f'info/{idx}_succ.pkl')
     pred = pickle.load(open(pred_path, 'rb'))
     succ = pickle.load(open(succ_path, 'rb'))
     return pred, succ
+
+
+def get_reads(idx, data_path):
+    reads_path = os.path.join(data_path, f'info/{idx}_reads.pkl')
+    reads = pickle.load(open(reads_path, 'rb'))
+    return reads
 
 
 def get_reference(idx, data_path):
@@ -68,17 +74,17 @@ def get_reference(idx, data_path):
 
 
 def get_dataloaders(data_path, batch_size, eval, ratio):
-    ds = dataset.GraphDataset(data_path)
+    ds = AssemblyGraphDataset(data_path)
     if eval:
         dl_train, dl_valid = None, None
-        dl_test = DataLoader(ds, batch_size=batch_size, shuffle=False)
+        dl_test = GraphDataLoader(ds, batch_size=batch_size, shuffle=False)
     else:
         valid_size = test_size = int(len(ds) * ratio)
         train_size = len(ds) - valid_size - test_size
         ds_train, ds_valid, ds_test = random_split(ds, [train_size, valid_size, test_size])
-        dl_train = DataLoader(ds_train, batch_size=batch_size, shuffle=True)
-        dl_valid = DataLoader(ds_valid, batch_size=batch_size, shuffle=False)
-        dl_test = DataLoader(ds_test, batch_size=batch_size, shuffle=False)
+        dl_train = GraphDataLoader(ds_train, batch_size=batch_size, shuffle=True)
+        dl_valid = GraphDataLoader(ds_valid, batch_size=batch_size, shuffle=False)
+        dl_test = GraphDataLoader(ds_test, batch_size=batch_size, shuffle=False)
     
     return dl_train, dl_valid, dl_test
 
@@ -87,16 +93,17 @@ def unpack_data(data, data_path, device):
     idx, graph = data
     idx = idx.item()
     pred, succ = get_neighbors_dicts(idx, data_path)
+    reads = get_reads(idx, data_path)
     reference = get_reference(idx, data_path)
     graph = graph.to(device)
-    return idx, graph, pred, succ, reference
+    return idx, graph, pred, succ, reads, reference
 
 
 def print_graph_info(idx, graph):
     print('\n---- GRAPH INFO ----')
     print('Graph index:', idx)
-    print('Number of nodes:', graph.num_nodes)
-    print('Number of edges:', len(graph.edge_index[0]))
+    print('Number of nodes:', graph.num_nodes())
+    print('Number of edges:', len(graph.edges()[0]))
 
 
 def train(args):
@@ -135,15 +142,16 @@ def train(args):
         # --- Training ---
         start_time = time.time()
         for epoch in range(num_epochs):
-            model.train()
+            # model.train()
             print(f'Epoch: {epoch}')
             patience += 1
             loss_per_graph = []
             accuracy_per_graph = []
             for data in dl_train:
-                idx, graph, pred, succ, reference = unpack_data(data, data_path, device)
+                idx, graph, pred, succ, reads, reference = unpack_data(data, data_path, device)
                 print_graph_info(idx, graph)
-                loss_list, accuracy = utils.process(model, idx, graph, pred, succ, reference, optimizer, 'train', device=device)
+                print(graph)
+                loss_list, accuracy = utils.process(model, idx, graph, pred, succ, reads, reference, optimizer, 'train', device=device)
                 loss_per_graph.append(np.mean(loss_list))
                 accuracy_per_graph.append(accuracy)
 
@@ -160,7 +168,7 @@ def train(args):
                 for data in dl_valid:
                     idx, graph, pred, succ, reference = unpack_data(data, data_path, device)
                     print_graph_info(idx, graph)
-                    loss_list, accuracy = utils.process(model, idx, graph, pred, succ, reference, optimizer, 'eval', device=device)
+                    loss_list, accuracy = utils.process(model, idx, graph, pred, succ, reads, reference, optimizer, 'eval', device=device)
                     loss_per_graph.append(np.mean(loss_list))
                     accuracy_per_graph.append(accuracy)
 
@@ -189,7 +197,7 @@ def train(args):
         for data in dl_test:
             idx, graph, pred, succ, reference = unpack_data(data, data_path, device)
             print_graph_info(idx, graph)
-            loss_list, accuracy = utils.process(best_model, idx, graph, pred, succ, reference, optimizer, 'eval', device=device)
+            loss_list, accuracy = utils.process(best_model, idx, graph, pred, succ, reads, reference, optimizer, 'eval', device=device)
             test_accuracy.append(accuracy)
 
         print(f'Average accuracy on the test set:', np.mean(test_accuracy))

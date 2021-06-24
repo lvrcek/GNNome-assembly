@@ -11,31 +11,22 @@ from hyperparameters import get_hyperparameters
 import models
 
 
-def anchor(graph, current, aligner):
-    if not hasattr(graph, 'batch'):
-        sequence = graph.read_sequence[current]
-    else:
-        sequence = graph.read_sequence[0][current]
+def anchor(reads, current, aligner):
+    sequence = reads[current]
     alignment = aligner.map(sequence)
     hit = list(alignment)[0]
     r_st, r_en, strand = hit.r_st, hit.r_en, hit.strand
     return r_st, r_en, strand
 
 
-def get_overlap_length(graph, current, neighbor):
+def get_overlap_length(graph, reads, current, neighbor):
     idx = graph_parser.find_edge_index(graph, current, neighbor)
-    if not hasattr(graph, 'batch'):
-        overlap_length = len(graph.read_sequence[current]) - graph.prefix_length[idx]
-    else:
-        overlap_length = len(graph.read_sequence[0][current]) - graph.prefix_length[idx]
+    overlap_length = len(reads[current]) - graph.prefix_length[idx]
     return overlap_length
 
 
-def get_suffix(graph, node, overlap_length):
-    if not hasattr(graph, 'batch'):
-        return graph.read_sequence[node][overlap_length:]
-    else:
-        return graph.read_sequence[0][node][overlap_length:]
+def get_suffix(reads, node, overlap_length):
+    return reads[node][overlap_length:]
 
 
 def get_paths(start, neighbors, num_nodes):
@@ -50,19 +41,19 @@ def get_paths(start, neighbors, num_nodes):
     return paths
 
 
-def get_edlib_best(idx, graph, current, neighbors, reference_seq, aligner, visited):
-    ref_start, ref_end, strand = anchor(graph, current, aligner)
+def get_edlib_best(idx, graph, reads, current, neighbors, reference_seq, aligner, visited):
+    ref_start, ref_end, strand = anchor(reads, current, aligner)
     edlib_start = ref_start
     paths = [path[::-1] for path in get_paths(current, neighbors, num_nodes=4)]
     distances = []
     for path in paths:
-        _, _, next_strand = anchor(graph, path[1], aligner)
+        _, _, next_strand = anchor(reads, path[1], aligner)
         if next_strand != strand:
             continue
-        sequence = graph_parser.translate_nodes_into_sequence2(graph, path[1:])
+        sequence = graph_parser.translate_nodes_into_sequence2(graph, reads, path[1:])
         if strand == -1:
             sequence = sequence.reverse_complement()
-        edlib_start = ref_start + graph.prefix_length[graph_parser.find_edge_index(graph, path[0], path[1])].item()
+        edlib_start = ref_start + graph.edata['prefix_length'][graph_parser.find_edge_index(graph, path[0], path[1])].item()
         edlib_end = edlib_start + len(sequence)
         reference_query = reference_seq[edlib_start:edlib_end]
         distance = edlib.align(reference_query, sequence)['editDistance']
@@ -80,12 +71,12 @@ def get_edlib_best(idx, graph, current, neighbors, reference_seq, aligner, visit
         return None
         
 
-def get_minimap_best(graph, current, neighbors, walk, aligner):
+def get_minimap_best(graph, reads, current, neighbors, walk, aligner):
     scores = []
     for neighbor in neighbors[current]:
         print(f'\tcurrent neighbor {neighbor}')
         node_tr = walk[-min(3, len(walk)):] + [neighbor]
-        sequence = graph_parser.translate_nodes_into_sequence2(graph, node_tr)
+        sequence = graph_parser.translate_nodes_into_sequence2(graph, reads, node_tr)
         ll = min(len(sequence), 50000)
         sequence = sequence[-ll:]
         name = '_'.join(map(str, node_tr)) + '.fasta'
@@ -114,11 +105,11 @@ def print_prediction(walk, current, neighbors, actions, choice, best_neighbor):
     print('ground truth:\t', best_neighbor)
 
 
-def process(model, idx, graph, pred, neighbors, reference, optimizer, mode, device='cpu'):
+def process(model, idx, graph, pred, neighbors, reads, reference, optimizer, mode, device='cpu'):
     hyperparameters = get_hyperparameters()
     dim_latent = hyperparameters['dim_latent']
-    last_latent = torch.zeros((graph.num_nodes, dim_latent)).to(device).detach()
-    start_nodes = list(set(range(graph.num_nodes)) - set(pred.keys()))
+    last_latent = torch.zeros((graph.num_nodes(), dim_latent)).to(device).detach()
+    start_nodes = list(set(range(graph.num_nodes())) - set(pred.keys()))
     start = start_nodes[0]  # TODO: Maybe iterate over all the start nodes?
 
     criterion = nn.CrossEntropyLoss()
@@ -157,7 +148,7 @@ def process(model, idx, graph, pred, neighbors, reference, optimizer, mode, devi
             continue
 
         # Currently not used, but could be used for calculating loss
-        mask = torch.tensor([1 if n in neighbors[current] else -math.inf for n in range(graph.num_nodes)]).to(device)
+        mask = torch.tensor([1 if n in neighbors[current] else -math.inf for n in range(graph.num_nodes())]).to(device)
 
         # Get prediction for the next node out of those in list of neighbors (run the model)
         if isinstance(model, models.SequentialModel):
@@ -167,7 +158,7 @@ def process(model, idx, graph, pred, neighbors, reference, optimizer, mode, devi
         choice = neighbors[current][index]
 
         # Branching found - find the best neighbor with edlib
-        best_neighbor = get_edlib_best(idx, graph, current, neighbors, reference_seq, aligner, visited)
+        best_neighbor = get_edlib_best(idx, graph, reads, current, neighbors, reference_seq, aligner, visited)
         print_prediction(walk, current, neighbors, actions, choice, best_neighbor)
 
         if best_neighbor is None:
