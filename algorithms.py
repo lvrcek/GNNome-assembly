@@ -38,7 +38,7 @@ def ground_truth(graph, start, neighbors):
     return walk, read_idx_walk
 
 
-def greedy(graph, start, neighbors):
+def baseline_greedy(graph, start, neighbors):
     visited = set()
     current = start
     walk = []
@@ -64,5 +64,31 @@ def greedy(graph, start, neighbors):
         print(candidates)
         current = candidates[0][0]
         print(current)
+
+    return walk
+
+
+def decode_greedy(graph, start, neighbors):
+    visited = set()
+    current = start
+    walk = []
+
+    while True:
+        print(current)
+        if current in visited:
+            break
+        walk.append(current)
+        visited.add(current)
+        visited.add(current ^ 1)
+        candidates = []
+        if len(neighbors[current]) == 0:
+            break
+        if len(neighbors[current]) == 1:
+            current = neighbors[current][0]
+            continue
+        for neighbor in neighbors[current]:
+            candidates.append((neighbor, graph.ndata['p']))
+        candidates.sort(key=lambda x: x[1], reverse=True)
+        current = candidates[0][0]
 
     return walk
