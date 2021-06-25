@@ -6,9 +6,9 @@ import dgl.function as fn
 
 
 class EdgeDecoder(nn.Module):
-    def __init__(self, in_channels, out_channels):
+    def __init__(self, in_channels, out_channels, bias=True):
         super().__init__()
-        self.linear = nn.Linear(3 * in_channels, out_channels)
+        self.linear = nn.Linear(3 * in_channels, out_channels, bias=bias)
 
     def concatenate(self, edges):
         h_k = edges.src['h']
@@ -22,5 +22,5 @@ class EdgeDecoder(nn.Module):
         g.edata['e'] = e
         g.apply_edges(self.concatenate)
         p = self.linear(g.edata['p'])
-        p = F.sigmoid(p)
+        p = torch.sigmoid(p)
         return p

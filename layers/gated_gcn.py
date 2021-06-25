@@ -7,7 +7,7 @@ import dgl.function as fn
 
 class GatedGCN(nn.Module):
     
-    def __init__(self, in_channels, out_channels, dropout=0.5, batch_norm=True, residual=True):
+    def __init__(self, in_channels, out_channels, dropout=0, batch_norm=True, residual=True):
         super().__init__()
         self.dropout = dropout
         self.batch_norm = batch_norm
@@ -36,7 +36,7 @@ class GatedGCN(nn.Module):
         e_ji = F.relu(e_ji)
 
         if self.residual:
-            e_ji += edges.data['e']
+            e_ji = e_ji + edges.data['e']
 
         return {'A2h_j': A2h_j, 'e_ji': e_ji}
 
@@ -57,7 +57,7 @@ class GatedGCN(nn.Module):
         e_ik = F.relu(e_ik)
 
         if self.residual:
-            e_ik += edges.data['e']
+            e_ik = e_ik + edges.data['e']
         
         return {'A3h_k': A3h_k, 'e_ik': e_ik}
 
@@ -84,7 +84,7 @@ class GatedGCN(nn.Module):
         g_reverse = dgl.reverse(g, copy_ndata=True, copy_edata=True)
         g.update_all(self.message_forward, self.reduce_forward)
         g_reverse.update_all(self.message_backward, self.reduce_backward)
-    
+
         h = g.ndata['A1h'] + g.ndata['h_forward'] + g_reverse.ndata['h_backward']
         
         if self.batch_norm:
@@ -93,7 +93,7 @@ class GatedGCN(nn.Module):
         h = F.relu(h)
 
         if self.residual:
-            h += h_in
+            h = h + h_in
 
         h = F.dropout(h, self.dropout, training=self.training)
 
