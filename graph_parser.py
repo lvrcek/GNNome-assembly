@@ -35,14 +35,13 @@ def find_edge_index(graph, src, dst):
             return idx
 
 
-# TODO: add overlap length from GFA to graph
-# def translate_nodes_into_sequence(graph, node_tr):
-#     seq = graph.read_sequence[node_tr[0]]
-#     for src, dst in zip(node_tr[:-1], node_tr[1:]):
-#         idx = find_edge_index(graph, src, dst)
-#         overlap_length = graph.overlap_length[idx]
-#         seq += graph.read_sequence[dst][overlap_length:]
-#     return seq
+def translate_nodes_into_sequence(graph, reads, node_tr):
+    seq = reads[node_tr[0]]
+    for src, dst in zip(node_tr[:-1], node_tr[1:]):
+        idx = find_edge_index(graph, src, dst)
+        overlap_length = graph.edata['overlap_length'][idx]
+        seq += reads[dst][overlap_length:]
+    return seq
 
 
 def translate_nodes_into_sequence2(graph, reads, node_tr):
@@ -98,7 +97,7 @@ def from_csv(graph_path, reads_path):
     read_length = {}
     node_data = {}
     read_idx, read_strand, read_start, read_end = {}, {}, {}, {}
-    edge_ids, prefix_length, overlap_similarity = {}, {}, {}
+    edge_ids, prefix_length, overlap_similarity, overlap_length = {}, {}, {}, {}
     read_sequences, description_queue = from_gfa(graph_path[:-3] + 'gfa', reads_path)
 
     with open(graph_path) as f:
@@ -153,6 +152,7 @@ def from_csv(graph_path, reads_path):
                 if (src_id, dst_id) not in prefix_length.keys():
                     edge_ids[(src_id, dst_id)] = edge_id
                     prefix_length[(src_id, dst_id)] = prefix_len
+                    overlap_length[(src_id, dst_id)] = read_length[src_id] - prefix_len
                     overlap_similarity[(src_id, dst_id)] = similarity
     
     nx.set_node_attributes(graph_nx, read_length, 'read_length')
@@ -162,10 +162,12 @@ def from_csv(graph_path, reads_path):
     nx.set_node_attributes(graph_nx, read_end, 'read_end')
     nx.set_edge_attributes(graph_nx, prefix_length, 'prefix_length')
     nx.set_edge_attributes(graph_nx, overlap_similarity, 'overlap_similarity')
+    nx.set_edge_attributes(graph_nx, overlap_length, 'overlap_length')
     
     # This produces vector-like features (e.g. shape=(num_nodes,))
-    graph_dgl = dgl.from_networkx(graph_nx, node_attrs=['read_length', 'read_idx', 'read_strand', 'read_start', 'read_end'], 
-                                  edge_attrs=['prefix_length', 'overlap_similarity'])
+    graph_dgl = dgl.from_networkx(graph_nx,
+                                  node_attrs=['read_length', 'read_idx', 'read_strand', 'read_start', 'read_end'], 
+                                  edge_attrs=['prefix_length', 'overlap_similarity', 'overlap_length'])
     predecessors = get_predecessors(graph_dgl)
     successors = get_neighbors(graph_dgl)
     reads = {}

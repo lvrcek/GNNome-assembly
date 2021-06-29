@@ -58,7 +58,7 @@ def baseline_greedy(graph, start, neighbors):
             continue
         for neighbor in neighbors[current]:
             idx = find_edge_index(graph, current, neighbor)
-            candidates.append((neighbor, graph.edata['overlap_similarity'][idx], graph.edata['prefix_length'][idx]))
+            candidates.append((neighbor, graph.edata['overlap_similarity'][idx], graph.edata['overlap_length'][idx]))
         print(candidates)
         candidates.sort(key=lambda x: (-x[1], x[2]))
         print(candidates)
