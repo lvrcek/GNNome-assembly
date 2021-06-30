@@ -11,7 +11,6 @@ def ground_truth(graph, start, neighbors):
     visited = set()
 
     while True:
-        print(current)
         walk.append(current)
         visited.add(current)
         visited.add(current ^ 1)
@@ -44,7 +43,6 @@ def baseline_greedy(graph, start, neighbors):
     walk = []
 
     while True:
-        print(current)
         if current in visited:
             break
         walk.append(current)
@@ -59,11 +57,8 @@ def baseline_greedy(graph, start, neighbors):
         for neighbor in neighbors[current]:
             idx = find_edge_index(graph, current, neighbor)
             candidates.append((neighbor, graph.edata['overlap_similarity'][idx], graph.edata['overlap_length'][idx]))
-        print(candidates)
         candidates.sort(key=lambda x: (-x[1], x[2]))
-        print(candidates)
         current = candidates[0][0]
-        print(current)
 
     return walk
 
@@ -74,7 +69,6 @@ def decode_greedy(graph, start, neighbors):
     walk = []
 
     while True:
-        print(current)
         if current in visited:
             break
         walk.append(current)

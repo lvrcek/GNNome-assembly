@@ -22,5 +22,5 @@ class EdgeDecoder(nn.Module):
         g.edata['e'] = e
         g.apply_edges(self.concatenate)
         p = self.linear(g.edata['p'])
-        p = torch.sigmoid(p)
+        # p = torch.sigmoid(p)  # I think it's better to return logits
         return p

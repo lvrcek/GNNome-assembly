@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class SeqEmbedder(nn.Module):
+class SequenceEncoder(nn.Module):
     def __init__(self, dim_linear, dim_conv, kernel_size, stride=1, weighted=True):
         super().__init__()
         self.embedding = nn.Embedding(4, dim_linear)

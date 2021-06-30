@@ -1,3 +1,4 @@
+from algorithms import ground_truth
 import math
 
 from Bio import SeqIO
@@ -7,8 +8,9 @@ import torch
 import torch.nn as nn
 
 import graph_parser
-from hyperparameters import get_hyperparameters
 import models
+import algorithms
+from hyperparameters import get_hyperparameters
 
 
 def anchor(reads, current, aligner):
@@ -125,11 +127,10 @@ def process(model, idx, graph, pred, neighbors, reads, reference, optimizer, mod
     correct = 0
     print('Iterating through nodes!')
 
-    # Embed the graph with GCN model
-    if isinstance(model, models.GCNModel):
-        last_latent = model(graph, last_latent, device, 'embed')
-        predict_actions = model(graph, last_latent, device, 'classify')
-        print(predict_actions.shape)
+    cond_prob = model(graph, reads)
+
+    ground_truth, _ = algorithms.ground_truth(graph, start, neighbors)
+    ground_truth = {n1: n2 for n1, n2 in zip(ground_truth[:-1], ground_truth[1:])}
 
     while True:
         walk.append(current)
@@ -148,27 +149,25 @@ def process(model, idx, graph, pred, neighbors, reads, reference, optimizer, mod
             continue
 
         # Currently not used, but could be used for calculating loss
-        mask = torch.tensor([1 if n in neighbors[current] else -math.inf for n in range(graph.num_nodes())]).to(device)
+        # mask = torch.tensor([1 if n in neighbors[current] else -math.inf for n in range(graph.num_nodes())]).to(device)
 
-        # Get prediction for the next node out of those in list of neighbors (run the model)
-        if isinstance(model, models.SequentialModel):
-            predict_actions, last_latent = model(graph, latent_features=last_latent, device=device)
-        actions = predict_actions.squeeze(1)[neighbors[current]]
-        value, index = torch.topk(actions, k=1, dim=0)  # For evaluation
+        neighbor_edges = [graph_parser.find_edge_index(graph, current, n) for n in neighbors[current]]
+        neighbor_logits = cond_prob.squeeze(1)[neighbor_edges]
+        value, index = torch.topk(neighbor_logits, k=1, dim=0)
         choice = neighbors[current][index]
 
-        # Branching found - find the best neighbor with edlib
-        best_neighbor = get_edlib_best(idx, graph, reads, current, neighbors, reference_seq, aligner, visited)
-        print_prediction(walk, current, neighbors, actions, choice, best_neighbor)
+        best_neighbor = ground_truth[current]
+        best_idx = neighbors[current].index(best_neighbor)
 
-        if best_neighbor is None:
-            break
+        print_prediction(walk, current, neighbors, neighbor_logits, choice, best_neighbor)
+
+        best_idx = torch.tensor([best_idx], dtype=torch.long, device=device)
+        loss = criterion(neighbor_logits.unsqueeze(0), best_idx)
 
         # Calculate loss
-        # TODO: Modify for batch_size > 1
-        loss = criterion(actions.unsqueeze(0), index.to(device))
-        total_loss += loss
-        loss_list.append(loss.item())
+        if mode == 'train':
+            current = best_neighbor
+            total_loss += loss
 
         if choice == best_neighbor:
             correct += 1
@@ -177,14 +176,7 @@ def process(model, idx, graph, pred, neighbors, reads, reference, optimizer, mod
         # Teacher forcing
         current = best_neighbor
 
-        # Update weights for sequential model
-        if isinstance(model, models.SequentialModel) and mode == 'train':
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-
-    # Update weights for non-sequential model
-    if isinstance(model, models.GCNModel) and mode == 'train':
+    if mode == 'train':
         optimizer.zero_grad()
         total_loss.backward()
         optimizer.step()
