@@ -125,12 +125,12 @@ def process(model, idx, graph, pred, neighbors, reads, reference, optimizer, mod
     total_loss = 0
     total = 0
     correct = 0
-    print('Iterating through nodes!')
 
     cond_prob = model(graph, reads)
-
     ground_truth, _ = algorithms.ground_truth(graph, start, neighbors)
     ground_truth = {n1: n2 for n1, n2 in zip(ground_truth[:-1], ground_truth[1:])}
+    
+    print('Iterating through nodes!')
 
     while True:
         walk.append(current)
