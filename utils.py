@@ -8,6 +8,26 @@ import algorithms
 
 
 def anchor(reads, current, aligner):
+    """Find where the read is mapped to the reference - DEPRECATED
+    
+    Parameters
+    ----------
+    reads : dict
+        A dictionary with reads for all the nodes in a graph.
+    current : int
+        Index of the current node in the walk.
+    aligner : mappy.Aligner
+        Minimap aligner used to map the read to the refernce
+
+    Returns
+    -------
+    int
+        position on the reference where the mapping starts
+    int
+        position on the reference where the mapping ends
+    int
+        is the read mapped regularly or as its reverse-complement
+    """
     sequence = reads[current]
     alignment = aligner.map(sequence)
     hit = list(alignment)[0]
@@ -16,21 +36,36 @@ def anchor(reads, current, aligner):
 
 
 def get_overlap_length(graph, reads, current, neighbor):
+    """Get length of the overlap between two reads - DEPRECATED"""
     idx = graph_parser.find_edge_index(graph, current, neighbor)
-    overlap_length = len(reads[current]) - graph.prefix_length[idx]
+    overlap_length = len(reads[current]) - graph.ndata['prefix_length'][idx]
     return overlap_length
 
 
-def get_suffix(reads, node, overlap_length):
-    return reads[node][overlap_length:]
+def get_walks(start, neighbors, num_nodes):
+    """Return all the possible walks from a current node of length
+    num_nodes.
+    
+    Parameters
+    ----------
+    start : int
+        Index of the starting node.
+    neighbors : dict
+        Dictionary with the list of neighbors for each node.
+    num_nodes : int
+        Length of the walks to be returned.
 
-
-def get_paths(start, neighbors, num_nodes):
+    Returns
+    -------
+    list
+        a list of all the possible walks, where each walk is also
+        stored in a list with num_nodes consecutive nodes
+    """
     if num_nodes == 0:
         return [[start]]
     paths = []
     for neighbor in neighbors[start]:
-        next_paths = get_paths(neighbor, neighbors, num_nodes-1)
+        next_paths = get_walks(neighbor, neighbors, num_nodes-1)
         for path in next_paths:
             path.append(start)
             paths.append(path)
@@ -38,9 +73,10 @@ def get_paths(start, neighbors, num_nodes):
 
 
 def get_edlib_best(idx, graph, reads, current, neighbors, reference_seq, aligner, visited):
+    """Get the ground-truth for the next node with edlib - DEPRECATED"""
     ref_start, ref_end, strand = anchor(reads, current, aligner)
     edlib_start = ref_start
-    paths = [path[::-1] for path in get_paths(current, neighbors, num_nodes=4)]
+    paths = [path[::-1] for path in get_walks(current, neighbors, num_nodes=4)]
     distances = []
     for path in paths:
         _, _, next_strand = anchor(reads, path[1], aligner)
@@ -68,6 +104,7 @@ def get_edlib_best(idx, graph, reads, current, neighbors, reference_seq, aligner
         
 
 def get_minimap_best(graph, reads, current, neighbors, walk, aligner):
+    """Get the ground-truth for the next node with minimap - DEPRECATED"""
     scores = []
     for neighbor in neighbors[current]:
         print(f'\tcurrent neighbor {neighbor}')
@@ -92,6 +129,7 @@ def get_minimap_best(graph, reads, current, neighbors, walk, aligner):
 
 
 def print_prediction(walk, current, neighbors, actions, choice, best_neighbor):
+    """Print summary of the prediction for the current position."""
     print('\n-----predicting-----')
     print('previous:\t', None if len(walk) < 2 else walk[-2])
     print('current:\t', current)
@@ -102,6 +140,43 @@ def print_prediction(walk, current, neighbors, actions, choice, best_neighbor):
 
 
 def process(model, idx, graph, pred, neighbors, reads, reference, optimizer, mode, device='cpu'):
+    """Process the graph by predicting the correct next neighbor.
+    
+    A graph is processed by simulating a walk over it where the 
+    best next neighbor is predicted any time a branching occurs.
+    The choices are compared tothe ground truth and loss is calculated.
+    The list of losses and accuracy for the given graph are returned.
+
+    Parameters
+    ----------
+    model : torch.nn.Module
+        A model which will predict the following node.
+    idx : int
+        Index of the processed graph.
+    graph : dgl.DGLGraph
+        The processed graph.
+    pred : dict
+        A dictionary with predecessors for all the nodes in the graph.
+    neighbors : dict
+        A dictionary with neighbors for all the nodes in the graph.
+    reads : dict
+        A dictionary with reads for all the nodes in the graph.
+    reference : str
+        A path to the reference for the current graph.
+    optimizer : torch.optim.Optimizer
+        An optimizer which will update the model's parameters.
+    mode : str
+        Whether training or evaluation is performed.
+    device : str, optional
+        On which device is the computation performed (cpu/cuda).
+
+    Returns
+    -------
+    list
+        a list of all the losses during processing the graph
+    float
+        accuracy of the preictions for the given graph
+    """
     start_nodes = list(set(range(graph.num_nodes())) - set(pred.keys()))
     start = start_nodes[0]  # TODO: Maybe iterate over all the start nodes?
 
@@ -172,5 +247,6 @@ def process(model, idx, graph, pred, neighbors, reads, reference, optimizer, mod
         total_loss.backward()
         optimizer.step()
 
+    # TODO: Should return the total_loss. not loss_list
     accuracy = correct / total
     return loss_list, accuracy

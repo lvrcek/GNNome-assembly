@@ -21,6 +21,21 @@ import utils
 
 
 def draw_loss_plot(train_loss, valid_loss, timestamp):
+    """Draw and save plot of train and validation loss over epochs.
+
+    Parameters
+    ----------
+    train_loss: list
+        List of training loss for each epoch.
+    valid_loss: list
+        List of validation loss for each epoch.
+    timestamp: str
+        A timestep used for naming the file.
+
+    Returns
+    -------
+    None
+    """
     plt.figure()
     plt.plot(train_loss, label='train')
     plt.plot(valid_loss, label='validation')
@@ -33,6 +48,21 @@ def draw_loss_plot(train_loss, valid_loss, timestamp):
 
 
 def draw_accuracy_plots(train_acc, valid_acc, timestamp):
+    """Draw and save plot of train and validation accuracy over epochs.
+
+    Parameters
+    ----------
+    train_loss: list
+        List of training accuracy for each epoch.
+    valid_loss: list
+        List of validation accuracy for each epoch.
+    timestamp: str
+        A timestep used for naming the file.
+
+    Returns
+    -------
+    None
+    """
     plt.figure()
     plt.plot(train_acc, label='train')
     plt.plot(valid_acc, label='validation')
@@ -45,6 +75,17 @@ def draw_accuracy_plots(train_acc, valid_acc, timestamp):
 
 
 def set_seed(seed=42):
+    """Set random seed to enable reproducibility.
+    
+    Parameters
+    ----------
+    seed: int, optional
+        A number used to set the random seed.
+
+    Returns
+    -------
+    None
+    """
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -55,6 +96,22 @@ def set_seed(seed=42):
 
 
 def get_neighbors_dicts(idx, data_path):
+    """Return dictionaries with predecessor and successor information.
+    
+    Parameters
+    ----------
+    idx: int
+        Index of the graph for which the information will be loaded.
+    data_path: str
+        Path to where the information data of a graph is stored.
+    
+    Returns
+    -------
+    dict
+        a dictionary with a list of predecessors for each node
+    dict
+        a dictionary with a list of successors for each node
+    """
     pred_path = os.path.join(data_path, f'info/{idx}_pred.pkl')
     succ_path = os.path.join(data_path, f'info/{idx}_succ.pkl')
     pred = pickle.load(open(pred_path, 'rb'))
@@ -63,17 +120,71 @@ def get_neighbors_dicts(idx, data_path):
 
 
 def get_reads(idx, data_path):
+    """Return dictionary with sequence information for a graph.
+    
+    Parameters
+    ----------
+    idx: int
+        Index of the graph for which the information will be loaded.
+    data_path: str
+        Path to where the information data of a graph is stored.
+
+    Returns
+    -------
+    dict
+        a dictionary with a sequence for each node in the graph
+    """
     reads_path = os.path.join(data_path, f'info/{idx}_reads.pkl')
     reads = pickle.load(open(reads_path, 'rb'))
     return reads
 
 
 def get_reference(idx, data_path):
+    """Get path for the reference (ground-truth) for a graph.
+    
+    Parameters
+    ----------
+    idx: int
+        Index of the graph for which the information will be loaded.
+    data_path: str
+        Path to where the information data of a graph is stored.
+
+    Returns
+    -------
+    str:
+       a path to the reference associated with the graph with index idx 
+    """
     ref_path = os.path.join(data_path, f'references/{idx}.fasta')
     return ref_path
 
 
 def get_dataloaders(data_path, batch_size, eval, ratio):
+    """Load the dataset and initialize dataloaders.
+
+    Given a path to data, first an AssemblyGraphDataset is initialized.
+    This dataset is then split and a PyTorch DataLoader is returned for
+    training, validation, and testing dataset.
+
+    Parameters
+    ----------
+    data_path: str
+        Path to directory where the graphs are stored.
+    batch_size: int
+        Size of a batch for the dataloaders.
+    eval: bool
+        True if only the evaluation perfomed and training is skipped.
+    ratio: float
+        Ratio how to split the dataset into train/valid/test datasets.
+
+    Returns
+    -------
+    torch.DataLoader:
+        a dataloader for the training set, None if eval
+    torch.DataLoader:
+        a dataloader for the validation set, None if eval
+    torch.DataLoader:
+        a dataloader for the testing set
+    """
     ds = AssemblyGraphDataset(data_path)
     if eval:
         dl_train, dl_valid = None, None
@@ -90,6 +201,33 @@ def get_dataloaders(data_path, batch_size, eval, ratio):
 
 
 def unpack_data(data, data_path, device):
+    """Unpacks the data loaded by the dataloader.
+    
+    Parameters
+    ----------
+    data: tuple
+        A tuple containing index of a graph and the associated graph.
+    data_path: str
+        A path to directory where an additional data is stored for
+        the graph.
+    device: str
+        On which device will the copmutation be performed (cpu/cuda).
+    
+    Returns
+    -------
+    int:
+        index of the graph
+    dgl.DGLGraph:
+        graph in the DGLGraph format
+    dict:
+        a dictionary with predecessors for each node
+    dict:
+        a dictionary with successors for each node
+    dict:
+        a dictionary with reads for each node
+    str:
+        a path to the reference associated with the graph
+    """
     idx, graph = data
     idx = idx.item()
     pred, succ = get_neighbors_dicts(idx, data_path)
@@ -100,6 +238,7 @@ def unpack_data(data, data_path, device):
 
 
 def print_graph_info(idx, graph):
+    """Print the basic information for the graph with index idx."""
     print('\n---- GRAPH INFO ----')
     print('Graph index:', idx)
     print('Number of nodes:', graph.num_nodes())
@@ -107,6 +246,17 @@ def print_graph_info(idx, graph):
 
 
 def train(args):
+    """Training loop.
+    
+    Parameters
+    ----------
+    args: argparse.Namespace
+        Arguments parsed from the command line.
+
+    Returns
+    -------
+    None
+    """
     hyperparameters = get_hyperparameters()
     num_epochs = hyperparameters['num_epochs']
     dim_node = hyperparameters['dim_nodes']
