@@ -118,7 +118,7 @@ def process(model, idx, graph, pred, neighbors, reads, reference, optimizer, mod
     correct = 0
 
     logits = model(graph, reads)
-    ground_truth, _ = algorithms.greedy(graph, start, neighbors, option='ground_truth')
+    ground_truth, _ = algorithms.greedy(graph, start, neighbors, option='ground-truth')
     ground_truth = {n1: n2 for n1, n2 in zip(ground_truth[:-1], ground_truth[1:])}
     
     print('Iterating through nodes!')
