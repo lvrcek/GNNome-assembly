@@ -1,16 +1,10 @@
-from algorithms import ground_truth
-import math
-
-from Bio import SeqIO
 import edlib
 import mappy as mp
 import torch
 import torch.nn as nn
 
 import graph_parser
-import models
 import algorithms
-from hyperparameters import get_hyperparameters
 
 
 def anchor(reads, current, aligner):
@@ -108,15 +102,12 @@ def print_prediction(walk, current, neighbors, actions, choice, best_neighbor):
 
 
 def process(model, idx, graph, pred, neighbors, reads, reference, optimizer, mode, device='cpu'):
-    hyperparameters = get_hyperparameters()
-    dim_latent = hyperparameters['dim_latent']
-    last_latent = torch.zeros((graph.num_nodes(), dim_latent)).to(device).detach()
     start_nodes = list(set(range(graph.num_nodes())) - set(pred.keys()))
     start = start_nodes[0]  # TODO: Maybe iterate over all the start nodes?
 
     criterion = nn.CrossEntropyLoss()
-    aligner = mp.Aligner(reference, preset='map_pb', best_n=1)
-    reference_seq = next(SeqIO.parse(reference, 'fasta'))
+    # aligner = mp.Aligner(reference, preset='map_pb', best_n=1)
+    # reference_seq = next(SeqIO.parse(reference, 'fasta'))
 
     current = start
     visited = set()
@@ -126,8 +117,8 @@ def process(model, idx, graph, pred, neighbors, reads, reference, optimizer, mod
     total = 0
     correct = 0
 
-    cond_prob = model(graph, reads)
-    ground_truth, _ = algorithms.ground_truth(graph, start, neighbors)
+    logits = model(graph, reads)
+    ground_truth, _ = algorithms.greedy(graph, start, neighbors, option='ground_truth')
     ground_truth = {n1: n2 for n1, n2 in zip(ground_truth[:-1], ground_truth[1:])}
     
     print('Iterating through nodes!')
@@ -152,7 +143,7 @@ def process(model, idx, graph, pred, neighbors, reads, reference, optimizer, mod
         # mask = torch.tensor([1 if n in neighbors[current] else -math.inf for n in range(graph.num_nodes())]).to(device)
 
         neighbor_edges = [graph_parser.find_edge_index(graph, current, n) for n in neighbors[current]]
-        neighbor_logits = cond_prob.squeeze(1)[neighbor_edges]
+        neighbor_logits = logits.squeeze(1)[neighbor_edges]
         value, index = torch.topk(neighbor_logits, k=1, dim=0)
         choice = neighbors[current][index]
 
