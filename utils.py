@@ -13,9 +13,9 @@ def anchor(reads, current, aligner):
     Parameters
     ----------
     reads : dict
-        A dictionary with reads for all the nodes in a graph.
+        A dictionary with reads for all the nodes in a graph
     current : int
-        Index of the current node in the walk.
+        Index of the current node in the walk
     aligner : mappy.Aligner
         Minimap aligner used to map the read to the refernce
 
@@ -49,11 +49,11 @@ def get_walks(start, neighbors, num_nodes):
     Parameters
     ----------
     start : int
-        Index of the starting node.
+        Index of the starting node
     neighbors : dict
-        Dictionary with the list of neighbors for each node.
+        Dictionary with the list of neighbors for each node
     num_nodes : int
-        Length of the walks to be returned.
+        Length of the walks to be returned
 
     Returns
     -------
@@ -150,25 +150,25 @@ def process(model, idx, graph, pred, neighbors, reads, reference, optimizer, mod
     Parameters
     ----------
     model : torch.nn.Module
-        A model which will predict the following node.
+        A model which will predict the following node
     idx : int
-        Index of the processed graph.
+        Index of the processed graph
     graph : dgl.DGLGraph
-        The processed graph.
+        The processed graph
     pred : dict
-        A dictionary with predecessors for all the nodes in the graph.
+        A dictionary with predecessors for all the nodes in the graph
     neighbors : dict
-        A dictionary with neighbors for all the nodes in the graph.
+        A dictionary with neighbors for all the nodes in the graph
     reads : dict
-        A dictionary with reads for all the nodes in the graph.
+        A dictionary with reads for all the nodes in the graph
     reference : str
-        A path to the reference for the current graph.
+        A path to the reference for the current graph
     optimizer : torch.optim.Optimizer
-        An optimizer which will update the model's parameters.
+        An optimizer which will update the model's parameters
     mode : str
-        Whether training or evaluation is performed.
+        Whether training or evaluation is performed
     device : str, optional
-        On which device is the computation performed (cpu/cuda).
+        On which device is the computation performed (cpu/cuda)
 
     Returns
     -------

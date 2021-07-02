@@ -25,12 +25,12 @@ def draw_loss_plot(train_loss, valid_loss, timestamp):
 
     Parameters
     ----------
-    train_loss: list
-        List of training loss for each epoch.
-    valid_loss: list
-        List of validation loss for each epoch.
-    timestamp: str
-        A timestep used for naming the file.
+    train_loss : list
+        List of training loss for each epoch
+    valid_loss : list
+        List of validation loss for each epoch
+    timestamp : str
+        A timestep used for naming the file
 
     Returns
     -------
@@ -52,12 +52,12 @@ def draw_accuracy_plots(train_acc, valid_acc, timestamp):
 
     Parameters
     ----------
-    train_loss: list
-        List of training accuracy for each epoch.
-    valid_loss: list
-        List of validation accuracy for each epoch.
-    timestamp: str
-        A timestep used for naming the file.
+    train_loss : list
+        List of training accuracy for each epoch
+    valid_loss : list
+        List of validation accuracy for each epoch
+    timestamp : str
+        A timestep used for naming the file
 
     Returns
     -------
@@ -79,8 +79,8 @@ def set_seed(seed=42):
     
     Parameters
     ----------
-    seed: int, optional
-        A number used to set the random seed.
+    seed : int, optional
+        A number used to set the random seed
 
     Returns
     -------
@@ -100,10 +100,10 @@ def get_neighbors_dicts(idx, data_path):
     
     Parameters
     ----------
-    idx: int
-        Index of the graph for which the information will be loaded.
-    data_path: str
-        Path to where the information data of a graph is stored.
+    idx : int
+        Index of the graph for which the information will be loaded
+    data_path : str
+        Path to where the information data of a graph is stored
     
     Returns
     -------
@@ -124,10 +124,10 @@ def get_reads(idx, data_path):
     
     Parameters
     ----------
-    idx: int
-        Index of the graph for which the information will be loaded.
-    data_path: str
-        Path to where the information data of a graph is stored.
+    idx : int
+        Index of the graph for which the information will be loaded
+    data_path : str
+        Path to where the information data of a graph is stored
 
     Returns
     -------
@@ -144,14 +144,14 @@ def get_reference(idx, data_path):
     
     Parameters
     ----------
-    idx: int
-        Index of the graph for which the information will be loaded.
-    data_path: str
-        Path to where the information data of a graph is stored.
+    idx : int
+        Index of the graph for which the information will be loaded
+    data_path : str
+        Path to where the information data of a graph is stored
 
     Returns
     -------
-    str:
+    str
        a path to the reference associated with the graph with index idx 
     """
     ref_path = os.path.join(data_path, f'references/{idx}.fasta')
@@ -167,22 +167,22 @@ def get_dataloaders(data_path, batch_size, eval, ratio):
 
     Parameters
     ----------
-    data_path: str
-        Path to directory where the graphs are stored.
-    batch_size: int
-        Size of a batch for the dataloaders.
-    eval: bool
-        True if only the evaluation perfomed and training is skipped.
-    ratio: float
-        Ratio how to split the dataset into train/valid/test datasets.
+    data_path : str
+        Path to directory where the graphs are stored
+    batch_size : int
+        Size of a batch for the dataloaders
+    eval : bool
+        True if only the evaluation perfomed and training is skipped
+    ratio : float
+        Ratio how to split the dataset into train/valid/test datasets
 
     Returns
     -------
-    torch.DataLoader:
+    torch.DataLoader
         a dataloader for the training set, None if eval
-    torch.DataLoader:
+    torch.DataLoader
         a dataloader for the validation set, None if eval
-    torch.DataLoader:
+    torch.DataLoader
         a dataloader for the testing set
     """
     ds = AssemblyGraphDataset(data_path)
@@ -205,27 +205,27 @@ def unpack_data(data, data_path, device):
     
     Parameters
     ----------
-    data: tuple
-        A tuple containing index of a graph and the associated graph.
-    data_path: str
+    data : tuple
+        A tuple containing index of a graph and the associated graph
+    data_path : str
         A path to directory where an additional data is stored for
-        the graph.
-    device: str
-        On which device will the copmutation be performed (cpu/cuda).
+        the graph
+    device : str
+        On which device will the copmutation be performed (cpu/cuda)
     
     Returns
     -------
-    int:
+    int
         index of the graph
-    dgl.DGLGraph:
+    dgl.DGLGraph
         graph in the DGLGraph format
-    dict:
+    dict
         a dictionary with predecessors for each node
-    dict:
+    dict
         a dictionary with successors for each node
-    dict:
+    dict
         a dictionary with reads for each node
-    str:
+    str
         a path to the reference associated with the graph
     """
     idx, graph = data
@@ -250,8 +250,8 @@ def train(args):
     
     Parameters
     ----------
-    args: argparse.Namespace
-        Arguments parsed from the command line.
+    args : argparse.Namespace
+        Arguments parsed from the command line
 
     Returns
     -------

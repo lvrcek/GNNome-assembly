@@ -47,7 +47,7 @@ class SequenceEncoder(nn.Module):
                 for conv in self.conv_rest:
                     read = conv(read)
             read = read.squeeze(0)  # dim_conv_emb x len(feature_map)
-            if self.weighted_mean:
+            if self.weighted:
                 h = self.weighted_mean(read)  # dim_conv_emb
             else:
                 h = read.mean(dim=1)  # dim_conv_emb

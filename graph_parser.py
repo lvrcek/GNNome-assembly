@@ -13,8 +13,8 @@ def draw_graph(graph_nx):
     
     Parameters
     ----------
-    graph_nx: networkx.DiGraph
-        A graph to be visualized.
+    graph_nx : networkx.DiGraph
+        A graph to be visualized
 
     Returns
     -------
@@ -30,13 +30,13 @@ def get_neighbors(graph):
     
     Parameters
     ----------
-    graph: graph.DGLGraph
+    graph : graph.DGLGraph
         A DGLGraph for which neighbors will be determined for each
-        node.
+        node
 
     Returns
     -------
-    dict:
+    dict
         a dictionary where nodes' ordinal numbers are keys and lists
         with all the nodes' neighbors are values
     """
@@ -52,13 +52,13 @@ def get_predecessors(graph):
     
     Parameters
     ----------
-    graph: graph.DGLGraph
+    graph : graph.DGLGraph
         A DGLGraph for which predecessors will be determined for each
-        node.
+        node
 
     Returns
     -------
-    dict:
+    dict
         a dictionary where nodes' ordinal numbers are keys and lists
         with all the nodes' predecessors are values
     """
@@ -77,16 +77,16 @@ def find_edge_index(graph, src, dst):
     
     Parameters
     ----------
-    graph: dgl.DGLGraph
-        A graph in which the edge is searched.
-    src: int
+    graph : dgl.DGLGraph
+        A graph in which the edge is searched
+    src : int
         Index of the source node
-    dst: int
+    dst : int
         Index of the destination node
 
     Returns
     -------
-    int:
+    int
         index of the edge connecting src and dst nodes
     """
     for idx, (node1, node2) in enumerate(zip(graph.edges()[0], graph.edges()[1])):
@@ -106,12 +106,12 @@ def translate_nodes_into_sequence(graph, reads, node_tr):
     
     Parameters
     ----------
-    graph: dgl.DGLGraph
-        A graph on which the walk was performed.
-    reads: dict
-        A dictionary where each node is associated with a sequence.
-    node_tr: list
-        A list of nodes depicting the walk.
+    graph : dgl.DGLGraph
+        A graph on which the walk was performed
+    reads : dict
+        A dictionary where each node is associated with a sequence
+    node_tr : list
+        A list of nodes depicting the walk
 
     Returns
     -------
@@ -138,12 +138,12 @@ def translate_nodes_into_sequence2(graph, reads, node_tr):
     
     Parameters
     ----------
-    graph: dgl.DGLGraph
-        A graph on which the walk was performed.
-    reads: dict
-        A dictionary where each node is associated with a sequence.
-    node_tr: list
-        A list of nodes depicting the walk.
+    graph : dgl.DGLGraph
+        A graph on which the walk was performed
+    reads : dict
+        A dictionary where each node is associated with a sequence
+    node_tr : list
+        A list of nodes depicting the walk
 
     Returns
     -------
@@ -164,15 +164,15 @@ def get_quality(hits, seq_len):
     
     Parameters
     ----------
-    hits: list
+    hits : list
         The list of mappy.Alignment objects resulting from aligning
         a sequence to the reference
-    seq_len: int
-        Length of the sequence aligned to the reference.
+    seq_len : int
+        Length of the sequence aligned to the reference
 
     Returns
     -------
-    float:
+    float
         a fraction of how much sequence was aligned to the reference
     """
     return (hits[0].q_en - hits[0].q_st) / seq_len
@@ -183,10 +183,10 @@ def print_pairwise(graph, path):
     
     Parameters
     ----------
-    graph: dgl.DGLGraph
-        The DGLGraph which is saved to the TXT file.
-    path: str
-        The location where to save the TXT file.
+    graph : dgl.DGLGraph
+        The DGLGraph which is saved to the TXT file
+    path : str
+        The location where to save the TXT file
 
     Returns
     -------
@@ -207,9 +207,9 @@ def from_gfa(graph_path, reads_path):
 
     Parameters
     ----------
-    graph_path: src
+    graph_path : src
         The location of the CSV file
-    reads_path: src
+    reads_path : src
         The location of the FASTQ file with the associated reads
 
     Returns
@@ -252,9 +252,9 @@ def from_csv(graph_path, reads_path):
 
     Parameters
     ----------
-    graph_path: src
+    graph_path : src
         The location of the CSV file
-    reads_path: src
+    reads_path : src
         The location of the FASTQ file with the associated reads
 
     Returns
