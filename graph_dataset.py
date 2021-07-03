@@ -9,8 +9,37 @@ import graph_parser
 
 
 class AssemblyGraphDataset(DGLDataset):
+    """
+    A dataset to store the assembly graphs.
+
+    A class that inherits from the DGLDataset and extends the
+    functionality by adding additional attributes and processing the
+    graph data appropriately.
+
+    Attributes
+    ----------
+    root : str
+        Root directory consisting of other directories where the raw
+        data can be found (reads in FASTQ format), and where all the
+        processing results are stored.
+    tmp_dir : str
+        Directory inside root where mid-results (output of the raven 
+        assembler) is stored
+    info_dir : str
+        Directory where additional graph information is stored
+    raven_path : str
+        Path to the raven assembler
+    """
 
     def __init__(self, root):
+        """
+        Parameters
+        ----------
+        root : str
+            Root directory consisting of other directories where the raw
+            data can be found (reads in FASTQ format), and where all the
+            processing results are stored.
+        """
         self.root = os.path.abspath(root)
         if 'raw' not in os.listdir(self.root):
             subprocess.run(f"mkdir 'raw'", shell=True, cwd=self.root)
@@ -28,6 +57,7 @@ class AssemblyGraphDataset(DGLDataset):
         super().__init__(name='assembly_graphs', raw_dir=raw_dir, save_dir=save_dir)
 
     def has_cache(self):
+        """Check if the raw data is already processed and stored."""
         return len(os.listdir(self.save_dir)) == len(os.listdir(self.raw_dir))
 
     def __len__(self):
@@ -38,6 +68,7 @@ class AssemblyGraphDataset(DGLDataset):
         return idx, graph
 
     def process(self):
+        """Process the raw data and save it on the disk."""
         graphia_dir = os.path.join(self.root, 'graphia')
         if not os.path.isdir(graphia_dir):
             os.mkdir(graphia_dir)

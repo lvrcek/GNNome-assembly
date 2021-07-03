@@ -6,8 +6,34 @@ import dgl.function as fn
 
 
 class GatedGCN(nn.Module):
+    """
+    GatedGCN layer, idea based on 'Residual Gated Graph ConvNets'
+    paper by Xavier Bresson and Thomas Laurent, ICLR 2018.
+    https://arxiv.org/pdf/1711.07553v2.pdf
+
+    Attributes
+    ----------
+    dropout : bool
+        Flag indicating whether to use dropout
+    batch_norm : bool
+        Flag indicating whether to use batch normalization.
+    residual : bool
+        Flag indicating whether to use node information from
+        the previous iteration.
+    A_n : torch.nn.Linear
+        Linear layer used to update node representations
+    B_n : torch.nn.Linear
+        Linear layer used to update edge representations
+    bn_h : torch.nn.BatchNorm1d
+        Batch normalization layer used on node representations
+    bn_e : torch.nn.BatchNorm1d
+        Batch normalization layer used on edge representations
+    """
     
     def __init__(self, in_channels, out_channels, dropout=0, batch_norm=True, residual=True):
+        """
+        
+        """
         super().__init__()
         self.dropout = dropout
         self.batch_norm = batch_norm
@@ -27,6 +53,7 @@ class GatedGCN(nn.Module):
         self.bn_e = nn.BatchNorm1d(out_channels)
 
     def message_forward(self, edges):
+        """Message function used on the original graph."""
         A2h_j = edges.src['A2h']
         e_ji = edges.src['B1h'] + edges.dst['B2h'] + edges.data['B3e']  # e_ji = B_1*h_j + B_2*h_i + B_3*e_ji
 
@@ -41,6 +68,7 @@ class GatedGCN(nn.Module):
         return {'A2h_j': A2h_j, 'e_ji': e_ji}
 
     def reduce_forward(self, nodes):
+        """Reduce function used on the original graph."""
         A2h_j = nodes.mailbox['A2h_j']
         e_ji = nodes.mailbox['e_ji']
         sigma_ji = torch.sigmoid(e_ji)
@@ -48,6 +76,7 @@ class GatedGCN(nn.Module):
         return {'h_forward': h_forward}
 
     def message_backward(self, edges):
+        """Message function used on the reverse graph."""
         A3h_k = edges.src['A3h']
         e_ik = edges.dst['B1h'] + edges.src['B2h'] + edges.data['B3e']  # e_ik = B_1*h_i + B_2*h_k + B_3*e_ik
 
@@ -62,6 +91,7 @@ class GatedGCN(nn.Module):
         return {'A3h_k': A3h_k, 'e_ik': e_ik}
 
     def reduce_backward(self, nodes):
+        """Reduce function used on the reverse graph."""
         A3h_k = nodes.mailbox['A3h_k']
         e_ik = nodes.mailbox['e_ik']
         sigma_ik = torch.sigmoid(e_ik)
@@ -69,6 +99,7 @@ class GatedGCN(nn.Module):
         return {'h_backward': h_backward}
 
     def forward(self, g, h, e):
+        """Return updated node representations."""
         h_in = h
         e_in = e
 
@@ -97,4 +128,5 @@ class GatedGCN(nn.Module):
 
         h = F.dropout(h, self.dropout, training=self.training)
 
+        # TODO: I should also return e, since that is also being updated (and residual connection is used)
         return h
