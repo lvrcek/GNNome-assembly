@@ -135,7 +135,7 @@ def greedy(graph, start, neighbors, option):
     read_idx_walk = []
 
     assert option in ('ground-truth', 'baseline', 'decode'), \
-        "Argument option has to be either 'ground-truth', 'baseline', or 'decode'"
+        "Argument option has to be 'ground-truth', 'baseline', or 'decode'"
 
     while True:
         if current in visited:
@@ -143,7 +143,7 @@ def greedy(graph, start, neighbors, option):
         walk.append(current)
         visited.add(current)
         visited.add(current ^ 1)
-        read_idx_walk.append(graph.ndata['read_idx'][current])
+        read_idx_walk.append(graph.ndata['read_idx'][current].item())
         if len(neighbors[current]) == 0:
             break
         if len(neighbors[current]) == 1:
