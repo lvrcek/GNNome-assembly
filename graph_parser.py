@@ -40,11 +40,9 @@ def get_neighbors(graph):
         a dictionary where nodes' ordinal numbers are keys and lists
         with all the nodes' neighbors are values
     """
-    # TODO: no leaf nodes included!
-    neighbor_dict = defaultdict(list)
+    neighbor_dict = {i.item(): [] for i in graph.nodes()}
     for src, dst in zip(graph.edges()[0], graph.edges()[1]):
         neighbor_dict[src.item()].append(dst.item())
-    neighbor_dict = dict(neighbor_dict)
     return neighbor_dict
 
 
@@ -63,11 +61,9 @@ def get_predecessors(graph):
         a dictionary where nodes' ordinal numbers are keys and lists
         with all the nodes' predecessors are values
     """
-    # TODO: No top root nodes included!
-    predecessor_dict = defaultdict(list)
+    predecessor_dict = {i.item(): [] for i in graph.nodes()}
     for src, dst in zip(graph.edges()[0], graph.edges()[1]):
         predecessor_dict[dst.item()].append(src.item())
-    predecessor_dict = dict(predecessor_dict)
     return predecessor_dict
 
 
