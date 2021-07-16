@@ -177,7 +177,7 @@ def process(model, idx, graph, pred, neighbors, reads, reference, optimizer, mod
     float
         accuracy of the preictions for the given graph
     """
-    start_nodes = list(set(range(graph.num_nodes())) - set(pred.keys()))
+    start_nodes = [k for k, v in pred.items() if len(v)==0]
     start = start_nodes[0]  # TODO: Maybe iterate over all the start nodes?
 
     criterion = nn.CrossEntropyLoss()
