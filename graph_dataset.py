@@ -74,9 +74,9 @@ class AssemblyGraphDataset(DGLDataset):
             os.mkdir(graphia_dir)
 
         with open(f'{self.root}/dataset_log.txt', 'w') as f:
-            for cnt, reads in enumerate(os.listdir(self.raw_dir)):
-                print(cnt, reads)
-                reads_path = os.path.abspath(os.path.join(self.raw_dir, reads))
+            for cnt, fastq in enumerate(os.listdir(self.raw_dir)):
+                print(cnt, fastq)
+                reads_path = os.path.abspath(os.path.join(self.raw_dir, fastq))
                 print(reads_path)
                 subprocess.run(f'{self.raven_path} --weaken -t32 -p0 {reads_path} > assembly.fasta', shell=True, cwd=self.tmp_dir)
                 processed_path = os.path.join(self.save_dir, str(cnt) + '.dgl')
@@ -89,4 +89,4 @@ class AssemblyGraphDataset(DGLDataset):
 
                 graphia_path = os.path.join(graphia_dir, f'{cnt}_graph.txt')
                 graph_parser.print_pairwise(graph, graphia_path)
-                f.write(f'{cnt} - {reads}\n')
+                f.write(f'{cnt} - {fastq}\n')
