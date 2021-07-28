@@ -155,3 +155,5 @@ data/*
 data/example/raw/*.fastq
 data/example/tmp/*
 data/example/sequences/*
+
+tmp_reads/

@@ -35,7 +35,7 @@ def greedy_ground_truth(graph, current, neighbors, visited):
             continue
         candidates.append((neighbor, abs(graph.ndata['read_start'][neighbor] - graph.ndata['read_start'][current])))
     candidates.sort(key=lambda x: x[1])
-    choice = candidates[0][0]
+    choice = candidates[0][0] if len(candidates) > 0 else None
     return choice
 
 
@@ -66,7 +66,7 @@ def greedy_baseline(graph, current, neighbors):
         idx = find_edge_index(graph, current, neighbor)
         candidates.append((neighbor, graph.edata['overlap_similarity'][idx], graph.edata['overlap_length'][idx]))
     candidates.sort(key=lambda x: (-x[1], x[2]))
-    choice = candidates[0][0]
+    choice = candidates[0][0] if len(candidates) > 0 else None
     return choice
 
 
@@ -95,7 +95,7 @@ def greedy_decode(graph, current, neighbors):
     for neighbor in neighbors[current]:
         candidates.append((neighbor, graph.ndata['p']))
     candidates.sort(key=lambda x: x[1], reverse=True)
-    choice = candidates[0][0]
+    choice = candidates[0][0] if len(candidates) > 0 else None
     return choice
 
 
@@ -137,7 +137,7 @@ def greedy(graph, start, neighbors, option):
     assert option in ('ground-truth', 'baseline', 'decode'), \
         "Argument option has to be 'ground-truth', 'baseline', or 'decode'"
 
-    while True:
+    while current is not None:
         if current in visited:
             break
         walk.append(current)
