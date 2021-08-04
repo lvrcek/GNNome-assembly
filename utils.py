@@ -1,3 +1,5 @@
+import pickle
+
 import edlib
 import mappy as mp
 import torch
@@ -177,8 +179,8 @@ def process(model, idx, graph, pred, neighbors, reads, reference, optimizer, mod
     float
         accuracy of the preictions for the given graph
     """
-    start_nodes = [k for k, v in pred.items() if len(v)==0]
-    start = start_nodes[0]  # TODO: Maybe iterate over all the start nodes?
+    # start_nodes = [k for k, v in pred.items() if len(v)==0]
+    start = 0  # A very naive approach, but good for now
 
     criterion = nn.CrossEntropyLoss()
     # aligner = mp.Aligner(reference, preset='map_pb', best_n=1)
@@ -193,12 +195,18 @@ def process(model, idx, graph, pred, neighbors, reads, reference, optimizer, mod
     correct = 0
 
     logits = model(graph, reads)
-    ground_truth, _ = algorithms.greedy(graph, start, neighbors, option='ground-truth')
+    # ground_truth, _ = algorithms.greedy(graph, start, neighbors, option='ground-truth')
+    ground_truth = pickle.load(open(f'data/train/solutions/{idx}_gt.pkl', 'rb'))
+    total_steps = len(ground_truth) - 1
+    steps = 0
     ground_truth = {n1: n2 for n1, n2 in zip(ground_truth[:-1], ground_truth[1:])}
     
     print('Iterating through nodes!')
 
     while True:
+        if steps == total_steps:
+            break
+        steps += 1
         walk.append(current)
         if current in visited:
             break

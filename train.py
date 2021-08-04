@@ -258,7 +258,7 @@ def train(args):
     None
     """
     hyperparameters = get_hyperparameters()
-    num_epochs = hyperparameters['num_epochs']
+    num_epochs = 1 # hyperparameters['num_epochs']
     dim_node = hyperparameters['dim_nodes']
     dim_edge = hyperparameters['dim_edges']
     dim_latent = hyperparameters['dim_latent']
@@ -302,6 +302,8 @@ def train(args):
                 loss_list, accuracy = utils.process(model, idx, graph, pred, succ, reads, reference, optimizer, 'train', device=device)
                 loss_per_graph.append(np.mean(loss_list))
                 accuracy_per_graph.append(accuracy)
+                process_time = time.time()
+                print(f'Processing graph {idx} done. Elapsed time: {process_time - start_time}')
 
             loss_per_epoch_train.append(np.mean(loss_per_graph))
             accuracy_per_epoch_train.append(np.mean(accuracy_per_graph))
