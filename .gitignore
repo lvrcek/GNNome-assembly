@@ -158,3 +158,5 @@ data/example/sequences/*
 
 tmp_reads/
 solutions/
+
+vendor/raven_filter/
