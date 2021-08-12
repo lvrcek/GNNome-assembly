@@ -1,3 +1,6 @@
+import dgl
+import torch
+
 from graph_parser import find_edge_index
 
 
@@ -157,3 +160,24 @@ def greedy(graph, start, neighbors, option):
             current = greedy_decode(graph, current, neighbors)
 
     return walk, read_idx_walk
+
+
+def assert_strand(graph, walk):
+    for idx, node in enumerate(walk):
+        strand = graph.ndata['read_strand'][node].item()
+        if strand == -1:
+            print('-' * 20)
+            print(f'walk index: {idx}')
+            print(f'node index: {node}')
+
+
+def assert_overlap(graph, walk):
+    for idx, (src, dst) in enumerate(zip(walk[:-1], walk[1:])):
+        start = graph.ndata['read_start'][dst].item()
+        end = graph.ndata['read_end'][src].item()
+        if start > end:
+            print('-' * 20)
+            print(f'walk index: {idx}')
+            print(f'nodes not connected: {src}, {dst}')
+            print(f'start: {start}, end: {end}')
+
