@@ -318,7 +318,7 @@ def from_csv(graph_path, reads_path):
                 # Overlap info: id, length, weight, similarity
                 overlap = overlap.split()
                 try:
-                    [edge_id, prefix_len, _], similarity = map(int, overlap[:3]), float(overlap[3])
+                    (edge_id, prefix_len), (weight, similarity) = map(int, overlap[:2]), map(float, overlap[2:])
                 except IndexError:
                     continue
                 graph_nx.add_edge(src_id, dst_id)

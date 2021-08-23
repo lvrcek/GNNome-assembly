@@ -181,3 +181,17 @@ def assert_overlap(graph, walk):
             print(f'nodes not connected: {src}, {dst}')
             print(f'start: {start}, end: {end}')
 
+
+def to_csv(name):
+    graph = dgl.load_graphs(f'data/graphs_1.0/processed/{name}.dgl')[0][0]
+    with open(f'test_cases/{name}.csv', 'w') as f:
+        f.write('node_id,read_strand,read_start,read_end\n')
+        for n in range(graph.num_nodes()):
+            strand = graph.ndata['read_strand'][n].item()
+            start = graph.ndata['read_start'][n].item()
+            end = graph.ndata['read_end'][n].item()
+            f.write(f'{n},{strand},{start},{end}\n')
+
+
+
+
