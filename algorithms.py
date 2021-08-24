@@ -210,3 +210,21 @@ def to_positive_pairwise(name):
             if graph.ndata['read_strand'][src] == 1 and graph.ndata['read_strand'][dst] == 1:
                 f.write(f'{src}\t{dst}\n')
 
+
+def interval_union(name):
+    graph = dgl.load_graphs(f'data/graphs_1.0/processed/{name}.dgl')[0][0]
+    intervals = []
+    for strand, start, end in zip(graph.ndata['read_strand'], graph.ndata['read_start'], graph.ndata['read_end']):
+        if strand.item() == 1:
+            intervals.append([start.item(), end.item()])
+    intervals.sort(key=lambda x: x[0])
+    result = [intervals[0]]
+
+    for interval in intervals[1:]:
+        if interval[0] <= result[-1][1]:
+            result[-1][1] = max(result[-1][1], interval[1])
+        else:
+            result.append(interval)
+
+    return result
+
