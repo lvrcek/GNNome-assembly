@@ -182,16 +182,31 @@ def assert_overlap(graph, walk):
             print(f'start: {start}, end: {end}')
 
 
-def to_csv(name):
+def to_csv(name, print_strand=True):
     graph = dgl.load_graphs(f'data/graphs_1.0/processed/{name}.dgl')[0][0]
-    with open(f'test_cases/{name}.csv', 'w') as f:
-        f.write('node_id,read_strand,read_start,read_end\n')
+    with open(f'test_cases/{name}_info.csv', 'w') as f:
+        if print_strand:
+            f.write('node_id,read_strand,read_start,read_end\n')
+        else:
+            f.write('node_id,read_start,read_end\n')
         for n in range(graph.num_nodes()):
             strand = graph.ndata['read_strand'][n].item()
             start = graph.ndata['read_start'][n].item()
             end = graph.ndata['read_end'][n].item()
-            f.write(f'{n},{strand},{start},{end}\n')
+            if print_strand:
+                f.write(f'{n},{strand},{start},{end}\n')
+            else:
+                if strand == 1:
+                    f.write(f'{n},{start},{end}\n')
 
 
-
+def to_positive_pairwise(name):
+    graph = dgl.load_graphs(f'data/graphs_1.0/processed/{name}.dgl')[0][0]
+    with open(f'test_cases/{name}_edges.txt', 'w') as f:
+        f.write('src\tdst\n')
+        for src, dst in zip(graph.edges()[0], graph.edges()[1]):
+            src = src.item()
+            dst = dst.item()
+            if graph.ndata['read_strand'][src] == 1 and graph.ndata['read_strand'][dst] == 1:
+                f.write(f'{src}\t{dst}\n')
 
