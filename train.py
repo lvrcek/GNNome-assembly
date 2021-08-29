@@ -273,7 +273,7 @@ def train(args):
 
     dl_train, dl_valid, dl_test = get_dataloaders(data_path, batch_size, eval, ratio=0.2)
 
-    exit()
+    # exit()
 
     model = models.NonAutoRegressive(dim_latent).to(device)
     params = list(model.parameters())

@@ -1,3 +1,5 @@
+import os
+import pickle
 from collections import deque
 
 import dgl
@@ -185,7 +187,7 @@ def assert_overlap(graph, walk):
 
 
 def to_csv(name, print_strand=True):
-    graph = dgl.load_graphs(f'data/graphs_1.0/processed/{name}.dgl')[0][0]
+    graph = dgl.load_graphs(f'data/train/processed/{name}.dgl')[0][0]
     with open(f'test_cases/{name}_info.csv', 'w') as f:
         if print_strand:
             f.write('node_id,read_strand,read_start,read_end\n')
@@ -203,7 +205,7 @@ def to_csv(name, print_strand=True):
 
 
 def to_positive_pairwise(name):
-    graph = dgl.load_graphs(f'data/graphs_1.0/processed/{name}.dgl')[0][0]
+    graph = dgl.load_graphs(f'data/train/processed/{name}.dgl')[0][0]
     with open(f'test_cases/{name}_edges.txt', 'w') as f:
         f.write('src\tdst\n')
         for src, dst in zip(graph.edges()[0], graph.edges()[1]):
@@ -248,8 +250,7 @@ def dfs(graph, start, neighbors):
     return walk
 
 
-def dfs_gt(graph, start, neighbors):
-    threshold = 9995000
+def dfs_gt(graph, start, neighbors, threshold):
     execution = deque()
     walk = [start]
     execution.append(walk)
@@ -285,3 +286,18 @@ def dfs_gt(graph, start, neighbors):
     
     except KeyboardInterrupt:
         return max_reach
+
+
+def get_solutions_for_all():
+    processed_path = 'data/train/processed'
+    neighbors_path = 'data/train/info'
+    solutions_path = 'data/train/solutions'
+    start = 0
+    for name in os.listdir(processed_path):
+        idx = name[:-4]
+        print(idx)
+        graph = dgl.load_graphs(os.path.join(processed_path, name))[0][0]
+        neighbors = pickle.load(open(os.path.join(neighbors_path, idx + '_succ.pkl'), 'rb'))
+        walk = dfs_gt(graph, 0, neighbors, threshold=1995000)
+        pickle.dump(walk, open(os.path.join(solutions_path, idx + '_gt.pkl'), 'wb'))
+

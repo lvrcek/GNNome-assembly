@@ -1,7 +1,7 @@
 import pickle
 
 import edlib
-import mappy as mp
+# import mappy as mp
 import torch
 import torch.nn as nn
 
@@ -105,29 +105,29 @@ def get_edlib_best(idx, graph, reads, current, neighbors, reference_seq, aligner
         return None
         
 
-def get_minimap_best(graph, reads, current, neighbors, walk, aligner):
-    """Get the ground-truth for the next node with minimap - DEPRECATED"""
-    scores = []
-    for neighbor in neighbors[current]:
-        print(f'\tcurrent neighbor {neighbor}')
-        node_tr = walk[-min(3, len(walk)):] + [neighbor]
-        sequence = graph_parser.translate_nodes_into_sequence2(graph, reads, node_tr)
-        ll = min(len(sequence), 50000)
-        sequence = sequence[-ll:]
-        name = '_'.join(map(str, node_tr)) + '.fasta'
-        with open(f'concat_reads/{name}', 'w') as fasta:
-            fasta.write(f'>{name}\n')
-            fasta.write(f'{str(sequence)*10}\n')
-        alignment = aligner.map(sequence)
-        hits = list(alignment)
-        try:
-            quality_score = graph_parser.get_quality(hits, len(sequence))
-        except:
-            quality_score = 0
-        print(f'\t\tquality score:', quality_score)
-        scores.append((neighbor, quality_score))
-    best_neighbor, quality_score = max(scores, key=lambda x: x[1])
-    return best_neighbor
+# def get_minimap_best(graph, reads, current, neighbors, walk, aligner):
+#     """Get the ground-truth for the next node with minimap - DEPRECATED"""
+#     scores = []
+#     for neighbor in neighbors[current]:
+#         print(f'\tcurrent neighbor {neighbor}')
+#         node_tr = walk[-min(3, len(walk)):] + [neighbor]
+#         sequence = graph_parser.translate_nodes_into_sequence2(graph, reads, node_tr)
+#         ll = min(len(sequence), 50000)
+#         sequence = sequence[-ll:]
+#         name = '_'.join(map(str, node_tr)) + '.fasta'
+#         with open(f'concat_reads/{name}', 'w') as fasta:
+#             fasta.write(f'>{name}\n')
+#             fasta.write(f'{str(sequence)*10}\n')
+#         alignment = aligner.map(sequence)
+#         hits = list(alignment)
+#         try:
+#             quality_score = graph_parser.get_quality(hits, len(sequence))
+#         except:
+#             quality_score = 0
+#         print(f'\t\tquality score:', quality_score)
+#         scores.append((neighbor, quality_score))
+#     best_neighbor, quality_score = max(scores, key=lambda x: x[1])
+#     return best_neighbor
 
 
 def print_prediction(walk, current, neighbors, actions, choice, best_neighbor):
