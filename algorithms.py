@@ -255,30 +255,33 @@ def dfs_gt(graph, start, neighbors):
     execution.append(walk)
     max_reach = walk.copy()
 
-    while execution:
-        walk = execution.pop()
-        visited = set(walk)
-        last_node = walk[-1]
-        
-        if graph.ndata['read_end'][last_node] > graph.ndata['read_end'][max_reach[-1]]:
-            max_reach = walk.copy()
+    try:
+        while execution:
+            walk = execution.pop()
+            visited = set(walk)
+            last_node = walk[-1]
+            
+            if graph.ndata['read_end'][last_node] > graph.ndata['read_end'][max_reach[-1]]:
+                max_reach = walk.copy()
 
-        if len(neighbors[last_node]) == 0 and graph.ndata['read_end'][last_node] > threshold:
-            break
+            if len(neighbors[last_node]) == 0 and graph.ndata['read_end'][last_node] > threshold:
+                break
 
-        tmp = []
-        for node in neighbors.get(last_node, []):
-            if node in visited:
-                continue
-            if graph.ndata['read_strand'][node] == -1:
-                continue
-            if graph.ndata['read_start'][node] > graph.ndata['read_end'][last_node]:
-                continue
-            tmp.append(node)
-        
-        tmp.sort(key=lambda x: -graph.ndata['read_start'][x])
-        for node in tmp:
-            execution.append(walk + [node])
+            tmp = []
+            for node in neighbors.get(last_node, []):
+                if node in visited:
+                    continue
+                if graph.ndata['read_strand'][node] == -1:
+                    continue
+                if graph.ndata['read_start'][node] > graph.ndata['read_end'][last_node]:
+                    continue
+                tmp.append(node)
+            
+            tmp.sort(key=lambda x: -graph.ndata['read_start'][x])
+            for node in tmp:
+                execution.append(walk + [node])
 
-    return max_reach
-
+        return max_reach
+    
+    except KeyboardInterrupt:
+        return max_reach
