@@ -30,7 +30,7 @@ def get_neighbors(graph):
     
     Parameters
     ----------
-    graph : graph.DGLGraph
+    graph : dgl.DGLGraph
         A DGLGraph for which neighbors will be determined for each
         node
 
@@ -51,7 +51,7 @@ def get_predecessors(graph):
     
     Parameters
     ----------
-    graph : graph.DGLGraph
+    graph : dgl.DGLGraph
         A DGLGraph for which predecessors will be determined for each
         node
 
@@ -65,6 +65,27 @@ def get_predecessors(graph):
     for src, dst in zip(graph.edges()[0], graph.edges()[1]):
         predecessor_dict[dst.item()].append(src.item())
     return predecessor_dict
+
+
+def get_edges(graph):
+    """Return edge index for each edge in the graph.
+
+    Parameters
+    ----------
+    graph : dgl.DGLGraph
+        A DGLGraph for which edge indices will be saved
+
+    Returns
+    -------
+    dict
+        a dictionary where keys are (source, destination) tuples of
+        nodes, and corresponding edge indices are values
+    """
+    edges_dict = {}
+    for idx, (src, dst) in enumerate(zip(graph.edges()[0], graph.edges()[1])):
+        src, dst = src.item(), dst.item()
+        edges_dict[(src, dst)] = idx
+    return edges_dict
 
 
 def find_edge_index(graph, src, dst):
@@ -344,8 +365,9 @@ def from_csv(graph_path, reads_path):
                                   edge_attrs=['prefix_length', 'overlap_similarity', 'overlap_length'])
     predecessors = get_predecessors(graph_dgl)
     successors = get_neighbors(graph_dgl)
+    edges = get_edges(graph_dgl)
     reads = {}
     for i, key in enumerate(sorted(node_data)):
         reads[i] = node_data[key]
 
-    return graph_dgl, predecessors, successors, reads
+    return graph_dgl, predecessors, successors, reads, edges

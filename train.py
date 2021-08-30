@@ -6,6 +6,9 @@ import pickle
 import random
 import time
 
+import matplotlib
+matplotlib.use('Agg')
+
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -71,7 +74,6 @@ def draw_accuracy_plots(train_acc, valid_acc, timestamp):
     plt.ylabel('Accuracy')
     plt.legend()
     plt.savefig(f'figures/train_accuracy_{timestamp}.png')
-    plt.show()
 
 
 def set_seed(seed=42):
@@ -158,6 +160,27 @@ def get_reference(idx, data_path):
     return ref_path
 
 
+def get_edges(idx, data_path):
+    """Return dictionary with edge indices of the graph
+
+    Parameters
+    ----------
+    idx : int
+        Index of the graph for which the information will be loaded
+    data_path : str
+        Path to where the information data of a graph is stored
+
+    Returns
+    -------
+    dict
+        a dictionary with edge indices for each edge in the graph
+    """
+    edges_path = os.path.join(data_path, f'info/{idx}_edges.pkl')
+    edges = pickle.load(open(edges_path, 'rb'))
+    return edges
+
+
+
 def get_dataloaders(data_path, batch_size, eval, ratio):
     """Load the dataset and initialize dataloaders.
 
@@ -233,8 +256,9 @@ def unpack_data(data, data_path, device):
     pred, succ = get_neighbors_dicts(idx, data_path)
     reads = get_reads(idx, data_path)
     reference = get_reference(idx, data_path)
+    edges = get_edges(idx, data_path)
     graph = graph.to(device)
-    return idx, graph, pred, succ, reads, reference
+    return idx, graph, pred, succ, reads, reference, edges
 
 
 def print_graph_info(idx, graph):
@@ -298,10 +322,9 @@ def train(args):
             loss_per_graph = []
             accuracy_per_graph = []
             for data in dl_train:
-                idx, graph, pred, succ, reads, reference = unpack_data(data, data_path, device)
+                idx, graph, pred, succ, reads, reference, edges = unpack_data(data, data_path, device)
                 print_graph_info(idx, graph)
-                print(graph)
-                loss_list, accuracy = utils.process(model, idx, graph, pred, succ, reads, reference, optimizer, 'train', device=device)
+                loss_list, accuracy = utils.process(model, idx, graph, pred, succ, reads, reference, edges, optimizer, 'train', device=device)
                 loss_per_graph.append(np.mean(loss_list))
                 accuracy_per_graph.append(accuracy)
                 process_time = time.time()
@@ -318,9 +341,9 @@ def train(args):
                 loss_per_graph = []
                 accuracy_per_graph = []
                 for data in dl_valid:
-                    idx, graph, pred, succ, reference = unpack_data(data, data_path, device)
+                    idx, graph, pred, succ, reads, reference, edges = unpack_data(data, data_path, device)
                     print_graph_info(idx, graph)
-                    loss_list, accuracy = utils.process(model, idx, graph, pred, succ, reads, reference, optimizer, 'eval', device=device)
+                    loss_list, accuracy = utils.process(model, idx, graph, pred, succ, reads, reference, edges, optimizer, 'eval', device=device)
                     loss_per_graph.append(np.mean(loss_list))
                     accuracy_per_graph.append(accuracy)
 
@@ -347,9 +370,9 @@ def train(args):
         print('TESTING')
         model.eval()
         for data in dl_test:
-            idx, graph, pred, succ, reference = unpack_data(data, data_path, device)
+            idx, graph, pred, succ, reads, reference, edges = unpack_data(data, data_path, device)
             print_graph_info(idx, graph)
-            loss_list, accuracy = utils.process(best_model, idx, graph, pred, succ, reads, reference, optimizer, 'eval', device=device)
+            loss_list, accuracy = utils.process(best_model, idx, graph, pred, succ, reads, reference, edges, optimizer, 'eval', device=device)
             test_accuracy.append(accuracy)
 
         print(f'Average accuracy on the test set:', np.mean(test_accuracy))

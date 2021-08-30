@@ -82,12 +82,13 @@ class AssemblyGraphDataset(DGLDataset):
                 for j in range(1, 7):
                     print(f'graph {j}')
                     processed_path = os.path.join(self.save_dir, f'd{cnt}_g{j}.dgl')  # d = dataset [0, 18], g = graph [1, 7]
-                    graph, pred, succ, reads = graph_parser.from_csv(os.path.join(self.tmp_dir, f'graph_{j}.csv'), reads_path)
+                    graph, pred, succ, reads, edges = graph_parser.from_csv(os.path.join(self.tmp_dir, f'graph_{j}.csv'), reads_path)
                     dgl.save_graphs(processed_path, graph)
 
                     pickle.dump(pred, open(f'{self.info_dir}/d{cnt}_g{j}_pred.pkl', 'wb'))
                     pickle.dump(succ, open(f'{self.info_dir}/d{cnt}_g{j}_succ.pkl', 'wb'))
                     pickle.dump(reads, open(f'{self.info_dir}/d{cnt}_g{j}_reads.pkl', 'wb'))
+                    pickle.dump(edges, open(f'{self.info_dir}/d{cnt}_g{j}_edges.pkl', 'wb'))
 
                     graphia_path = os.path.join(graphia_dir, f'd{cnt}_g{j}_graph.txt')
                     graph_parser.print_pairwise(graph, graphia_path)
