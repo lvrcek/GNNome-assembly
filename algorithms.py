@@ -1,5 +1,6 @@
 import os
 import pickle
+import subprocess
 from collections import deque
 
 import dgl
@@ -186,9 +187,11 @@ def assert_overlap(graph, walk):
             print(f'start: {start}, end: {end}')
 
 
-def to_csv(name, print_strand=True):
-    graph = dgl.load_graphs(f'data/train/processed/{name}.dgl')[0][0]
-    with open(f'test_cases/{name}_info.csv', 'w') as f:
+def to_csv(name, root, print_strand=True, save_dir='test_cases'):
+    graph = dgl.load_graphs(f'{root}/processed/{name}.dgl')[0][0]
+    if not os.path.isdir(save_dir):
+        os.makedirs(save_dir)
+    with open(f'{save_dir}/{name}_info.csv', 'w') as f:
         if print_strand:
             f.write('node_id,read_strand,read_start,read_end\n')
         else:
@@ -204,9 +207,11 @@ def to_csv(name, print_strand=True):
                     f.write(f'{n},{start},{end}\n')
 
 
-def to_positive_pairwise(name):
-    graph = dgl.load_graphs(f'data/train/processed/{name}.dgl')[0][0]
-    with open(f'test_cases/{name}_edges.txt', 'w') as f:
+def to_positive_pairwise(name, root, save_dir='test_cases'):
+    graph = dgl.load_graphs(f'{root}/processed/{name}.dgl')[0][0]
+    if not os.path.isdir(save_dir):
+        os.makedirs(save_dir)
+    with open(f'{save_dir}/{name}_edges.txt', 'w') as f:
         f.write('src\tdst\n')
         for src, dst in zip(graph.edges()[0], graph.edges()[1]):
             src = src.item()
@@ -215,8 +220,24 @@ def to_positive_pairwise(name):
                 f.write(f'{src}\t{dst}\n')
 
 
-def interval_union(name):
-    graph = dgl.load_graphs(f'data/graphs_1.0/processed/{name}.dgl')[0][0]
+def get_solutions_for_all_cpp(root, save_dir='test_cases'):
+    processed_path = os.path.join(root, 'processed')
+
+    for filename in os.listdir(processed_path):
+        name = filename[:-4]
+        print(f'Finding walk for... {name}')
+        to_csv(name, root, print_strand=False, save_dir=save_dir)
+        to_positive_pairwise(name, root, save_dir=save_dir)
+        subprocess.run(f'./longestContinuousSequence {name}_info.csv > {name}.out', shell=True, cwd=save_dir)
+        with open(f'{save_dir}/{name}.out') as f:
+           lines = f.readlines()
+           walk = lines[-1].strip().split(' -> ')
+           walk = list(map(int, walk))
+           pickle.dump(walk, open(f'{save_dir}/{name}_walk.pkl', 'wb'))
+
+
+def interval_union(name, root):
+    graph = dgl.load_graphs(f'{root}/processed/{name}.dgl')[0][0]
     intervals = []
     for strand, start, end in zip(graph.ndata['read_strand'], graph.ndata['read_start'], graph.ndata['read_end']):
         if strand.item() == 1:

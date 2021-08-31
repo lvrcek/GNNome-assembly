@@ -23,7 +23,7 @@ import models
 import utils
 
 
-def draw_loss_plot(train_loss, valid_loss, timestamp):
+def draw_loss_plots(train_loss, valid_loss, timestamp):
     """Draw and save plot of train and validation loss over epochs.
 
     Parameters
@@ -47,7 +47,6 @@ def draw_loss_plot(train_loss, valid_loss, timestamp):
     plt.ylabel('Loss')
     plt.legend()
     plt.savefig(f'figures/loss_{timestamp}.png')
-    plt.show()
 
 
 def draw_accuracy_plots(train_acc, valid_acc, timestamp):
@@ -73,7 +72,7 @@ def draw_accuracy_plots(train_acc, valid_acc, timestamp):
     plt.xlabel('Epoch')
     plt.ylabel('Accuracy')
     plt.legend()
-    plt.savefig(f'figures/train_accuracy_{timestamp}.png')
+    plt.savefig(f'figures/accuracy_{timestamp}.png')
 
 
 def set_seed(seed=42):
@@ -282,7 +281,7 @@ def train(args):
     None
     """
     hyperparameters = get_hyperparameters()
-    num_epochs = 1 # hyperparameters['num_epochs']
+    num_epochs = hyperparameters['num_epochs']
     dim_node = hyperparameters['dim_nodes']
     dim_edge = hyperparameters['dim_edges']
     dim_latent = hyperparameters['dim_latent']
@@ -353,13 +352,15 @@ def train(args):
                     best_model.to(device)
                     torch.save(best_model.state_dict(), model_path)
                 elif patience >= patience_limit:
+                    pass
+                    # TODO: Enable early stopping, incrase patience_limit
                     break
 
                 loss_per_epoch_valid.append(np.mean(loss_per_graph))
                 accuracy_per_epoch_valid.append(np.mean(accuracy_per_graph))
                 print(f'Validation in epoch {epoch} done. Elapsed time: {time.time()-start_time}s')
 
-        draw_loss_plot(loss_per_epoch_train, loss_per_epoch_valid, time_now)
+        draw_loss_plots(loss_per_epoch_train, loss_per_epoch_valid, time_now)
         draw_accuracy_plots(accuracy_per_epoch_train, accuracy_per_epoch_valid, time_now)
 
     torch.save(best_model.state_dict(), model_path)

@@ -141,7 +141,7 @@ def print_prediction(walk, current, neighbors, actions, choice, best_neighbor):
     print('ground truth:\t', best_neighbor)
 
 
-def process(model, idx, graph, pred, neighbors, reads, reference, edges, optimizer, mode, device='cpu'):
+def process(model, idx, graph, pred, neighbors, reads, reference, edges, optimizer, mode, device):
     """Process the graph by predicting the correct next neighbor.
     
     A graph is processed by simulating a walk over it where the 
@@ -237,6 +237,7 @@ def process(model, idx, graph, pred, neighbors, reads, reference, edges, optimiz
 
         best_idx = torch.tensor([best_idx], dtype=torch.long, device=device)
         loss = criterion(neighbor_logits.unsqueeze(0), best_idx)
+        loss_list.append(loss.item())
 
         # Calculate loss
         if mode == 'train':
