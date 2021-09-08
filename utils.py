@@ -7,6 +7,7 @@ import torch.nn as nn
 
 import graph_parser
 import algorithms
+from hyperparameters import get_hyperparameters
 
 
 def anchor(reads, current, aligner):
@@ -141,7 +142,7 @@ def print_prediction(walk, current, neighbors, actions, choice, best_neighbor):
     print('ground truth:\t', best_neighbor)
 
 
-def process(model, idx, graph, pred, neighbors, reads, reference, edges, optimizer, mode, device):
+def process(model, idx, graph, pred, neighbors, reads, reference, edges, optimizer, mode, epoch, device):
     """Process the graph by predicting the correct next neighbor.
     
     A graph is processed by simulating a walk over it where the 
@@ -180,7 +181,8 @@ def process(model, idx, graph, pred, neighbors, reads, reference, edges, optimiz
         accuracy of the preictions for the given graph
     """
     # start_nodes = [k for k, v in pred.items() if len(v)==0]
-    start = 0  # A very naive approach, but good for now
+    walk_length = get_hyperparameters()['walk_length']
+    start = 0
 
     criterion = nn.CrossEntropyLoss()
     # aligner = mp.Aligner(reference, preset='map_pb', best_n=1)
@@ -190,6 +192,7 @@ def process(model, idx, graph, pred, neighbors, reads, reference, edges, optimiz
     visited = set()
     walk = []
     loss_list = []
+    tensor_los_list = []
     total_loss = 0
     total = 0
     correct = 0
@@ -200,10 +203,22 @@ def process(model, idx, graph, pred, neighbors, reads, reference, edges, optimiz
     total_steps = len(ground_truth) - 1
     steps = 0
     ground_truth = {n1: n2 for n1, n2 in zip(ground_truth[:-1], ground_truth[1:])}
+
+    if walk_length == -1:
+        start_new = 0
+    else:
+        start_new = (epoch * walk_length) % total_steps
+
+    try:
+        current = ground_truth[start_new]
+    except:
+        return [], 0.0
     
     print('Iterating through nodes!')
 
     while True:
+        if steps == walk_length:  # new - shorter walks
+            break
         if steps == total_steps:
             break
         steps += 1
@@ -243,6 +258,7 @@ def process(model, idx, graph, pred, neighbors, reads, reference, edges, optimiz
         if mode == 'train':
             current = best_neighbor
             total_loss += loss
+            # tensor_loss_list.append(loss)
 
         if choice == best_neighbor:
             correct += 1

@@ -323,7 +323,7 @@ def train(args):
             for data in dl_train:
                 idx, graph, pred, succ, reads, reference, edges = unpack_data(data, data_path, device)
                 print_graph_info(idx, graph)
-                loss_list, accuracy = utils.process(model, idx, graph, pred, succ, reads, reference, edges, optimizer, 'train', device=device)
+                loss_list, accuracy = utils.process(model, idx, graph, pred, succ, reads, reference, edges, optimizer, 'train', epoch, device=device)
                 loss_per_graph.append(np.mean(loss_list))
                 accuracy_per_graph.append(accuracy)
                 process_time = time.time()
@@ -342,7 +342,7 @@ def train(args):
                 for data in dl_valid:
                     idx, graph, pred, succ, reads, reference, edges = unpack_data(data, data_path, device)
                     print_graph_info(idx, graph)
-                    loss_list, accuracy = utils.process(model, idx, graph, pred, succ, reads, reference, edges, optimizer, 'eval', device=device)
+                    loss_list, accuracy = utils.process(model, idx, graph, pred, succ, reads, reference, edges, optimizer, 'eval', epoch, device=device)
                     loss_per_graph.append(np.mean(loss_list))
                     accuracy_per_graph.append(accuracy)
 
@@ -354,7 +354,7 @@ def train(args):
                 elif patience >= patience_limit:
                     pass
                     # TODO: Enable early stopping, incrase patience_limit
-                    break
+                    # break
 
                 loss_per_epoch_valid.append(np.mean(loss_per_graph))
                 accuracy_per_epoch_valid.append(np.mean(accuracy_per_graph))
@@ -373,7 +373,7 @@ def train(args):
         for data in dl_test:
             idx, graph, pred, succ, reads, reference, edges = unpack_data(data, data_path, device)
             print_graph_info(idx, graph)
-            loss_list, accuracy = utils.process(best_model, idx, graph, pred, succ, reads, reference, edges, optimizer, 'eval', device=device)
+            loss_list, accuracy = utils.process(best_model, idx, graph, pred, succ, reads, reference, edges, optimizer, 'eval', epoch, device=device)
             test_accuracy.append(accuracy)
 
         print(f'Average accuracy on the test set:', np.mean(test_accuracy))
