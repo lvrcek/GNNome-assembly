@@ -199,10 +199,11 @@ def process(model, idx, graph, pred, neighbors, reads, reference, edges, optimiz
 
     logits = model(graph, reads)
     # ground_truth, _ = algorithms.greedy(graph, start, neighbors, option='ground-truth')
-    ground_truth = pickle.load(open(f'data/train/solutions/{idx}_gt.pkl', 'rb'))
-    total_steps = len(ground_truth) - 1
+    ground_truth_list = pickle.load(open(f'data/train/solutions/{idx}_gt.pkl', 'rb'))
+    total_steps = len(ground_truth_list) - 1
     steps = 0
-    ground_truth = {n1: n2 for n1, n2 in zip(ground_truth[:-1], ground_truth[1:])}
+    ground_truth = {n1: n2 for n1, n2 in zip(ground_truth_list[:-1], ground_truth_list[1:])}
+    ground_truth[ground_truth_list[-1]] = None
 
     if walk_length == -1:
         start_new = 0
@@ -212,14 +213,18 @@ def process(model, idx, graph, pred, neighbors, reads, reference, edges, optimiz
     try:
         current = ground_truth[start_new]
     except:
+        print('dang')
         return [], 0.0
     
     print('Iterating through nodes!')
 
     while True:
-        if steps == walk_length:  # new - shorter walks
+        if steps == walk_length:  # new - shorter walks, should be ok
+            # print('dang 2')
             break
         if steps == total_steps:
+            break
+        if ground_truth[current] is None:
             break
         steps += 1
         walk.append(current)

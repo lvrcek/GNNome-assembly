@@ -23,7 +23,7 @@ import models
 import utils
 
 
-def draw_loss_plots(train_loss, valid_loss, timestamp):
+def draw_loss_plots(train_loss, valid_loss, out):
     """Draw and save plot of train and validation loss over epochs.
 
     Parameters
@@ -32,8 +32,8 @@ def draw_loss_plots(train_loss, valid_loss, timestamp):
         List of training loss for each epoch
     valid_loss : list
         List of validation loss for each epoch
-    timestamp : str
-        A timestep used for naming the file
+    out : str
+        A string used for naming the file
 
     Returns
     -------
@@ -46,10 +46,10 @@ def draw_loss_plots(train_loss, valid_loss, timestamp):
     plt.xlabel('Epoch')
     plt.ylabel('Loss')
     plt.legend()
-    plt.savefig(f'figures/loss_{timestamp}.png')
+    plt.savefig(f'figures/loss_{out}.png')
 
 
-def draw_accuracy_plots(train_acc, valid_acc, timestamp):
+def draw_accuracy_plots(train_acc, valid_acc, out):
     """Draw and save plot of train and validation accuracy over epochs.
 
     Parameters
@@ -58,8 +58,8 @@ def draw_accuracy_plots(train_acc, valid_acc, timestamp):
         List of training accuracy for each epoch
     valid_loss : list
         List of validation accuracy for each epoch
-    timestamp : str
-        A timestep used for naming the file
+    out : str
+        A string used for naming the file
 
     Returns
     -------
@@ -72,7 +72,7 @@ def draw_accuracy_plots(train_acc, valid_acc, timestamp):
     plt.xlabel('Epoch')
     plt.ylabel('Accuracy')
     plt.legend()
-    plt.savefig(f'figures/accuracy_{timestamp}.png')
+    plt.savefig(f'figures/accuracy_{out}.png')
 
 
 def set_seed(seed=42):
@@ -179,8 +179,20 @@ def get_edges(idx, data_path):
     return edges
 
 
+def get_walks(idx, data_path):
+    walk_path = os.path.join(data_path, f'solutions/{idx}_gt.pkl')
+    walk = pickle.load(open(walk_path, 'rb'))
+    return walk
 
-def get_dataloaders(data_path, batch_size, eval, ratio):
+
+def get_info(idx, data_path, type):
+    # TODO
+    info_path = os.path.join(data_pth, 'info', f'{idx}_{type}.pkl')
+    info = pickle.load(open('info_path', 'rb'))
+    return info
+
+
+def get_dataloaders(ds, batch_size, eval, ratio):
     """Load the dataset and initialize dataloaders.
 
     Given a path to data, first an AssemblyGraphDataset is initialized.
@@ -207,7 +219,7 @@ def get_dataloaders(data_path, batch_size, eval, ratio):
     torch.DataLoader
         a dataloader for the testing set
     """
-    ds = AssemblyGraphDataset(data_path)
+    # ds = AssemblyGraphDataset(data_path)
     if eval:
         dl_train, dl_valid = None, None
         dl_test = GraphDataLoader(ds, batch_size=batch_size, shuffle=False)
@@ -222,7 +234,7 @@ def get_dataloaders(data_path, batch_size, eval, ratio):
     return dl_train, dl_valid, dl_test
 
 
-def unpack_data(data, data_path, device):
+def unpack_data_2(data, data_path, device):
     """Unpacks the data loaded by the dataloader.
     
     Parameters
@@ -260,6 +272,39 @@ def unpack_data(data, data_path, device):
     return idx, graph, pred, succ, reads, reference, edges
 
 
+def unpack_data(data, info_all ,device):
+    idx, graph = data
+    idx = idx.item()
+    graph = graph.to(device)
+    pred = info_all['preds'][idx]
+    succ = info_all['succs'][idx]
+    reads = info_all['reads'][idx]
+    edges = info_all['edges'][idx]
+    reference = None
+    return idx, graph, pred, succ, reads, reference edges
+
+
+def load_graph_data(num_graphs, data_path):
+    info_all = {
+        'preds': [],
+        'succs': [],
+        'reads': [],
+        'edges': [],
+        'walks': [],
+    }
+    for idx in range(num_graphs):
+        p, s = get_neighbors_dicts(idx, data_path)
+        r = get_reads(idx, data_path)
+        e = get_edges(idx, data_path)
+        w = get_walks(idx, data_path)
+        info_all['preds'].append(p)
+        info_all['succs'].append(s)
+        info_all['reads'].append(r)
+        info_all['edges'].append(e)
+        info_all['walks'].append(w)
+    return info_all
+
+
 def print_graph_info(idx, graph):
     """Print the basic information for the graph with index idx."""
     print('\n---- GRAPH INFO ----')
@@ -290,22 +335,27 @@ def train(args):
     learning_rate = hyperparameters['lr']
     device = hyperparameters['device']
 
-    time_now = datetime.now().strftime('%Y-%b-%d-%H-%M')
-    data_path = os.path.abspath(args.data_path)
+    time_now = datetime.now().strftime('%Y-%b-%d-%H-%M-%S')
+    data_path = os.path.abspath(args.data)
+    out = args.out if args.out is not None else time_now
     eval = args.eval
 
+    ds = AssemblyGraphDataset(data_path)
     dl_train, dl_valid, dl_test = get_dataloaders(data_path, batch_size, eval, ratio=0.2)
+    num_graphs = len(ds)
 
     # exit()
 
     model = models.NonAutoRegressive(dim_latent).to(device)
     params = list(model.parameters())
     optimizer = optim.Adam(params, lr=learning_rate)
-    model_path = os.path.abspath(f'pretrained/{time_now}.pt')
+    model_path = os.path.abspath(f'pretrained/model_{out}.pt')
 
     best_model = model = models.NonAutoRegressive(dim_latent)
     best_model.load_state_dict(copy.deepcopy(model.state_dict()))
     best_model.to(device)
+
+    info_all = load_graph_data(num_graphs, data_path)
 
     if not eval:
         patience = 0
@@ -321,7 +371,8 @@ def train(args):
             loss_per_graph = []
             accuracy_per_graph = []
             for data in dl_train:
-                idx, graph, pred, succ, reads, reference, edges = unpack_data(data, data_path, device)
+                idx, graph, pred, succ, reads, reference, edges = unpack_data(data, info_all, device)
+
                 print_graph_info(idx, graph)
                 loss_list, accuracy = utils.process(model, idx, graph, pred, succ, reads, reference, edges, optimizer, 'train', epoch, device=device)
                 loss_per_graph.append(np.mean(loss_list))
@@ -340,7 +391,7 @@ def train(args):
                 loss_per_graph = []
                 accuracy_per_graph = []
                 for data in dl_valid:
-                    idx, graph, pred, succ, reads, reference, edges = unpack_data(data, data_path, device)
+                    idx, graph, pred, succ, reads, reference, edges = unpack_data(data, info_all, device)
                     print_graph_info(idx, graph)
                     loss_list, accuracy = utils.process(model, idx, graph, pred, succ, reads, reference, edges, optimizer, 'eval', epoch, device=device)
                     loss_per_graph.append(np.mean(loss_list))
@@ -360,8 +411,8 @@ def train(args):
                 accuracy_per_epoch_valid.append(np.mean(accuracy_per_graph))
                 print(f'Validation in epoch {epoch} done. Elapsed time: {time.time()-start_time}s')
 
-        draw_loss_plots(loss_per_epoch_train, loss_per_epoch_valid, time_now)
-        draw_accuracy_plots(accuracy_per_epoch_train, accuracy_per_epoch_valid, time_now)
+        draw_loss_plots(loss_per_epoch_train, loss_per_epoch_valid, out)
+        draw_accuracy_plots(accuracy_per_epoch_train, accuracy_per_epoch_valid, out)
 
     torch.save(best_model.state_dict(), model_path)
 
@@ -371,7 +422,7 @@ def train(args):
         print('TESTING')
         model.eval()
         for data in dl_test:
-            idx, graph, pred, succ, reads, reference, edges = unpack_data(data, data_path, device)
+            idx, graph, pred, succ, reads, reference, edges = unpack_data(data, info_all, device)
             print_graph_info(idx, graph)
             loss_list, accuracy = utils.process(best_model, idx, graph, pred, succ, reads, reference, edges, optimizer, 'eval', epoch, device=device)
             test_accuracy.append(accuracy)
@@ -381,7 +432,8 @@ def train(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data-path', type=str, default='data/train', help='path to directory with training data')
+    parser.add_argument('--data', type=str, default='data/train', help='path to directory with training data')
+    parser.add_argument('--out', type=str, default=None, help='Output name for figures and models')
     parser.add_argument('--eval', action='store_true')
     args = parser.parse_args()
     train(args)
