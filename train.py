@@ -281,7 +281,7 @@ def unpack_data(data, info_all ,device):
     reads = info_all['reads'][idx]
     edges = info_all['edges'][idx]
     reference = None
-    return idx, graph, pred, succ, reads, reference edges
+    return idx, graph, pred, succ, reads, reference, edges
 
 
 def load_graph_data(num_graphs, data_path):
@@ -341,7 +341,7 @@ def train(args):
     eval = args.eval
 
     ds = AssemblyGraphDataset(data_path)
-    dl_train, dl_valid, dl_test = get_dataloaders(data_path, batch_size, eval, ratio=0.2)
+    dl_train, dl_valid, dl_test = get_dataloaders(ds, batch_size, eval, ratio=0.2)
     num_graphs = len(ds)
 
     # exit()
