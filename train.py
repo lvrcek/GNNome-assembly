@@ -2,14 +2,8 @@ import argparse
 from datetime import datetime
 import copy
 import os
-import pickle
-import random
 import time
 
-import matplotlib
-matplotlib.use('Agg')
-
-import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
@@ -21,175 +15,6 @@ from graph_dataset import AssemblyGraphDataset
 from hyperparameters import get_hyperparameters
 import models
 import utils
-
-
-def draw_loss_plots(train_loss, valid_loss, out):
-    """Draw and save plot of train and validation loss over epochs.
-
-    Parameters
-    ----------
-    train_loss : list
-        List of training loss for each epoch
-    valid_loss : list
-        List of validation loss for each epoch
-    out : str
-        A string used for naming the file
-
-    Returns
-    -------
-    None
-    """
-    plt.figure()
-    plt.plot(train_loss, label='train')
-    plt.plot(valid_loss, label='validation')
-    plt.title('Loss over epochs')
-    plt.xlabel('Epoch')
-    plt.ylabel('Loss')
-    plt.legend()
-    plt.savefig(f'figures/loss_{out}.png')
-
-
-def draw_accuracy_plots(train_acc, valid_acc, out):
-    """Draw and save plot of train and validation accuracy over epochs.
-
-    Parameters
-    ----------
-    train_loss : list
-        List of training accuracy for each epoch
-    valid_loss : list
-        List of validation accuracy for each epoch
-    out : str
-        A string used for naming the file
-
-    Returns
-    -------
-    None
-    """
-    plt.figure()
-    plt.plot(train_acc, label='train')
-    plt.plot(valid_acc, label='validation')
-    plt.title('Accuracy over epochs')
-    plt.xlabel('Epoch')
-    plt.ylabel('Accuracy')
-    plt.legend()
-    plt.savefig(f'figures/accuracy_{out}.png')
-
-
-def set_seed(seed=42):
-    """Set random seed to enable reproducibility.
-    
-    Parameters
-    ----------
-    seed : int, optional
-        A number used to set the random seed
-
-    Returns
-    -------
-    None
-    """
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-
-
-def get_neighbors_dicts(idx, data_path):
-    """Return dictionaries with predecessor and successor information.
-    
-    Parameters
-    ----------
-    idx : int
-        Index of the graph for which the information will be loaded
-    data_path : str
-        Path to where the information data of a graph is stored
-    
-    Returns
-    -------
-    dict
-        a dictionary with a list of predecessors for each node
-    dict
-        a dictionary with a list of successors for each node
-    """
-    pred_path = os.path.join(data_path, f'info/{idx}_pred.pkl')
-    succ_path = os.path.join(data_path, f'info/{idx}_succ.pkl')
-    pred = pickle.load(open(pred_path, 'rb'))
-    succ = pickle.load(open(succ_path, 'rb'))
-    return pred, succ
-
-
-def get_reads(idx, data_path):
-    """Return dictionary with sequence information for a graph.
-    
-    Parameters
-    ----------
-    idx : int
-        Index of the graph for which the information will be loaded
-    data_path : str
-        Path to where the information data of a graph is stored
-
-    Returns
-    -------
-    dict
-        a dictionary with a sequence for each node in the graph
-    """
-    reads_path = os.path.join(data_path, f'info/{idx}_reads.pkl')
-    reads = pickle.load(open(reads_path, 'rb'))
-    return reads
-
-
-def get_reference(idx, data_path):
-    """Get path for the reference (ground-truth) for a graph.
-    
-    Parameters
-    ----------
-    idx : int
-        Index of the graph for which the information will be loaded
-    data_path : str
-        Path to where the information data of a graph is stored
-
-    Returns
-    -------
-    str
-       a path to the reference associated with the graph with index idx 
-    """
-    ref_path = os.path.join(data_path, f'references/{idx}.fasta')
-    return ref_path
-
-
-def get_edges(idx, data_path):
-    """Return dictionary with edge indices of the graph
-
-    Parameters
-    ----------
-    idx : int
-        Index of the graph for which the information will be loaded
-    data_path : str
-        Path to where the information data of a graph is stored
-
-    Returns
-    -------
-    dict
-        a dictionary with edge indices for each edge in the graph
-    """
-    edges_path = os.path.join(data_path, f'info/{idx}_edges.pkl')
-    edges = pickle.load(open(edges_path, 'rb'))
-    return edges
-
-
-def get_walks(idx, data_path):
-    walk_path = os.path.join(data_path, f'solutions/{idx}_gt.pkl')
-    walk = pickle.load(open(walk_path, 'rb'))
-    return walk
-
-
-def get_info(idx, data_path, type):
-    # TODO
-    info_path = os.path.join(data_path, 'info', f'{idx}_{type}.pkl')
-    info = pickle.load(open('info_path', 'rb'))
-    return info
 
 
 def get_dataloaders(ds, batch_size, eval, ratio):
@@ -233,83 +58,88 @@ def get_dataloaders(ds, batch_size, eval, ratio):
     return dl_train, dl_valid, dl_test
 
 
-def unpack_data_2(data, data_path, device):
-    """Unpacks the data loaded by the dataloader.
+def process(model, graph, neighbors, reads, solution, edges, optimizer, epoch, device):
+    """Process the graph by predicting the correct next neighbor.
     
-    Parameters
-    ----------
-    data : tuple
-        A tuple containing index of a graph and the associated graph
-    data_path : str
-        A path to directory where an additional data is stored for
-        the graph
-    device : str
-        On which device will the copmutation be performed (cpu/cuda)
-    
-    Returns
-    -------
-    int
-        index of the graph
-    dgl.DGLGraph
-        graph in the DGLGraph format
-    dict
-        a dictionary with predecessors for each node
-    dict
-        a dictionary with successors for each node
-    dict
-        a dictionary with reads for each node
-    str
-        a path to the reference associated with the graph
+    A graph is processed by simulating a walk over it where the 
+    best next neighbor is predicted any time a branching occurs.
+    The choices are compared tothe ground truth and loss is calculated.
+    The list of losses and accuracy for the given graph are returned.
     """
-    idx, graph = data
-    idx = idx.item()
-    pred, succ = get_neighbors_dicts(idx, data_path)
-    reads = get_reads(idx, data_path)
-    reference = get_reference(idx, data_path)
-    edges = get_edges(idx, data_path)
-    graph = graph.to(device)
-    return idx, graph, pred, succ, reads, reference, edges
+    walk_length = get_hyperparameters()['walk_length']
 
+    ground_truth_list = solution.copy()
+    ground_truth = {n1: n2 for n1, n2 in zip(ground_truth_list[:-1], ground_truth_list[1:])}
+    ground_truth[ground_truth_list[-1]] = None
+    total_steps = len(ground_truth_list) - 1
+    steps = 0
 
-def unpack_data(data, info_all ,device):
-    idx, graph = data
-    idx = idx.item()
-    graph = graph.to(device)
-    pred = info_all['preds'][idx]
-    succ = info_all['succs'][idx]
-    reads = info_all['reads'][idx]
-    edges = info_all['edges'][idx]
-    reference = None
-    return idx, graph, pred, succ, reads, reference, edges
+    start = (epoch * walk_length) % total_steps if walk_length != -1 else 0
+    current = ground_truth[start]
 
+    criterion = nn.CrossEntropyLoss()
 
-def load_graph_data(num_graphs, data_path):
-    info_all = {
-        'preds': [],
-        'succs': [],
-        'reads': [],
-        'edges': [],
-        'walks': [],
-    }
-    for idx in range(num_graphs):
-        p, s = get_neighbors_dicts(idx, data_path)
-        r = get_reads(idx, data_path)
-        e = get_edges(idx, data_path)
-        w = get_walks(idx, data_path)
-        info_all['preds'].append(p)
-        info_all['succs'].append(s)
-        info_all['reads'].append(r)
-        info_all['edges'].append(e)
-        info_all['walks'].append(w)
-    return info_all
+    visited = set()
+    walk = []
+    loss_list = []
+    total_loss = 0
+    total = 0
+    correct = 0
 
+    logits = model(graph, reads)
+    
+    print('Iterating through nodes!')
+    while True:
+        walk.append(current)
+        if steps == walk_length:
+            break
+        if steps == total_steps:
+            break
+        if ground_truth[current] is None:
+            break
+        steps += 1
+        if current in visited:
+            break
+        visited.add(current)  # current node
+        visited.add(current ^ 1)  # virtual pair
+        try:
+            if len(neighbors[current]) == 0:
+                break
+        except KeyError:
+            print(current)
+            raise
+        if len(neighbors[current]) == 1:
+            current = neighbors[current][0]
+            continue
 
-def print_graph_info(idx, graph):
-    """Print the basic information for the graph with index idx."""
-    print('\n---- GRAPH INFO ----')
-    print('Graph index:', idx)
-    print('Number of nodes:', graph.num_nodes())
-    print('Number of edges:', len(graph.edges()[0]))
+        neighbor_edges = [edges[current, n] for n in neighbors[current]]
+        neighbor_logits = logits.squeeze(1)[neighbor_edges]
+        value, index = torch.topk(neighbor_logits, k=1, dim=0)
+        choice = neighbors[current][index]
+
+        best_neighbor = ground_truth[current]
+        best_idx = neighbors[current].index(best_neighbor)
+
+        utils.print_prediction(walk, current, neighbors, neighbor_logits, choice, best_neighbor)
+
+        # Calculate loss
+        best_idx = torch.tensor([best_idx], dtype=torch.long, device=device)
+        loss = criterion(neighbor_logits.unsqueeze(0), best_idx)
+        loss_list.append(loss.item())
+        total_loss += loss
+
+        if choice == best_neighbor:
+            correct += 1
+        total += 1
+        current = best_neighbor  # Teacher forcing        
+
+    if model.training:
+        optimizer.zero_grad()
+        total_loss.backward()  # Backprop summed losses
+        optimizer.step()
+
+    accuracy = correct / total
+    return loss_list, accuracy
 
 
 def train(args):
@@ -334,16 +164,17 @@ def train(args):
     learning_rate = hyperparameters['lr']
     device = hyperparameters['device']
 
-    time_now = datetime.now().strftime('%Y-%b-%d-%H-%M-%S')
+    utils.set_seed()
+
+    time_start = datetime.now()
+    timestamp = time_start.strftime('%Y-%b-%d-%H-%M-%S')
     data_path = os.path.abspath(args.data)
-    out = args.out if args.out is not None else time_now
+    out = args.out if args.out is not None else timestamp
     eval = args.eval
 
     ds = AssemblyGraphDataset(data_path)
     dl_train, dl_valid, dl_test = get_dataloaders(ds, batch_size, eval, ratio=0.2)
     num_graphs = len(ds)
-
-    # exit()
 
     model = models.NonAutoRegressive(dim_latent).to(device)
     params = list(model.parameters())
@@ -354,7 +185,7 @@ def train(args):
     best_model.load_state_dict(copy.deepcopy(model.state_dict()))
     best_model.to(device)
 
-    info_all = load_graph_data(num_graphs, data_path)
+    info_all = utils.load_graph_data(num_graphs, data_path)
 
     if not eval:
         patience = 0
@@ -362,26 +193,26 @@ def train(args):
         accuracy_per_epoch_train, accuracy_per_epoch_valid = [], []
 
         # --- Training ---
-        start_time = time.time()
         for epoch in range(num_epochs):
-            # model.train()
+            model.train()
             print(f'Epoch: {epoch}')
             patience += 1
             loss_per_graph = []
             accuracy_per_graph = []
             for data in dl_train:
-                idx, graph, pred, succ, reads, reference, edges = unpack_data(data, info_all, device)
+                idx, graph, pred, succ, reads, reference, edges = utils.unpack_data(data, info_all, device)
 
-                print_graph_info(idx, graph)
-                loss_list, accuracy = utils.process(model, idx, graph, pred, succ, reads, reference, edges, optimizer, 'train', epoch, device=device)
+                utils.print_graph_info(idx, graph)
+                loss_list, accuracy = process(model, graph, succ, reads, reference, edges, optimizer, epoch, device=device)
                 loss_per_graph.append(np.mean(loss_list))
                 accuracy_per_graph.append(accuracy)
                 process_time = time.time()
-                print(f'Processing graph {idx} done. Elapsed time: {process_time - start_time}')
+                print(f'Processing graph {idx} done. Elapsed time: {process_time - time_start}')
 
             loss_per_epoch_train.append(np.mean(loss_per_graph))
             accuracy_per_epoch_train.append(np.mean(accuracy_per_graph))
-            print(f'Training in epoch {epoch} done. Elapsed time: {time.time()-start_time}s')
+            elapsed = (datetime.now() - time_start).seconds
+            print(f'Training in epoch {epoch} done. Elapsed time: {elapsed}s')
 
             # --- Validation ---
             with torch.no_grad():
@@ -390,9 +221,9 @@ def train(args):
                 loss_per_graph = []
                 accuracy_per_graph = []
                 for data in dl_valid:
-                    idx, graph, pred, succ, reads, reference, edges = unpack_data(data, info_all, device)
-                    print_graph_info(idx, graph)
-                    loss_list, accuracy = utils.process(model, idx, graph, pred, succ, reads, reference, edges, optimizer, 'eval', epoch, device=device)
+                    idx, graph, pred, succ, reads, reference, edges = utils.unpack_data(data, info_all, device)
+                    utils.print_graph_info(idx, graph)
+                    loss_list, accuracy = process(model, graph, succ, reads, reference, edges, optimizer, epoch, device=device)
                     loss_per_graph.append(np.mean(loss_list))
                     accuracy_per_graph.append(accuracy)
 
@@ -408,10 +239,11 @@ def train(args):
 
                 loss_per_epoch_valid.append(np.mean(loss_per_graph))
                 accuracy_per_epoch_valid.append(np.mean(accuracy_per_graph))
-                print(f'Validation in epoch {epoch} done. Elapsed time: {time.time()-start_time}s')
+                elapsed = (datetime.now() - time_start)
+                print(f'Validation in epoch {epoch} done. Elapsed time: {elapsed}s')
 
-        draw_loss_plots(loss_per_epoch_train, loss_per_epoch_valid, out)
-        draw_accuracy_plots(accuracy_per_epoch_train, accuracy_per_epoch_valid, out)
+        utils.draw_loss_plots(loss_per_epoch_train, loss_per_epoch_valid, out)
+        utils.draw_accuracy_plots(accuracy_per_epoch_train, accuracy_per_epoch_valid, out)
 
     torch.save(best_model.state_dict(), model_path)
 
@@ -421,11 +253,13 @@ def train(args):
         print('TESTING')
         model.eval()
         for data in dl_test:
-            idx, graph, pred, succ, reads, reference, edges = unpack_data(data, info_all, device)
-            print_graph_info(idx, graph)
-            loss_list, accuracy = utils.process(best_model, idx, graph, pred, succ, reads, reference, edges, optimizer, 'eval', epoch, device=device)
+            idx, graph, pred, succ, reads, reference, edges = utils.unpack_data(data, info_all, device)
+            utils.print_graph_info(idx, graph)
+            loss_list, accuracy = process(best_model, graph, succ, reads, reference, edges, optimizer, epoch, device=device)
             test_accuracy.append(accuracy)
 
+        elapsed = (datetime.now() - time_start).seconds
+        print(f'Testing done. Elapsed time: {elapsed}s')
         print(f'Average accuracy on the test set:', np.mean(test_accuracy))
 
 
