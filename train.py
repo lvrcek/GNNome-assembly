@@ -187,7 +187,7 @@ def get_walks(idx, data_path):
 
 def get_info(idx, data_path, type):
     # TODO
-    info_path = os.path.join(data_pth, 'info', f'{idx}_{type}.pkl')
+    info_path = os.path.join(data_path, 'info', f'{idx}_{type}.pkl')
     info = pickle.load(open('info_path', 'rb'))
     return info
 
@@ -219,7 +219,6 @@ def get_dataloaders(ds, batch_size, eval, ratio):
     torch.DataLoader
         a dataloader for the testing set
     """
-    # ds = AssemblyGraphDataset(data_path)
     if eval:
         dl_train, dl_valid = None, None
         dl_test = GraphDataLoader(ds, batch_size=batch_size, shuffle=False)

@@ -81,7 +81,7 @@ class AssemblyGraphDataset(DGLDataset):
                 subprocess.run(f'{self.raven_path} --filter 1.0 --weaken -t32 -p0 {reads_path} > assembly.fasta', shell=True, cwd=self.tmp_dir)
                 for j in range(1, 7):
                     print(f'graph {j}')
-                    processed_path = os.path.join(self.save_dir, f'd{cnt}_g{j}.dgl')  # d = dataset [0, 18], g = graph [1, 7]
+                    processed_path = os.path.join(self.save_dir, f'd{cnt}_g{j}.dgl')
                     graph, pred, succ, reads, edges = graph_parser.from_csv(os.path.join(self.tmp_dir, f'graph_{j}.csv'), reads_path)
                     dgl.save_graphs(processed_path, graph)
 

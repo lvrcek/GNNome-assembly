@@ -47,7 +47,7 @@ def greedy_ground_truth(graph, current, neighbors, visited):
     return choice
 
 
-def greedy_baseline(graph, current, neighbors):
+def greedy_baseline(graph, current, neighbors, edges):
     """Return the best neighbor for the greedy baseline scenario.
 
     Greedy algorithm that takes the best neighbor while taking into
@@ -71,7 +71,7 @@ def greedy_baseline(graph, current, neighbors):
     """
     candidates = []
     for neighbor in neighbors[current]:
-        idx = find_edge_index(graph, current, neighbor)
+        idx = edges[(current, neighbor)]
         candidates.append((neighbor, graph.edata['overlap_similarity'][idx], graph.edata['overlap_length'][idx]))
     candidates.sort(key=lambda x: (-x[1], x[2]))
     choice = candidates[0][0] if len(candidates) > 0 else None
@@ -107,7 +107,7 @@ def greedy_decode(graph, current, neighbors):
     return choice
 
 
-def greedy(graph, start, neighbors, option):
+def greedy(graph, start, neighbors, edges, option):
     """Greedy walk over the graph starting from the given node.
 
     Greedy algorithm that specifies the best neighbor according to a
@@ -160,7 +160,7 @@ def greedy(graph, start, neighbors, option):
         if option == 'ground-truth':
             current = greedy_ground_truth(graph, current, neighbors, visited)
         if option == 'baseline':
-            current = greedy_baseline(graph, current, neighbors)
+            current = greedy_baseline(graph, current, neighbors, edges)
         if option == 'decode':
             current = greedy_decode(graph, current, neighbors)
 
