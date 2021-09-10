@@ -2,7 +2,6 @@ import argparse
 from datetime import datetime
 import copy
 import os
-import time
 
 import numpy as np
 import torch
@@ -187,6 +186,9 @@ def train(args):
 
     info_all = utils.load_graph_data(num_graphs, data_path)
 
+    elapsed = utils.timedelta_to_str(datetime.now() - time_start)
+    print(f'Loading data done. Elapsed time: {elapsed}')
+
     if not eval:
         patience = 0
         loss_per_epoch_train, loss_per_epoch_valid = [], []
@@ -200,19 +202,21 @@ def train(args):
             loss_per_graph = []
             accuracy_per_graph = []
             for data in dl_train:
-                idx, graph, pred, succ, reads, reference, edges = utils.unpack_data(data, info_all, device)
+                idx, graph, pred, succ, reads, edges = utils.unpack_data(data, info_all)
+                graph = graph.to(device)
+                solution = utils.get_walks(idx, data_path)
 
                 utils.print_graph_info(idx, graph)
-                loss_list, accuracy = process(model, graph, succ, reads, reference, edges, optimizer, epoch, device=device)
+                loss_list, accuracy = process(model, graph, succ, reads, solution, edges, optimizer, epoch, device=device)
                 loss_per_graph.append(np.mean(loss_list))
                 accuracy_per_graph.append(accuracy)
-                process_time = time.time()
-                print(f'Processing graph {idx} done. Elapsed time: {process_time - time_start}')
+                elapsed = utils.timedelta_to_str(datetime.now() - time_start)
+                print(f'Processing graph {idx} done. Elapsed time: {elapsed}')
 
             loss_per_epoch_train.append(np.mean(loss_per_graph))
             accuracy_per_epoch_train.append(np.mean(accuracy_per_graph))
-            elapsed = (datetime.now() - time_start).seconds
-            print(f'Training in epoch {epoch} done. Elapsed time: {elapsed}s')
+            elapsed = utils.timedelta_to_str(datetime.now() - time_start)
+            print(f'Training in epoch {epoch} done. Elapsed time: {elapsed}')
 
             # --- Validation ---
             with torch.no_grad():
@@ -221,9 +225,12 @@ def train(args):
                 loss_per_graph = []
                 accuracy_per_graph = []
                 for data in dl_valid:
-                    idx, graph, pred, succ, reads, reference, edges = utils.unpack_data(data, info_all, device)
+                    idx, graph, pred, succ, reads, edges = utils.unpack_data(data, info_all)
+                    graph = graph.to(device)
+                    solution = utils.get_walks(idx, data_path)
+
                     utils.print_graph_info(idx, graph)
-                    loss_list, accuracy = process(model, graph, succ, reads, reference, edges, optimizer, epoch, device=device)
+                    loss_list, accuracy = process(model, graph, succ, reads, solution, edges, optimizer, epoch, device=device)
                     loss_per_graph.append(np.mean(loss_list))
                     accuracy_per_graph.append(accuracy)
 
@@ -239,8 +246,8 @@ def train(args):
 
                 loss_per_epoch_valid.append(np.mean(loss_per_graph))
                 accuracy_per_epoch_valid.append(np.mean(accuracy_per_graph))
-                elapsed = (datetime.now() - time_start)
-                print(f'Validation in epoch {epoch} done. Elapsed time: {elapsed}s')
+                elapsed = utils.timedelta_to_str(datetime.now() - time_start)
+                print(f'Validation in epoch {epoch} done. Elapsed time: {elapsed}')
 
         utils.draw_loss_plots(loss_per_epoch_train, loss_per_epoch_valid, out)
         utils.draw_accuracy_plots(accuracy_per_epoch_train, accuracy_per_epoch_valid, out)
@@ -253,13 +260,16 @@ def train(args):
         print('TESTING')
         model.eval()
         for data in dl_test:
-            idx, graph, pred, succ, reads, reference, edges = utils.unpack_data(data, info_all, device)
+            idx, graph, pred, succ, reads, edges = utils.unpack_data(data, info_all)
+            graph = graph.to(device)
+            solution = utils.get_walks(idx, data_path)
+
             utils.print_graph_info(idx, graph)
-            loss_list, accuracy = process(best_model, graph, succ, reads, reference, edges, optimizer, epoch, device=device)
+            loss_list, accuracy = process(best_model, graph, succ, reads, solution, edges, optimizer, epoch, device=device)
             test_accuracy.append(accuracy)
 
-        elapsed = (datetime.now() - time_start).seconds
-        print(f'Testing done. Elapsed time: {elapsed}s')
+        elapsed = utils.timedelta_to_str(datetime.now() - time_start)
+        print(f'Testing done. Elapsed time: {elapsed}')
         print(f'Average accuracy on the test set:', np.mean(test_accuracy))
 
 

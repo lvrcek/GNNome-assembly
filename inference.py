@@ -59,7 +59,7 @@ def inference(args):
         data_path = 'data/example_2'
     ds = AssemblyGraphDataset(data_path)
 
-    info_all = train.load_graph_data(len(ds), data_path, load_solutions=False)
+    info_all = train.load_graph_data(len(ds), data_path)
 
     for i in range(len(ds)):
         idx, graph = ds[i]
