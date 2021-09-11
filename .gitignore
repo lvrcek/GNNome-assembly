@@ -144,7 +144,10 @@ cython_debug/
 .idea/
 
 # Custom
-log*
+*log*
+*1e-*
+10_1e-8_100
+full_1e-8_50
 
 figures/*
 pretrained/*
