@@ -9,6 +9,7 @@ from hyperparameters import get_hyperparameters
 import models
 import algorithms
 import train
+import utils
 
 
 def predict(model, graph, neighbors, reads, edges):
@@ -42,7 +43,7 @@ def predict(model, graph, neighbors, reads, edges):
     return walk
 
 
-def inference(args):
+def inference(args=None):
     hyperparameters = get_hyperparameters()
     device = hyperparameters['device']
     dim_latent = hyperparameters['dim_latent']
@@ -52,19 +53,17 @@ def inference(args):
         model_path = 'pretrained/model_1e-8.pt'
     model = models.NonAutoRegressive(dim_latent).to(device)
     model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
-    print(model)
 
     data_path = args.data
     if args.data is None:
-        data_path = 'data/example_2'
+        data_path = 'data/train'
     ds = AssemblyGraphDataset(data_path)
 
-    info_all = train.load_graph_data(len(ds), data_path)
+    info_all = utils.load_graph_data(len(ds), data_path)
 
     for i in range(len(ds)):
         idx, graph = ds[i]
-        print(idx)
-        print(graph)
+        print(f'Graph index: {idx}')
         graph = graph.to(device)
         
         succ = info_all['succs'][idx]
@@ -80,7 +79,6 @@ def inference(args):
 
         baseline, _ = algorithms.greedy(graph, 0, succ, edges, 'baseline')
         pickle.dump(walk, open(f'{inference_path}/{idx}_greedy.pkl', 'wb'))
-        return walk, baseline
 
 
 if __name__ == '__main__':

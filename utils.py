@@ -131,10 +131,9 @@ def get_info(idx, data_path, type):
     return info
 
 
-def unpack_data(data, info_all, device):
+def unpack_data(data, info_all):
     idx, graph = data
     idx = idx if isinstance(idx, int) else idx.item()
-    graph = graph.to(device)
     pred = info_all['preds'][idx]
     succ = info_all['succs'][idx]
     reads = info_all['reads'][idx]

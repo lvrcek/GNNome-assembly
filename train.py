@@ -67,14 +67,13 @@ def process(model, graph, neighbors, reads, solution, edges, optimizer, epoch, d
     """
     walk_length = get_hyperparameters()['walk_length']
 
-    ground_truth_list = solution.copy()
+    ground_truth_list = solution.copy()  # TODO: Consistent naming
     ground_truth = {n1: n2 for n1, n2 in zip(ground_truth_list[:-1], ground_truth_list[1:])}
     ground_truth[ground_truth_list[-1]] = None
     total_steps = len(ground_truth_list) - 1
-    steps = 0
 
     start = (epoch * walk_length) % total_steps if walk_length != -1 else 0
-    current = ground_truth[start]
+    current = ground_truth_list[start]
 
     criterion = nn.CrossEntropyLoss()
 
@@ -84,29 +83,26 @@ def process(model, graph, neighbors, reads, solution, edges, optimizer, epoch, d
     total_loss = 0
     total = 0
     correct = 0
+    steps = 0
 
     logits = model(graph, reads)
     
     print('Iterating through nodes!')
     while True:
-        walk.append(current)
-        if steps == walk_length:
-            break
-        if steps == total_steps:
-            break
-        if ground_truth[current] is None:
-            break
         steps += 1
-        if current in visited:
+        walk.append(current)
+        if steps == walk_length:  # TODO: create function / reduce redundancy
             break
-        visited.add(current)  # current node
+        if steps == total_steps:  # This one is probably redundant
+            break
+        if ground_truth[current] is None:  # Because this one is the same (last node in the solution walk)
+            break
+        if current in visited:  # Since I'm doing teacher forcing, this is not necessary. I will never end up in a visited node
+            break
+        visited.add(current)  # This is also unnecessary
         visited.add(current ^ 1)  # virtual pair
-        try:
-            if len(neighbors[current]) == 0:
-                break
-        except KeyError:
-            print(current)
-            raise
+        if len(neighbors[current]) == 0:  # This should also be covered by the upper "gt[curr] is None" case
+            break
         if len(neighbors[current]) == 1:
             current = neighbors[current][0]
             continue
@@ -123,7 +119,7 @@ def process(model, graph, neighbors, reads, solution, edges, optimizer, epoch, d
 
         # Calculate loss
         best_idx = torch.tensor([best_idx], dtype=torch.long, device=device)
-        loss = criterion(neighbor_logits.unsqueeze(0), best_idx)
+        loss = criterion(neighbor_logits.unsqueeze(0), best_idx)  # First squeeze, then unsqueeze - redundant?
         loss_list.append(loss.item())
         total_loss += loss
 
@@ -163,7 +159,7 @@ def train(args):
     learning_rate = hyperparameters['lr']
     device = hyperparameters['device']
 
-    utils.set_seed()
+    # utils.set_seed()
 
     time_start = datetime.now()
     timestamp = time_start.strftime('%Y-%b-%d-%H-%M-%S')
@@ -210,13 +206,14 @@ def train(args):
                 loss_list, accuracy = process(model, graph, succ, reads, solution, edges, optimizer, epoch, device=device)
                 loss_per_graph.append(np.mean(loss_list))
                 accuracy_per_graph.append(accuracy)
+
                 elapsed = utils.timedelta_to_str(datetime.now() - time_start)
                 print(f'Processing graph {idx} done. Elapsed time: {elapsed}')
 
             loss_per_epoch_train.append(np.mean(loss_per_graph))
             accuracy_per_epoch_train.append(np.mean(accuracy_per_graph))
             elapsed = utils.timedelta_to_str(datetime.now() - time_start)
-            print(f'Training in epoch {epoch} done. Elapsed time: {elapsed}')
+            print(f'\nTraining in epoch {epoch} done. Elapsed time: {elapsed}\n')
 
             # --- Validation ---
             with torch.no_grad():
@@ -234,6 +231,9 @@ def train(args):
                     loss_per_graph.append(np.mean(loss_list))
                     accuracy_per_graph.append(accuracy)
 
+                    elapsed = utils.timedelta_to_str(datetime.now() - time_start)
+                    print(f'Processing graph {idx} done. Elapsed time: {elapsed}')
+
                 if len(loss_per_epoch_valid) > 0 and loss_per_graph[-1] < min(loss_per_epoch_valid):
                     patience = 0
                     best_model.load_state_dict(copy.deepcopy(model.state_dict()))
@@ -247,7 +247,7 @@ def train(args):
                 loss_per_epoch_valid.append(np.mean(loss_per_graph))
                 accuracy_per_epoch_valid.append(np.mean(accuracy_per_graph))
                 elapsed = utils.timedelta_to_str(datetime.now() - time_start)
-                print(f'Validation in epoch {epoch} done. Elapsed time: {elapsed}')
+                print(f'\nValidation in epoch {epoch} done. Elapsed time: {elapsed}\n')
 
         utils.draw_loss_plots(loss_per_epoch_train, loss_per_epoch_valid, out)
         utils.draw_accuracy_plots(accuracy_per_epoch_train, accuracy_per_epoch_valid, out)
@@ -269,7 +269,7 @@ def train(args):
             test_accuracy.append(accuracy)
 
         elapsed = utils.timedelta_to_str(datetime.now() - time_start)
-        print(f'Testing done. Elapsed time: {elapsed}')
+        print(f'\nTesting done. Elapsed time: {elapsed}')
         print(f'Average accuracy on the test set:', np.mean(test_accuracy))
 
 
