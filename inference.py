@@ -8,7 +8,6 @@ from graph_dataset import AssemblyGraphDataset
 from hyperparameters import get_hyperparameters
 import models
 import algorithms
-import train
 import utils
 
 

@@ -3,12 +3,14 @@ from datetime import datetime
 import copy
 import os
 
+from tqdm import tqdm
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import random_split
 from dgl.dataloading import GraphDataLoader
+import wandb
 
 from graph_dataset import AssemblyGraphDataset
 from hyperparameters import get_hyperparameters
@@ -57,7 +59,7 @@ def get_dataloaders(ds, batch_size, eval, ratio):
     return dl_train, dl_valid, dl_test
 
 
-def process(model, graph, neighbors, reads, solution, edges, optimizer, epoch, device):
+def process(model, graph, neighbors, reads, solution, edges, criterion, optimizer, epoch, device):
     """Process the graph by predicting the correct next neighbor.
     
     A graph is processed by simulating a walk over it where the 
@@ -75,9 +77,7 @@ def process(model, graph, neighbors, reads, solution, edges, optimizer, epoch, d
     start = (epoch * walk_length) % total_steps if walk_length != -1 else 0
     current = ground_truth_list[start]
 
-    criterion = nn.CrossEntropyLoss()
-
-    visited = set()
+    # visited = set()
     walk = []
     loss_list = []
     total_loss = 0
@@ -91,18 +91,16 @@ def process(model, graph, neighbors, reads, solution, edges, optimizer, epoch, d
     while True:
         steps += 1
         walk.append(current)
-        if steps == walk_length:  # TODO: create function / reduce redundancy
+        if steps == walk_length or ground_truth[current] is None:
             break
-        if steps == total_steps:  # This one is probably redundant
-            break
-        if ground_truth[current] is None:  # Because this one is the same (last node in the solution walk)
-            break
-        if current in visited:  # Since I'm doing teacher forcing, this is not necessary. I will never end up in a visited node
-            break
-        visited.add(current)  # This is also unnecessary
-        visited.add(current ^ 1)  # virtual pair
-        if len(neighbors[current]) == 0:  # This should also be covered by the upper "gt[curr] is None" case
-            break
+        # if steps == total_steps:  # This one is probably redundant
+        #     break
+        # if current in visited:  # Since I'm doing teacher forcing, this is not necessary. I will never end up in a visited node
+        #     break
+        # if len(neighbors[current]) == 0:  # This should also be covered by the upper "gt[curr] is None" case
+        #     break
+        # visited.add(current)
+        # visited.ad(current ^ 1)
         if len(neighbors[current]) == 1:
             current = neighbors[current][0]
             continue
@@ -150,16 +148,16 @@ def train(args):
     None
     """
     hyperparameters = get_hyperparameters()
+    seed = hyperparameters['seed']
     num_epochs = hyperparameters['num_epochs']
-    dim_node = hyperparameters['dim_nodes']
-    dim_edge = hyperparameters['dim_edges']
+    num_gnn_layers = hyperparameters['num_gnn_layers']
     dim_latent = hyperparameters['dim_latent']
     batch_size = hyperparameters['batch_size']
     patience_limit = hyperparameters['patience_limit']
     learning_rate = hyperparameters['lr']
     device = hyperparameters['device']
 
-    # utils.set_seed(0)
+    utils.set_seed(seed)
 
     time_start = datetime.now()
     timestamp = time_start.strftime('%Y-%b-%d-%H-%M-%S')
@@ -171,12 +169,12 @@ def train(args):
     dl_train, dl_valid, dl_test = get_dataloaders(ds, batch_size, eval, ratio=0.2)
     num_graphs = len(ds)
 
-    model = models.NonAutoRegressive(dim_latent).to(device)
+    model = models.NonAutoRegressive(dim_latent, num_gnn_layers).to(device)
     params = list(model.parameters())
     optimizer = optim.Adam(params, lr=learning_rate)
     model_path = os.path.abspath(f'pretrained/model_{out}.pt')
 
-    best_model = models.NonAutoRegressive(dim_latent)
+    best_model = models.NonAutoRegressive(dim_latent, num_gnn_layers)
     best_model.load_state_dict(copy.deepcopy(model.state_dict()))
     best_model.to(device)
     best_model.eval()
@@ -186,13 +184,17 @@ def train(args):
     elapsed = utils.timedelta_to_str(datetime.now() - time_start)
     print(f'Loading data done. Elapsed time: {elapsed}')
 
-    if not eval:
+    with wandb.init(project="assembly-walk", config=hyperparameters):
+
+        criterion = nn.CrossEntropyLoss()
+        wandb.watch(model, criterion, log='all', log_freq=1)
+
         patience = 0
         loss_per_epoch_train, loss_per_epoch_valid = [], []
         accuracy_per_epoch_train, accuracy_per_epoch_valid = [], []
 
         # --- Training ---
-        for epoch in range(num_epochs):
+        for epoch in tqdm(range(num_epochs)):
             # model.train()
             print(f'Epoch: {epoch}')
             patience += 1
@@ -211,8 +213,12 @@ def train(args):
                 elapsed = utils.timedelta_to_str(datetime.now() - time_start)
                 print(f'Processing graph {idx} done. Elapsed time: {elapsed}')
 
+            train_loss = np.mean(loss_per_graph)
+            train_acc = np.mean(accuracy_per_graph)
             loss_per_epoch_train.append(np.mean(loss_per_graph))
             accuracy_per_epoch_train.append(np.mean(accuracy_per_graph))
+            wandb.log({'epoch': epoch, 'train_loss': train_loss, 'train_accuracy': train_acc}, step=epoch)
+
             elapsed = utils.timedelta_to_str(datetime.now() - time_start)
             print(f'\nTraining in epoch {epoch} done. Elapsed time: {elapsed}\n')
 
@@ -245,33 +251,39 @@ def train(args):
                     # TODO: Enable early stopping, incrase patience_limit
                     # break
 
+                valid_loss = np.mean(loss_per_graph)
+                valid_acc = np.mean(accuracy_per_graph)
                 loss_per_epoch_valid.append(np.mean(loss_per_graph))
                 accuracy_per_epoch_valid.append(np.mean(accuracy_per_graph))
+                wandb.log({'epoch': epoch, 'valid_loss': valid_loss, 'valid_accuracy': valid_acc}, step=epoch)
+
                 elapsed = utils.timedelta_to_str(datetime.now() - time_start)
                 print(f'\nValidation in epoch {epoch} done. Elapsed time: {elapsed}\n')
 
         utils.draw_loss_plots(loss_per_epoch_train, loss_per_epoch_valid, out)
         utils.draw_accuracy_plots(accuracy_per_epoch_train, accuracy_per_epoch_valid, out)
 
-    torch.save(best_model.state_dict(), model_path)
+        torch.save(best_model.state_dict(), model_path)
+        wandb.save("model.onnx")
 
-    # --- Testing ---
-    with torch.no_grad():
-        test_accuracy = []
-        print('TESTING')
-        model.eval()
-        for data in dl_test:
-            idx, graph, pred, succ, reads, edges = utils.unpack_data(data, info_all)
-            graph = graph.to(device)
-            solution = utils.get_walks(idx, data_path)
+        # --- Testing ---
+        with torch.no_grad():
+            test_accuracy = []
+            print('TESTING')
+            model.eval()
+            for data in dl_test:
+                idx, graph, pred, succ, reads, edges = utils.unpack_data(data, info_all)
+                graph = graph.to(device)
+                solution = utils.get_walks(idx, data_path)
 
-            utils.print_graph_info(idx, graph)
-            loss_list, accuracy = process(best_model, graph, succ, reads, solution, edges, optimizer, epoch, device=device)
-            test_accuracy.append(accuracy)
+                utils.print_graph_info(idx, graph)
+                loss_list, accuracy = process(best_model, graph, succ, reads, solution, edges, optimizer, epoch, device=device)
+                test_accuracy.append(accuracy)
 
-        elapsed = utils.timedelta_to_str(datetime.now() - time_start)
-        print(f'\nTesting done. Elapsed time: {elapsed}')
-        print(f'Average accuracy on the test set:', np.mean(test_accuracy))
+            wandb.log({"test_accuracy": test_accuracy})
+            elapsed = utils.timedelta_to_str(datetime.now() - time_start)
+            print(f'\nTesting done. Elapsed time: {elapsed}')
+            print(f'Average accuracy on the test set:', np.mean(test_accuracy))
 
 
 if __name__ == '__main__':
