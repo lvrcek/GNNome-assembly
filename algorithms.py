@@ -73,7 +73,7 @@ def greedy_baseline(graph, current, neighbors, edges):
     for neighbor in neighbors[current]:
         idx = edges[(current, neighbor)]
         candidates.append((neighbor, graph.edata['overlap_similarity'][idx], graph.edata['overlap_length'][idx]))
-    candidates.sort(key=lambda x: (-x[1], x[2]))
+    candidates.sort(key=lambda x: (-x[1], -x[2]))
     choice = candidates[0][0] if len(candidates) > 0 else None
     return choice
 

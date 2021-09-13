@@ -115,7 +115,7 @@ def process(model, graph, neighbors, reads, solution, edges, optimizer, epoch, d
         best_neighbor = ground_truth[current]
         best_idx = neighbors[current].index(best_neighbor)
 
-        utils.print_prediction(walk, current, neighbors, neighbor_logits, choice, best_neighbor)
+        # utils.print_prediction(walk, current, neighbors, neighbor_logits, choice, best_neighbor)
 
         # Calculate loss
         best_idx = torch.tensor([best_idx], dtype=torch.long, device=device)
@@ -159,7 +159,7 @@ def train(args):
     learning_rate = hyperparameters['lr']
     device = hyperparameters['device']
 
-    # utils.set_seed()
+    # utils.set_seed(0)
 
     time_start = datetime.now()
     timestamp = time_start.strftime('%Y-%b-%d-%H-%M-%S')
@@ -176,9 +176,10 @@ def train(args):
     optimizer = optim.Adam(params, lr=learning_rate)
     model_path = os.path.abspath(f'pretrained/model_{out}.pt')
 
-    best_model = model = models.NonAutoRegressive(dim_latent)
+    best_model = models.NonAutoRegressive(dim_latent)
     best_model.load_state_dict(copy.deepcopy(model.state_dict()))
     best_model.to(device)
+    best_model.eval()
 
     info_all = utils.load_graph_data(num_graphs, data_path)
 
@@ -192,7 +193,7 @@ def train(args):
 
         # --- Training ---
         for epoch in range(num_epochs):
-            model.train()
+            # model.train()
             print(f'Epoch: {epoch}')
             patience += 1
             loss_per_graph = []

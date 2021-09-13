@@ -50,9 +50,9 @@ def inference(args=None):
 
     model_path = args.model
     if model_path is None:
-        model_path = 'pretrained/model_1e-8.pt'
+        model_path = 'pretrained/model_walk_10.pt'
     model = models.NonAutoRegressive(dim_latent).to(device)
-    model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
+    model.load_state_dict(torch.load(model_path, map_location=torch.device(device)))
 
     data_path = args.data
     if args.data is None:
@@ -72,13 +72,13 @@ def inference(args=None):
 
         walk = predict(model, graph, succ, reads, edges)
 
-        inference_path = os.path.join(data_path, 'inference')
+        inference_path = os.path.join(data_path, 'inference_walk_10_2')
         if not os.path.isdir(inference_path):
             os.mkdir(inference_path)
         pickle.dump(walk, open(f'{inference_path}/{idx}_predict.pkl', 'wb'))
 
         baseline, _ = algorithms.greedy(graph, 0, succ, edges, 'baseline')
-        pickle.dump(walk, open(f'{inference_path}/{idx}_greedy.pkl', 'wb'))
+        pickle.dump(baseline, open(f'{inference_path}/{idx}_greedy.pkl', 'wb'))
 
 
 if __name__ == '__main__':
