@@ -25,3 +25,5 @@ torchaudio==0.8.1
 torchvision==0.9.1+cpu
 typing-extensions==3.10.0.0
 urllib3==1.26.5
+wandb==0.12.1
+tqdm==4.62.2
