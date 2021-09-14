@@ -295,6 +295,8 @@ def from_csv(graph_path, reads_path):
     edge_ids, prefix_length, overlap_similarity, overlap_length = {}, {}, {}, {}
     read_sequences, description_queue = from_gfa(graph_path[:-3] + 'gfa', reads_path)
 
+    read_trim_start, read_trim_end = {}, {}
+
     with open(graph_path) as f:
         for line in f.readlines():
             src, dst, flag, overlap = line.strip().split(',')
@@ -305,23 +307,34 @@ def from_csv(graph_path, reads_path):
             dst_id, dst_len = int(dst[0]), int(re.findall(pattern, dst[2])[0])
 
             if flag == 0:
-                
+                # Here overlap is actually trimming info! trim_begin trim_end
                 description = description_queue.popleft()
                 id, idx, strand, start, end = description.split()
                 idx = int(re.findall(r'idx=(\d+)', idx)[0])
                 strand = 1 if strand[-2] == '+' else -1
                 start = int(re.findall(r'start=(\d+)', start)[0])
                 end = int(re.findall(r'end=(\d+)', end)[0])
+
+                trimming = overlap
+                if trimming == '-':
+                    trim_start, trim_end = 0, 0
+                else:
+                    trim_start, trim_end = trimming.split()
+                    trim_start = int(trim_start)
+                    trim_end = int(trim_end)
                 
                 if src_id not in read_length.keys():
                     read_length[src_id] = src_len
                     node_data[src_id] = read_sequences.popleft()
                     read_idx[src_id] = idx
                     read_strand[src_id] = strand
-                    read_start[src_id] = start
-                    read_end[src_id] = end
+                    read_start[src_id] = start + trim_start
+                    read_end[src_id] = end - trim_end
                     graph_nx.add_node(src_id)
                     graph_nx_und.add_node(src_id)
+
+                    read_trim_start[src_id] = trim_start
+                    read_trim_end[src_id] = trim_end
 
                 if dst_id not in read_length.keys():
                     read_length[dst_id] = dst_len
@@ -330,10 +343,13 @@ def from_csv(graph_path, reads_path):
                     read_strand[dst_id] = -strand
                     # This is on purpose so that positive strand reads are 'forwards'
                     # While negative strand reads become 'backwards' (start < end)
-                    read_start[dst_id] = end
-                    read_end[dst_id] = start
+                    read_start[dst_id] = end + trim_end
+                    read_end[dst_id] = start - trim_start
                     graph_nx.add_node(dst_id)
                     graph_nx_und.add_node(dst_id)
+
+                    read_trim_start[dst_id] = trim_end
+                    read_trim_end[dst_id] = trim_start
 
             else:
                 # Overlap info: id, length, weight, similarity
@@ -358,10 +374,13 @@ def from_csv(graph_path, reads_path):
     nx.set_edge_attributes(graph_nx, prefix_length, 'prefix_length')
     nx.set_edge_attributes(graph_nx, overlap_similarity, 'overlap_similarity')
     nx.set_edge_attributes(graph_nx, overlap_length, 'overlap_length')
+
+    nx.set_node_attributes(graph_nx, read_trim_start, 'read_trim_start')
+    nx.set_node_attributes(graph_nx, read_trim_end, 'read_trim_end')
     
     # This produces vector-like features (e.g. shape=(num_nodes,))
     graph_dgl = dgl.from_networkx(graph_nx,
-                                  node_attrs=['read_length', 'read_idx', 'read_strand', 'read_start', 'read_end'], 
+                                  node_attrs=['read_length', 'read_idx', 'read_strand', 'read_start', 'read_end', 'read_trim_start', 'read_trim_end'], 
                                   edge_attrs=['prefix_length', 'overlap_similarity', 'overlap_length'])
     predecessors = get_predecessors(graph_dgl)
     successors = get_neighbors(graph_dgl)
