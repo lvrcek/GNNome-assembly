@@ -69,19 +69,20 @@ def process(model, graph, neighbors, reads, solution, edges, criterion, optimize
     """
     walk_length = get_hyperparameters()['walk_length']
 
-    ground_truth_list = solution.copy()  # TODO: Consistent naming
-    ground_truth = {n1: n2 for n1, n2 in zip(ground_truth_list[:-1], ground_truth_list[1:])}
-    ground_truth[ground_truth_list[-1]] = None
-    total_steps = len(ground_truth_list) - 1
+    ground_truth = {n1: n2 for n1, n2 in zip(solution[:-1], solution[1:])}
+    ground_truth[solution[-1]] = None
+    total_steps = len(solution) - 1
 
-    start = (epoch * walk_length) % total_steps if walk_length != -1 else 0
-    current = ground_truth_list[start]
+    if model.training:
+        start = (epoch * walk_length) % total_steps if walk_length != -1 else 0
+    else:
+        start = 0
+        walk_length = -1
 
-    # visited = set()
-    walk = []
+    current = solution[start]
+
     loss_list = []
     total_loss = 0
-    total = 0
     correct = 0
     steps = 0
 
@@ -89,18 +90,8 @@ def process(model, graph, neighbors, reads, solution, edges, criterion, optimize
     
     print('Iterating through nodes!')
     while True:
-        steps += 1
-        walk.append(current)
         if steps == walk_length or ground_truth[current] is None:
             break
-        # if steps == total_steps:  # This one is probably redundant
-        #     break
-        # if current in visited:  # Since I'm doing teacher forcing, this is not necessary. I will never end up in a visited node
-        #     break
-        # if len(neighbors[current]) == 0:  # This should also be covered by the upper "gt[curr] is None" case
-        #     break
-        # visited.add(current)
-        # visited.ad(current ^ 1)
         if len(neighbors[current]) == 1:
             current = neighbors[current][0]
             continue
@@ -123,15 +114,18 @@ def process(model, graph, neighbors, reads, solution, edges, criterion, optimize
 
         if choice == best_neighbor:
             correct += 1
-        total += 1
-        current = best_neighbor  # Teacher forcing        
+        current = best_neighbor  # Teacher forcing
+        steps += 1
+
+    if len(loss_list) == 0:
+        return None, None
 
     if model.training:
         optimizer.zero_grad()
         total_loss.backward()  # Backprop summed losses
         optimizer.step()
 
-    accuracy = correct / total
+    accuracy = correct / steps
     return loss_list, accuracy
 
 
@@ -195,7 +189,7 @@ def train(args):
 
         # --- Training ---
         for epoch in tqdm(range(num_epochs)):
-            # model.train()
+            model.train()
             print(f'Epoch: {epoch}')
             patience += 1
             loss_per_graph = []
@@ -206,9 +200,10 @@ def train(args):
                 solution = utils.get_walks(idx, data_path)
 
                 utils.print_graph_info(idx, graph)
-                loss_list, accuracy = process(model, graph, succ, reads, solution, edges, optimizer, epoch, device=device)
-                loss_per_graph.append(np.mean(loss_list))
-                accuracy_per_graph.append(accuracy)
+                loss_list, accuracy = process(model, graph, succ, reads, solution, edges, criterion, optimizer, epoch, device=device)
+                if loss_list is not None:
+                    loss_per_graph.append(np.mean(loss_list))
+                    accuracy_per_graph.append(accuracy)
 
                 elapsed = utils.timedelta_to_str(datetime.now() - time_start)
                 print(f'Processing graph {idx} done. Elapsed time: {elapsed}')
@@ -234,9 +229,10 @@ def train(args):
                     solution = utils.get_walks(idx, data_path)
 
                     utils.print_graph_info(idx, graph)
-                    loss_list, accuracy = process(model, graph, succ, reads, solution, edges, optimizer, epoch, device=device)
-                    loss_per_graph.append(np.mean(loss_list))
-                    accuracy_per_graph.append(accuracy)
+                    loss_list, accuracy = process(model, graph, succ, reads, solution, edges, criterion, optimizer, epoch, device=device)
+                    if loss_list is not None:
+                        loss_per_graph.append(np.mean(loss_list))
+                        accuracy_per_graph.append(accuracy)
 
                     elapsed = utils.timedelta_to_str(datetime.now() - time_start)
                     print(f'Processing graph {idx} done. Elapsed time: {elapsed}')
@@ -277,13 +273,14 @@ def train(args):
                 solution = utils.get_walks(idx, data_path)
 
                 utils.print_graph_info(idx, graph)
-                loss_list, accuracy = process(best_model, graph, succ, reads, solution, edges, optimizer, epoch, device=device)
+                loss_list, accuracy = process(best_model, graph, succ, reads, solution, edges, criterion, optimizer, epoch, device=device)
                 test_accuracy.append(accuracy)
 
+            test_accuracy = np.mean(test_accuracy)
             wandb.log({"test_accuracy": test_accuracy})
             elapsed = utils.timedelta_to_str(datetime.now() - time_start)
             print(f'\nTesting done. Elapsed time: {elapsed}')
-            print(f'Average accuracy on the test set:', np.mean(test_accuracy))
+            print(f'Average accuracy on the test set:', test_accuracy)
 
 
 if __name__ == '__main__':

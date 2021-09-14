@@ -46,11 +46,12 @@ def inference(args=None):
     hyperparameters = get_hyperparameters()
     device = hyperparameters['device']
     dim_latent = hyperparameters['dim_latent']
+    num_gnn_layers = hyperparameters['num_gnn_layers']
 
     model_path = args.model
     if model_path is None:
-        model_path = 'pretrained/model_walk_10.pt'
-    model = models.NonAutoRegressive(dim_latent).to(device)
+        model_path = 'pretrained/model_wandb_test_2.pt'
+    model = models.NonAutoRegressive(dim_latent, num_gnn_layers).to(device)
     model.load_state_dict(torch.load(model_path, map_location=torch.device(device)))
 
     data_path = args.data
@@ -71,7 +72,7 @@ def inference(args=None):
 
         walk = predict(model, graph, succ, reads, edges)
 
-        inference_path = os.path.join(data_path, 'inference_walk_10_2')
+        inference_path = os.path.join(data_path, 'inference_wandb_test_2')
         if not os.path.isdir(inference_path):
             os.mkdir(inference_path)
         pickle.dump(walk, open(f'{inference_path}/{idx}_predict.pkl', 'wb'))
