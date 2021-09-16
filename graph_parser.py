@@ -238,6 +238,18 @@ def from_gfa(graph_path, reads_path):
     deque
         a deque of read discriptions
     """
+
+    # ---------------------------------------------------------- READ THIS ----------------------------------------------------------------------------
+    # I need both the GFA and the FASTQ because they hold different information.
+    # GFA also serves as the "link" between different formats since it contains the read id taken from GFA.
+    # First all the reads are stored in a list, together with their info (description)--thi info contains read id, start, end, PRIOR TO TRIMMING!!!
+    # Then I parse the GFA file. From here I get the read ids (indices in FASTQ) and the sequences.
+    # Why the sequences from here? Because they are already trimmed, so it's easier than to take them from FASTQ and trim them manually
+    # With the read ids I can access the reads in the FASTQ file (or rather in a list obtained from parsing the file).
+    # This is simply: nth_fastq_read = read_list[id_from_gfa].
+    # Note: Not all the reads are stored in the GFA. The GFA is created when the contained reads are already discarded.
+    # --------------------------------------------------------------------------------------------------------------------------------------------------
+
     read_sequences = deque()
     description_queue = deque()
     # TODO: Parsing of reads won't work for larger datasets nor gzipped files
@@ -247,7 +259,7 @@ def from_gfa(graph_path, reads_path):
             line = line.strip().split()
             if len(line) == 5:
                 tag, id, sequence, length, count = line
-                sequence = Seq(sequence)
+                sequence = Seq(sequence)  # TODO: This sequence is already trimmed! Make sure that everything is matching
                 read_sequences.append(sequence)
                 read_sequences.append(sequence.reverse_complement())
                 try:
@@ -289,13 +301,20 @@ def from_csv(graph_path, reads_path):
     """
     graph_nx = nx.DiGraph()
     graph_nx_und = nx.Graph()
-    read_length = {}
+    read_length = {}  # Obtained from the CSV
     node_data = {}
-    read_idx, read_strand, read_start, read_end = {}, {}, {}, {}
-    edge_ids, prefix_length, overlap_similarity, overlap_length = {}, {}, {}, {}
+    read_idx, read_strand, read_start, read_end = {}, {}, {}, {}  # Obtained from the FASTQ headers
+    edge_ids, prefix_length, overlap_similarity, overlap_length = {}, {}, {}, {}  # Obtained from the CSV
+
+    # ---------------------------------------------------------------------------------------------------
+    # Here I get the sequences (and thei rcs) and the descriptions.
+    # Descriptions contain read idx, strand, start, and read end info---obtained from the simulator.
+    # This is crucial for the supervision signal and the ground-truth algorithms, that's why I need it.
+    # ---------------------------------------------------------------------------------------------------
+
     read_sequences, description_queue = from_gfa(graph_path[:-3] + 'gfa', reads_path)
 
-    read_trim_start, read_trim_end = {}, {}
+    read_trim_start, read_trim_end = {}, {}  # Obtained from the CSV
 
     with open(graph_path) as f:
         for line in f.readlines():
@@ -305,31 +324,63 @@ def from_csv(graph_path, reads_path):
             pattern = r':(\d+)'
             src_id, src_len = int(src[0]), int(re.findall(pattern, src[2])[0])
             dst_id, dst_len = int(dst[0]), int(re.findall(pattern, dst[2])[0])
+            # --------------------------
+            # SO FAR ALL GOOD!
+            # src_len and dst_len are length of the trimmed reads!!
+            # --------------------------
 
             if flag == 0:
                 # Here overlap is actually trimming info! trim_begin trim_end
                 description = description_queue.popleft()
                 id, idx, strand, start, end = description.split()
                 idx = int(re.findall(r'idx=(\d+)', idx)[0])
-                strand = 1 if strand[-2] == '+' else -1
-                start = int(re.findall(r'start=(\d+)', start)[0])
+                strand = 1 if strand[-2] == '+' else -1  # strand[-1] == ','
+
+                # -----------------------------------------
+                # start and end values are UNTRIMMED!
+                # -----------------------------------------
+                start = int(re.findall(r'start=(\d+)', start)[0])  
                 end = int(re.findall(r'end=(\d+)', end)[0])
 
                 trimming = overlap
                 if trimming == '-':
-                    trim_start, trim_end = 0, 0
+                    trim_start, trim_end = 0, start - end
                 else:
                     trim_start, trim_end = trimming.split()
                     trim_start = int(trim_start)
                     trim_end = int(trim_end)
-                
+               
+
+
+                # start = start + trim_start * strand  # Don't worry bro
+                # end = start + trim_end * strand  # Just trust me on this one
+                # !!!!!!!! end = <<start>> + ... !!!!!!
+                # This <<start>> is most likely incorrect, since it is already updated
+
+                # If + strand: start < end
+                # If - strand: start > and (the read is from the opposite strand, so it kinda goes backwards)
+                # This is due to how the reads are sampled from the reference
+
+                end = start + trim_end * strand
+                start = start + trim_start * strand
+
                 if src_id not in read_length.keys():
                     read_length[src_id] = src_len
                     node_data[src_id] = read_sequences.popleft()
                     read_idx[src_id] = idx
                     read_strand[src_id] = strand
-                    read_start[src_id] = start + trim_start
-                    read_end[src_id] = end - trim_end
+
+                    # Strand - reads will remain backwards
+                    read_start[src_id] = start
+                    read_end[src_id] = end
+
+                    # if strand == 1:
+                    #     read_start[src_id] = start + trim_start
+                    #     read_end[src_id] = start + trim_end
+                    # else:
+                    #     read_start[src_id] = start + trim_end
+                    #     read_end[src_id] = start + trim_start
+                        
                     graph_nx.add_node(src_id)
                     graph_nx_und.add_node(src_id)
 
@@ -343,8 +394,19 @@ def from_csv(graph_path, reads_path):
                     read_strand[dst_id] = -strand
                     # This is on purpose so that positive strand reads are 'forwards'
                     # While negative strand reads become 'backwards' (start < end)
-                    read_start[dst_id] = end + trim_end
-                    read_end[dst_id] = start - trim_start
+                    # Just trust me bro. It's all ogre now
+
+                    # Virtual pairs of - strand reads will be flipped into forward orientation (start < end)
+                    read_start[dst_id] = end
+                    read_end[dst_id] = start
+
+                    # if read_strand[dst_id] == 1:
+                    #     read_start[dst_id] = start - trim_end  # end + delta = end + (start - end - trim_end) = start - trim_end
+                    #     read_end[dst_id] = start - trim_start  # start - trim_start
+                    # else:
+                    #     read_start[dst_id] = start - trim_start
+                    #     read_end = start - trim_end
+
                     graph_nx.add_node(dst_id)
                     graph_nx_und.add_node(dst_id)
 

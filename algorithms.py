@@ -2,6 +2,7 @@ import os
 import pickle
 import subprocess
 from collections import deque
+from datetime import datetime
 
 import dgl
 import torch
@@ -276,9 +277,13 @@ def dfs_gt(graph, start, neighbors, threshold):
     walk = [start]
     execution.append(walk)
     max_reach = walk.copy()
+    time_start = datetime.now()
 
     try:
         while execution:
+            time_now = datetime.now()
+            if (time_now-time_start).seconds > 300:
+                break
             walk = execution.pop()
             visited = set(walk)
             last_node = walk[-1]
@@ -310,9 +315,9 @@ def dfs_gt(graph, start, neighbors, threshold):
 
 
 def get_solutions_for_all():
-    processed_path = 'data/train/processed'
-    neighbors_path = 'data/train/info'
-    solutions_path = 'data/train/solutions'
+    processed_path = 'data/graphs_3.0/processed'
+    neighbors_path = 'data/graphs_3.0/info'
+    solutions_path = 'data/graphs_3.0/solutions'
     start = 0
     for name in os.listdir(processed_path):
         idx = name[:-4]

@@ -58,7 +58,8 @@ class AssemblyGraphDataset(DGLDataset):
 
     def has_cache(self):
         """Check if the raw data is already processed and stored."""
-        return len(os.listdir(self.save_dir)) == len(os.listdir(self.raw_dir))
+        return len(os.listdir(self.save_dir)) > 0
+        # return len(os.listdir(self.save_dir)) == len(os.listdir(self.raw_dir))
 
     def __len__(self):
         return len(os.listdir(self.save_dir))
@@ -79,17 +80,18 @@ class AssemblyGraphDataset(DGLDataset):
                 reads_path = os.path.abspath(os.path.join(self.raw_dir, fastq))
                 print(reads_path)
                 subprocess.run(f'{self.raven_path} --filter 1.0 --weaken -t32 -p0 {reads_path} > assembly.fasta', shell=True, cwd=self.tmp_dir)
-                for j in range(1, 7):
+                for j in range(1, 2):
                     print(f'graph {j}')
-                    processed_path = os.path.join(self.save_dir, f'd{cnt}_g{j}.dgl')
+                    # processed_path = os.path.join(self.save_dir, f'd{cnt}_g{j}.dgl')
+                    processed_path = os.path.join(self.save_dir, f'{cnt}.dgl')
                     graph, pred, succ, reads, edges = graph_parser.from_csv(os.path.join(self.tmp_dir, f'graph_{j}.csv'), reads_path)
                     dgl.save_graphs(processed_path, graph)
 
-                    pickle.dump(pred, open(f'{self.info_dir}/d{cnt}_g{j}_pred.pkl', 'wb'))
-                    pickle.dump(succ, open(f'{self.info_dir}/d{cnt}_g{j}_succ.pkl', 'wb'))
-                    pickle.dump(reads, open(f'{self.info_dir}/d{cnt}_g{j}_reads.pkl', 'wb'))
-                    pickle.dump(edges, open(f'{self.info_dir}/d{cnt}_g{j}_edges.pkl', 'wb'))
+                    pickle.dump(pred, open(f'{self.info_dir}/{cnt}_pred.pkl', 'wb'))
+                    pickle.dump(succ, open(f'{self.info_dir}/{cnt}_succ.pkl', 'wb'))
+                    pickle.dump(reads, open(f'{self.info_dir}/{cnt}_reads.pkl', 'wb'))
+                    pickle.dump(edges, open(f'{self.info_dir}/{cnt}_edges.pkl', 'wb'))
 
-                    graphia_path = os.path.join(graphia_dir, f'd{cnt}_g{j}_graph.txt')
+                    graphia_path = os.path.join(graphia_dir, f'{cnt}_graph.txt')
                     graph_parser.print_pairwise(graph, graphia_path)
                 f.write(f'{cnt} - {fastq}\n')

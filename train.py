@@ -162,6 +162,7 @@ def train(args):
     ds = AssemblyGraphDataset(data_path)
     dl_train, dl_valid, dl_test = get_dataloaders(ds, batch_size, eval, ratio=0.2)
     num_graphs = len(ds)
+    exit()
 
     model = models.NonAutoRegressive(dim_latent, num_gnn_layers).to(device)
     params = list(model.parameters())
