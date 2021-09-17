@@ -73,60 +73,83 @@ def process(model, graph, neighbors, reads, solution, edges, criterion, optimize
     ground_truth[solution[-1]] = None
     total_steps = len(solution) - 1
 
-    if model.training:
-        start = (epoch * walk_length) % total_steps if walk_length != -1 else 0
+    # if model.training:
+    #     start = (epoch * walk_length) % total_steps if walk_length != -1 else 0
+    # else:
+    #     start = 0
+    #     walk_length = -1
+
+    # current = solution[start]
+
+    # loss_list = []
+    # total_loss = 0
+    # correct = 0
+    # steps = 0
+
+    if walk_length != -1:
+        num_mini_batches = total_steps // walk_length + 1
     else:
-        start = 0
-        walk_length = -1
+        num_mini_batches = 1
 
-    current = solution[start]
+    mini_batch_loss_list = []
+    mini_batch_acc_list= []
 
-    loss_list = []
-    total_loss = 0
-    correct = 0
-    steps = 0
+    for mini_batch in range(num_mini_batches):
 
-    logits = model(graph, reads)
-    
-    print('Iterating through nodes!')
-    while True:
-        if steps == walk_length or ground_truth[current] is None:
-            break
-        if len(neighbors[current]) == 1:
-            current = neighbors[current][0]
+        start = mini_batch * walk_length
+
+        current = solution[start]
+
+        loss_list = []
+        total_loss = 0
+        correct = 0
+        steps = 0
+
+        logits = model(graph, reads)
+
+        print('Iterating through nodes!')
+        while True:
+            if steps == walk_length or ground_truth[current] is None:
+                break
+            if len(neighbors[current]) == 1:
+                current = neighbors[current][0]
+                continue
+
+            neighbor_edges = [edges[current, n] for n in neighbors[current]]
+            neighbor_logits = logits.squeeze(1)[neighbor_edges]
+            value, index = torch.topk(neighbor_logits, k=1, dim=0)
+            choice = neighbors[current][index]
+
+            best_neighbor = ground_truth[current]
+            best_idx = neighbors[current].index(best_neighbor)
+
+            # utils.print_prediction(walk, current, neighbors, neighbor_logits, choice, best_neighbor)
+
+            # Calculate loss
+            best_idx = torch.tensor([best_idx], dtype=torch.long, device=device)
+            loss = criterion(neighbor_logits.unsqueeze(0), best_idx)  # First squeeze, then unsqueeze - redundant?
+            loss_list.append(loss.item())
+            total_loss += loss
+
+            if choice == best_neighbor:
+                correct += 1
+            current = best_neighbor  # Teacher forcing
+            steps += 1
+
+        if model.training and total_loss > 0:
+            optimizer.zero_grad()
+            total_loss.backward()  # Backprop summed losses
+            optimizer.step()
+
+        if len(loss_list) == 0:
             continue
+        else:
+            accuracy = correct / steps
+            mini_batch_loss_list.append(np.mean(loss_list))
+            mini_batch_acc_list.append(accuracy)
 
-        neighbor_edges = [edges[current, n] for n in neighbors[current]]
-        neighbor_logits = logits.squeeze(1)[neighbor_edges]
-        value, index = torch.topk(neighbor_logits, k=1, dim=0)
-        choice = neighbors[current][index]
-
-        best_neighbor = ground_truth[current]
-        best_idx = neighbors[current].index(best_neighbor)
-
-        # utils.print_prediction(walk, current, neighbors, neighbor_logits, choice, best_neighbor)
-
-        # Calculate loss
-        best_idx = torch.tensor([best_idx], dtype=torch.long, device=device)
-        loss = criterion(neighbor_logits.unsqueeze(0), best_idx)  # First squeeze, then unsqueeze - redundant?
-        loss_list.append(loss.item())
-        total_loss += loss
-
-        if choice == best_neighbor:
-            correct += 1
-        current = best_neighbor  # Teacher forcing
-        steps += 1
-
-    if len(loss_list) == 0:
-        return None, None
-
-    if model.training:
-        optimizer.zero_grad()
-        total_loss.backward()  # Backprop summed losses
-        optimizer.step()
-
-    accuracy = correct / steps
-    return loss_list, accuracy
+    accuracy = np.mean(mini_batch_acc_list)
+    return mini_batch_loss_list, accuracy
 
 
 def train(args):
@@ -162,7 +185,6 @@ def train(args):
     ds = AssemblyGraphDataset(data_path)
     dl_train, dl_valid, dl_test = get_dataloaders(ds, batch_size, eval, ratio=0.2)
     num_graphs = len(ds)
-    exit()
 
     model = models.NonAutoRegressive(dim_latent, num_gnn_layers).to(device)
     params = list(model.parameters())
