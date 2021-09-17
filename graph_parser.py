@@ -310,6 +310,15 @@ def from_csv(graph_path, reads_path):
     # Here I get the sequences (and thei rcs) and the descriptions.
     # Descriptions contain read idx, strand, start, and read end info---obtained from the simulator.
     # This is crucial for the supervision signal and the ground-truth algorithms, that's why I need it.
+    # ############## 0-based CSV node [] index == 0-based line ordinal number in GFA #################
+    # e.g. in CSV 20 [10] ... 21 [10] ... == 10th (11th 1-based) line in GFA
+    #
+    # ############################ Sometimes CSV swallows some node ids ##############################
+    # For eaxmple, this happens in graph 18 (chr11_58-60) where there are no nodes 824 and 825.
+    # THe reason is that these nodes have no edges, so they are useless and can be omitted.
+    # This means that all the node ids greater than 823 in the DGL will be reduced by one.
+    # So, in CSV node ids will be: 822, 823, 826, 827, ..., 3028, 3029 <end>
+    # And in the DGL they will be: 822, 823, 824, 825, ..., 3026, 3027 <end>
     # ---------------------------------------------------------------------------------------------------
 
     read_sequences, description_queue = from_gfa(graph_path[:-3] + 'gfa', reads_path)
