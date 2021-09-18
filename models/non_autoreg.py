@@ -55,8 +55,6 @@ class NonAutoRegressive(nn.Module):
     def forward(self, graph, reads):
         """Return the conditional probability for each edge."""
         # h = self.seq_encoder(reads)
-        # print(h.shape)
-        # exit()
         h = torch.ones((graph.num_nodes(), 4)).to(get_hyperparameters()['device'])
         e = self.edge_encoder(graph.edata['overlap_similarity'], graph.edata['overlap_length'])
         for conv in self.layers:
