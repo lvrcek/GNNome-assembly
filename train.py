@@ -270,11 +270,12 @@ def train(args):
                     # TODO: Enable early stopping, incrase patience_limit
                     # break
 
-                valid_loss = np.mean(loss_per_graph)
-                valid_acc = np.mean(accuracy_per_graph)
-                loss_per_epoch_valid.append(np.mean(loss_per_graph))
-                accuracy_per_epoch_valid.append(np.mean(accuracy_per_graph))
-                wandb.log({'epoch': epoch, 'valid_loss': valid_loss, 'valid_accuracy': valid_acc}, step=epoch)
+                if len(loss_per_graph) > 0:
+                    valid_loss = np.mean(loss_per_graph)
+                    valid_acc = np.mean(accuracy_per_graph)
+                    loss_per_epoch_valid.append(np.mean(loss_per_graph))
+                    accuracy_per_epoch_valid.append(np.mean(accuracy_per_graph))
+                    wandb.log({'epoch': epoch, 'valid_loss': valid_loss, 'valid_accuracy': valid_acc}, step=epoch)
 
                 elapsed = utils.timedelta_to_str(datetime.now() - time_start)
                 print(f'\nValidation in epoch {epoch} done. Elapsed time: {elapsed}\n')
@@ -299,11 +300,14 @@ def train(args):
                 loss_list, accuracy = process(best_model, graph, succ, reads, solution, edges, criterion, optimizer, epoch, device=device)
                 test_accuracy.append(accuracy)
 
-            test_accuracy = np.mean(test_accuracy)
-            wandb.log({"test_accuracy": test_accuracy})
-            elapsed = utils.timedelta_to_str(datetime.now() - time_start)
-            print(f'\nTesting done. Elapsed time: {elapsed}')
-            print(f'Average accuracy on the test set:', test_accuracy)
+            if len(test_accuracy) > 0:
+                test_accuracy = np.mean(test_accuracy)
+                wandb.log({"test_accuracy": test_accuracy})
+                elapsed = utils.timedelta_to_str(datetime.now() - time_start)
+                print(f'\nTesting done. Elapsed time: {elapsed}')
+                print(f'Average accuracy on the test set:', test_accuracy)
+
+        print('Testing done')
 
 
 if __name__ == '__main__':
