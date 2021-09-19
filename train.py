@@ -240,6 +240,12 @@ def train(args):
             elapsed = utils.timedelta_to_str(datetime.now() - time_start)
             print(f'\nTraining in epoch {epoch} done. Elapsed time: {elapsed}\n')
 
+            # !!!!!!!!!!! Only for overfitting - REMOVE LATER !!!!!!!!!!!
+            best_model.load_state_dict(copy.deepcopy(model.state_dict()))
+            best_model.to(device)
+            torch.save(best_model.state_dict(), model_path)
+            # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
             # --- Validation ---
             with torch.no_grad():
                 print('VALIDATION')

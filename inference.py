@@ -70,12 +70,12 @@ def inference(args=None):
         reads = info_all['reads'][idx]
         edges = info_all['edges'][idx]
 
-        # walk = predict(model, graph, succ, reads, edges)
+        walk = predict(model, graph, succ, reads, edges)
 
-        inference_path = os.path.join(data_path, 'greedy')
+        inference_path = os.path.join(data_path, 'inference')
         if not os.path.isdir(inference_path):
             os.mkdir(inference_path)
-        # pickle.dump(walk, open(f'{inference_path}/{idx}_predict.pkl', 'wb'))
+        pickle.dump(walk, open(f'{inference_path}/{idx}_predict.pkl', 'wb'))
 
         baseline, _ = algorithms.greedy(graph, 0, succ, edges, 'baseline')
         pickle.dump(baseline, open(f'{inference_path}/{idx}_greedy.pkl', 'wb'))
