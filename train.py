@@ -59,6 +59,27 @@ def get_dataloaders(ds, batch_size, eval, ratio):
     return dl_train, dl_valid, dl_test
 
 
+def save_checkpoint(epoch, model, optimizer, loss, out):
+    checkpoint = {
+            'epoch': epoch,
+            'model_state_dict': model.state_dict(),
+            'optim_state_dict': optimizer.state_dict(),
+            'loss': loss,
+    }
+    ckpt_path = f'checkpoints/{out}.pt'
+    torch.save(checkpoint, ckpt_path)
+
+
+def load_checkpoint(out, model, optimizer):
+    ckpt_path = f'checkpoints/{out}.pt'
+    checkpoint = torch.load(ckpt_path)
+    epoch = checkpoint['epoch']
+    model.load_state_dict(checkpoint['model_state_dict'])
+    optimizer.load_state_dict(checkpoint['optim_state_dict'])
+    loss = checkpoint['loss']
+    return epoch, model, optimizer, loss
+
+
 def process(model, graph, neighbors, reads, solution, edges, criterion, optimizer, epoch, device):
     """Process the graph by predicting the correct next neighbor.
     
@@ -245,6 +266,10 @@ def train(args):
             best_model.to(device)
             torch.save(best_model.state_dict(), model_path)
             # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+            # !!!! This should probably go after validation !!!!
+            save_checkpoint(epoch, model, optimizer, loss)
+            # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
             # --- Validation ---
             with torch.no_grad():
