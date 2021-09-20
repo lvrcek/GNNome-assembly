@@ -153,6 +153,7 @@ figures/*
 pretrained/*
 debug/*
 wandb/*
+checkpoints/*
 
 data/*
 !data/example/

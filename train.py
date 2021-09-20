@@ -59,12 +59,13 @@ def get_dataloaders(ds, batch_size, eval, ratio):
     return dl_train, dl_valid, dl_test
 
 
-def save_checkpoint(epoch, model, optimizer, loss, out):
+def save_checkpoint(epoch, model, optimizer, loss_train, loss_valid, out):
     checkpoint = {
             'epoch': epoch,
             'model_state_dict': model.state_dict(),
             'optim_state_dict': optimizer.state_dict(),
-            'loss': loss,
+            'loss_train': loss_train,
+            'loss_valid': loss_valid,
     }
     ckpt_path = f'checkpoints/{out}.pt'
     torch.save(checkpoint, ckpt_path)
@@ -76,8 +77,9 @@ def load_checkpoint(out, model, optimizer):
     epoch = checkpoint['epoch']
     model.load_state_dict(checkpoint['model_state_dict'])
     optimizer.load_state_dict(checkpoint['optim_state_dict'])
-    loss = checkpoint['loss']
-    return epoch, model, optimizer, loss
+    loss_train = checkpoint['loss_train']
+    loss_valid = checkpoint['loss_valid']
+    return epoch, model, optimizer, loss_train, loss_valid
 
 
 def process(model, graph, neighbors, reads, solution, edges, criterion, optimizer, epoch, device):
@@ -128,7 +130,6 @@ def process(model, graph, neighbors, reads, solution, edges, criterion, optimize
 
         logits = model(graph, reads)
 
-        print('Iterating through nodes!')
         while True:
             if steps == walk_length or ground_truth[current] is None:
                 break
@@ -228,17 +229,21 @@ def train(args):
         wandb.watch(model, criterion, log='all', log_freq=1)
 
         patience = 0
+        out_of_patience = False
         loss_per_epoch_train, loss_per_epoch_valid = [], []
         accuracy_per_epoch_train, accuracy_per_epoch_valid = [], []
 
         # --- Training ---
-        for epoch in tqdm(range(num_epochs)):
+        for epoch in range(num_epochs):
             model.train()
             print(f'Epoch: {epoch}')
+            if out_of_patience:
+                print('Out of patience!')
+                break
             patience += 1
             loss_per_graph = []
             accuracy_per_graph = []
-            for data in dl_train:
+            for data in tqdm(dl_train):
                 idx, graph, pred, succ, reads, edges = utils.unpack_data(data, info_all)
                 graph = graph.to(device)
                 solution = utils.get_walks(idx, data_path)
@@ -262,13 +267,13 @@ def train(args):
             print(f'\nTraining in epoch {epoch} done. Elapsed time: {elapsed}\n')
 
             # !!!!!!!!!!! Only for overfitting - REMOVE LATER !!!!!!!!!!!
-            best_model.load_state_dict(copy.deepcopy(model.state_dict()))
-            best_model.to(device)
-            torch.save(best_model.state_dict(), model_path)
+            # best_model.load_state_dict(copy.deepcopy(model.state_dict()))
+            # best_model.to(device)
+            # torch.save(best_model.state_dict(), model_path)
             # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
             # !!!! This should probably go after validation !!!!
-            save_checkpoint(epoch, model, optimizer, loss)
+            # save_checkpoint(epoch, model, optimizer, loss)
             # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
             # --- Validation ---
@@ -291,15 +296,15 @@ def train(args):
                     elapsed = utils.timedelta_to_str(datetime.now() - time_start)
                     print(f'Processing graph {idx} done. Elapsed time: {elapsed}')
 
-                if len(loss_per_epoch_valid) > 0 and loss_per_graph[-1] < min(loss_per_epoch_valid):
-                    patience = 0
-                    best_model.load_state_dict(copy.deepcopy(model.state_dict()))
-                    best_model.to(device)
-                    torch.save(best_model.state_dict(), model_path)
-                elif patience >= patience_limit:
-                    pass
-                    # TODO: Enable early stopping, incrase patience_limit
-                    # break
+#                if len(loss_per_epoch_valid) > 0 and loss_per_graph[-1] < min(loss_per_epoch_valid):
+#                    patience = 0
+#                    best_model.load_state_dict(copy.deepcopy(model.state_dict()))
+#                    best_model.to(device)
+#                    torch.save(best_model.state_dict(), model_path)
+#                elif patience >= patience_limit:
+#                    pass
+#                    # TODO: Enable early stopping, incrase patience_limit
+#                    # break
 
                 if len(loss_per_graph) > 0:
                     valid_loss = np.mean(loss_per_graph)
@@ -307,6 +312,16 @@ def train(args):
                     loss_per_epoch_valid.append(np.mean(loss_per_graph))
                     accuracy_per_epoch_valid.append(np.mean(accuracy_per_graph))
                     wandb.log({'epoch': epoch, 'valid_loss': valid_loss, 'valid_accuracy': valid_acc}, step=epoch)
+
+                if len(loss_per_epoch_valid) > 0 and loss_per_epoch_valid[-1] < min(loss_per_epoch_valid):
+                    patience = 0
+                    best_model.load_state_dict(copy.deepcopy(model.state_dict()))
+                    best_model.to(device)
+                    torch.save(best_model.state_dict(), model_path)
+                elif patience >= patience_limit:
+                    out_of_patience = True
+
+                save_checkpoint(epoch, model, optimizer, loss_per_epoch_train[-1], loss_per_epoch_valid[-1], out)
 
                 elapsed = utils.timedelta_to_str(datetime.now() - time_start)
                 print(f'\nValidation in epoch {epoch} done. Elapsed time: {elapsed}\n')

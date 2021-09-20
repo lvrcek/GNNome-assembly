@@ -113,9 +113,8 @@ def get_walks(start, neighbors, num_nodes):
 
 
 def timedelta_to_str(delta):
-    seconds = delta.seconds
-    minutes = (seconds // 60)  % 60
-    hours = seconds // 3600
+    hours, remainder = divmod(delta.seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
     return f'{hours}h {minutes}m {seconds}s'
 
 
