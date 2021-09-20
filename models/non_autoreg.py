@@ -59,6 +59,7 @@ class NonAutoRegressive(nn.Module):
         h = torch.ones((graph.num_nodes(), hyperparams['dim_latent'])).to(hyperparams['device'])
         e = self.edge_encoder(graph.edata['overlap_similarity'], graph.edata['overlap_length'])
         for conv in self.layers:
-            h = conv(graph, h, e)
+            h, e = conv(graph, h, e)
         p = self.decoder(graph, h, e)
         return p
+
