@@ -32,6 +32,7 @@ class EdgeEncoder(nn.Module):
     def forward(self, overlap_similarity, overlap_length):
         """Return the encoded edge attributes."""
         overlap_similarity = overlap_similarity.unsqueeze(-1)  # Can't normalize if all are 1.0!
-        overlap_length = self.normalize(overlap_length.float()).unsqueeze(-1)
+        # overlap_length = self.normalize(overlap_length.float()).unsqueeze(-1)
+        overlap_length = overlap_length.unsqueeze(-1)
         e = torch.cat((overlap_similarity, overlap_length), dim=1)
         return self.linear(e)

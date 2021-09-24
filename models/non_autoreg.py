@@ -52,12 +52,16 @@ class NonAutoRegressive(nn.Module):
         self.layers = nn.ModuleList([GatedGCN(dim_latent, dim_latent) for _ in range(num_gnn_layers)])
         self.decoder = EdgeDecoder(dim_latent, 1)
 
-    def forward(self, graph, reads):
+    def forward(self, graph, reads, norm):
         """Return the conditional probability for each edge."""
         # h = self.seq_encoder(reads)
         hyperparams = get_hyperparameters()
         h = torch.ones((graph.num_nodes(), hyperparams['dim_latent'])).to(hyperparams['device'])
-        e = self.edge_encoder(graph.edata['overlap_similarity'], graph.edata['overlap_length'])
+        if norm is not None:
+            e_tmp = (graph.edata['overlap_length'] - norm[0] ) / norm[1]
+        else:
+            e_tmp = graph.edata['overlap_length']
+        e = self.edge_encoder(graph.edata['overlap_similarity'], e_tmp)
         for conv in self.layers:
             h, e = conv(graph, h, e)
         p = self.decoder(graph, h, e)

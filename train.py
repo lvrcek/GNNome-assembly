@@ -52,6 +52,22 @@ def get_dataloaders(ds, batch_size, eval, ratio):
         valid_size = test_size = int(len(ds) * ratio)
         train_size = len(ds) - valid_size - test_size
         ds_train, ds_valid, ds_test = random_split(ds, [train_size, valid_size, test_size])
+
+        # normalize_tensor = torch.cat([ds_train[i][1].edata['overlap_length'] for i in range(len(ds_train))]).float()
+        # norm_mean, norm_std = torch.mean(normalize_tensor), torch.std(normalize_tensor)
+        # for i in range(len(ds_train)):
+        #     ds_train[i][1].edata['overlap_length_normed'] = (ds_train[i][1].edata['overlap_length'] - norm_mean) / norm_std
+
+        # normalize_tensor = torch.cat([ds_train[i][1].edata['overlap_length'] for i in range(len(ds_valid))]).float()
+        # norm_mean, norm_std = torch.mean(normalize_tensor), torch.std(normalize_tensor)
+        # for i in range(len(ds_valid)):
+        #     ds_valid[i][1].edata['overlap_length_normed'] = (ds_valid[i][1].edata['overlap_length'] - norm_mean) / norm_std
+
+        # normalize_tensor = torch.cat([ds_train[i][1].edata['overlap_length'] for i in range(len(ds_test))]).float()
+        # norm_mean, norm_std = torch.mean(normalize_tensor), torch.std(normalize_tensor)
+        # for i in range(len(ds_test)):
+        #     ds_test[i][1].edata['overlap_length_normed'] = (ds_test[i][1].edata['overlap_length'] - norm_mean) / norm_std
+
         dl_train = GraphDataLoader(ds_train, batch_size=batch_size, shuffle=True)
         dl_valid = GraphDataLoader(ds_valid, batch_size=batch_size, shuffle=False)
         dl_test = GraphDataLoader(ds_test, batch_size=batch_size, shuffle=False)
@@ -82,7 +98,7 @@ def load_checkpoint(out, model, optimizer):
     return epoch, model, optimizer, loss_train, loss_valid
 
 
-def process(model, graph, neighbors, reads, solution, edges, criterion, optimizer, epoch, device):
+def process(model, graph, neighbors, reads, solution, edges, criterion, optimizer, epoch, norm, device):
     """Process the graph by predicting the correct next neighbor.
     
     A graph is processed by simulating a walk over it where the 
@@ -128,7 +144,7 @@ def process(model, graph, neighbors, reads, solution, edges, criterion, optimize
         correct = 0
         steps = 0
 
-        logits = model(graph, reads)
+        logits = model(graph, reads, norm)
 
         while True:
             if steps == walk_length or ground_truth[current] is None:
@@ -220,6 +236,27 @@ def train(args):
 
     info_all = utils.load_graph_data(num_graphs, data_path)
 
+    # Normalization
+    normalize_tensor = torch.cat([graph.edata['overlap_length'] for _, graph in dl_train]).float()
+    norm_mean, norm_std = torch.mean(normalize_tensor), torch.std(normalize_tensor)
+    norm_train = (norm_mean.item(), norm_std.item())
+    # for idx, graph in dl_train:
+    #     graph.edata['overlap_length_normed'] = (graph.edata['overlap_length'] - norm_mean) / norm_std
+
+    try:
+        normalize_tensor = torch.cat([graph.edata['overlap_length'] for _, graph in dl_valid]).float()
+        norm_mean, norm_std = torch.mean(normalize_tensor), torch.std(normalize_tensor)
+        norm_valid = (norm_mean.item(), norm_std.item())
+    except NotImplementedError:
+        norm_valid = None
+
+    try:
+        normalize_tensor = torch.cat([graph.edata['overlap_length'] for _, graph in dl_test]).float()
+        norm_mean, norm_std = torch.mean(normalize_tensor), torch.std(normalize_tensor)
+        norm_test = (norm_mean.item(), norm_std.item())
+    except NotImplementedError:
+        norm_test = None
+
     elapsed = utils.timedelta_to_str(datetime.now() - time_start)
     print(f'Loading data done. Elapsed time: {elapsed}')
 
@@ -249,7 +286,7 @@ def train(args):
                 solution = utils.get_walks(idx, data_path)
 
                 utils.print_graph_info(idx, graph)
-                loss_list, accuracy = process(model, graph, succ, reads, solution, edges, criterion, optimizer, epoch, device=device)
+                loss_list, accuracy = process(model, graph, succ, reads, solution, edges, criterion, optimizer, epoch, norm_train, device=device)
                 if loss_list is not None:
                     loss_per_graph.append(np.mean(loss_list))
                     accuracy_per_graph.append(accuracy)
@@ -259,8 +296,8 @@ def train(args):
 
             train_loss = np.mean(loss_per_graph)
             train_acc = np.mean(accuracy_per_graph)
-            loss_per_epoch_train.append(np.mean(loss_per_graph))
-            accuracy_per_epoch_train.append(np.mean(accuracy_per_graph))
+            loss_per_epoch_train.append(train_loss)
+            accuracy_per_epoch_train.append(train_acc)
             wandb.log({'epoch': epoch, 'train_loss': train_loss, 'train_accuracy': train_acc}, step=epoch)
 
             elapsed = utils.timedelta_to_str(datetime.now() - time_start)
@@ -288,7 +325,7 @@ def train(args):
                     solution = utils.get_walks(idx, data_path)
 
                     utils.print_graph_info(idx, graph)
-                    loss_list, accuracy = process(model, graph, succ, reads, solution, edges, criterion, optimizer, epoch, device=device)
+                    loss_list, accuracy = process(model, graph, succ, reads, solution, edges, criterion, optimizer, epoch, norm_valid, device=device)
                     if loss_list is not None:
                         loss_per_graph.append(np.mean(loss_list))
                         accuracy_per_graph.append(accuracy)
@@ -309,19 +346,24 @@ def train(args):
                 if len(loss_per_graph) > 0:
                     valid_loss = np.mean(loss_per_graph)
                     valid_acc = np.mean(accuracy_per_graph)
-                    loss_per_epoch_valid.append(np.mean(loss_per_graph))
-                    accuracy_per_epoch_valid.append(np.mean(accuracy_per_graph))
+                    loss_per_epoch_valid.append(valid_loss)
+                    accuracy_per_epoch_valid.append(valid_acc)
                     wandb.log({'epoch': epoch, 'valid_loss': valid_loss, 'valid_accuracy': valid_acc}, step=epoch)
 
-                if len(loss_per_epoch_valid) > 0 and loss_per_epoch_valid[-1] < min(loss_per_epoch_valid):
+                if len(loss_per_epoch_valid) > 1 and loss_per_epoch_valid[-1] < min(loss_per_epoch_valid[:-1]):
                     patience = 0
                     best_model.load_state_dict(copy.deepcopy(model.state_dict()))
                     best_model.to(device)
                     torch.save(best_model.state_dict(), model_path)
                 elif patience >= patience_limit:
-                    out_of_patience = True
+                    if lr < 1e-7:
+                        out_of_patience = True
+                    else:
+                        patience = 0
+                        lr /= 10
 
-                save_checkpoint(epoch, model, optimizer, loss_per_epoch_train[-1], loss_per_epoch_valid[-1], out)
+                if len(loss_per_epoch_train) > 0 and len(loss_per_epoch_valid) > 0:
+                    save_checkpoint(epoch, model, optimizer, loss_per_epoch_train[-1], loss_per_epoch_valid[-1], out)
 
                 elapsed = utils.timedelta_to_str(datetime.now() - time_start)
                 print(f'\nValidation in epoch {epoch} done. Elapsed time: {elapsed}\n')
@@ -343,7 +385,7 @@ def train(args):
                 solution = utils.get_walks(idx, data_path)
 
                 utils.print_graph_info(idx, graph)
-                loss_list, accuracy = process(best_model, graph, succ, reads, solution, edges, criterion, optimizer, epoch, device=device)
+                loss_list, accuracy = process(best_model, graph, succ, reads, solution, edges, criterion, optimizer, epoch, norm_test, device=device)
                 test_accuracy.append(accuracy)
 
             if len(test_accuracy) > 0:

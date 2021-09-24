@@ -4,6 +4,8 @@ import torch.nn.functional as F
 import dgl
 import dgl.function as fn
 
+from hyperparameters import get_hyperparameters
+
 
 class GatedGCN(nn.Module):
     """
@@ -100,8 +102,8 @@ class GatedGCN(nn.Module):
 
     def forward(self, g, h, e):
         """Return updated node representations."""
-        h_in = h
-        e_in = e
+        h_in = h.clone()
+        e_in = e.clone()
 
         g.ndata['h'] = h
         g.edata['e'] = e
@@ -116,37 +118,43 @@ class GatedGCN(nn.Module):
 
         # Reference: https://github.com/graphdeeplearning/benchmarking-gnns/blob/master-dgl-0.6/layers/gated_gcn_layer.py
 
-        # Option 1) Forward pass with DGL builtin functions
-        g.apply_edges(fn.u_add_v('B1h', 'B2h', 'B12h'))
-        e_ji = g.edata['B12h'] + g.edata['B3e']
-        if self.batch_norm:
-            e_ji = self.bn_e(e_ji)
-        e_ji = F.relu(e_ji)
-        if self.residual:
-            e_ji = e_ji + e_in
-        g.edata['e_ji'] = e_ji
-        g.edata['sigma_f'] = torch.sigmoid(g.edata['e_ji'])
-        g.update_all(fn.u_mul_e('A2h', 'sigma_f', 'm_f'), fn.sum('m_f', 'sum_sigma_h_f'))
-        g.update_all(fn.copy_e('sigma_f', 'm_f'), fn.sum('m_f', 'sum_sigma_f'))
-        g.ndata['h_forward'] = g.ndata['sum_sigma_h_f'] / (g.ndata['sum_sigma_f'] + 1e-6)
-        # Option 2) Forward pass with user-defined functions
-        # g.update_all(self.message_forward, self.reduce_forward)
+        mode = get_hyperparameters()['gnn_mode']
 
-        # Option 1) Backward pass with DGL builtin functions
-        g_reverse.apply_edges(fn.u_add_v('B2h', 'B1h', 'B21h'))
-        e_ik = g_reverse.edata['B21h'] + g_reverse.edata['B3e']
-        if self.batch_norm:
-            e_ik = self.bn_e(e_ik)
-        e_ik = F.relu(e_ik)
-        if self.residual:
-            e_ik = e_ik + e_in
-        g_reverse.edata['e_ik'] = e_ik
-        g_reverse.edata['sigma_b'] = torch.sigmoid(g_reverse.edata['e_ik'])
-        g_reverse.update_all(fn.u_mul_e('A3h', 'sigma_b', 'm_b'), fn.sum('m_b', 'sum_sigma_h_b'))
-        g_reverse.update_all(fn.copy_e('sigma_b', 'm_b'), fn.sum('m_b', 'sum_sigma_b'))
-        g_reverse.ndata['h_backward'] = g_reverse.ndata['sum_sigma_h_b'] / (g_reverse.ndata['sum_sigma_b'] + 1e-6)
-        # Option 2) Backward pass with user-defined functions
-        # g_reverse.update_all(self.message_backward, self.reduce_backward)
+        if mode == 'builtin':
+            # Option 1) Forward pass with DGL builtin functions
+            g.apply_edges(fn.u_add_v('B1h', 'B2h', 'B12h'))
+            e_ji = g.edata['B12h'] + g.edata['B3e']
+            if self.batch_norm:
+                e_ji = self.bn_e(e_ji)
+            e_ji = F.relu(e_ji)
+            if self.residual:
+                e_ji = e_ji + e_in
+            g.edata['e_ji'] = e_ji
+            g.edata['sigma_f'] = torch.sigmoid(g.edata['e_ji'])
+            g.update_all(fn.u_mul_e('A2h', 'sigma_f', 'm_f'), fn.sum('m_f', 'sum_sigma_h_f'))
+            g.update_all(fn.copy_e('sigma_f', 'm_f'), fn.sum('m_f', 'sum_sigma_f'))
+            g.ndata['h_forward'] = g.ndata['sum_sigma_h_f'] / (g.ndata['sum_sigma_f'] + 1e-6)
+        else:
+            # Option 2) Forward pass with user-defined functions
+            g.update_all(self.message_forward, self.reduce_forward)
+
+        if mode == 'builtin':
+            # Option 1) Backward pass with DGL builtin functions
+            g_reverse.apply_edges(fn.u_add_v('B2h', 'B1h', 'B21h'))
+            e_ik = g_reverse.edata['B21h'] + g_reverse.edata['B3e']
+            if self.batch_norm:
+                e_ik = self.bn_e(e_ik)
+            e_ik = F.relu(e_ik)
+            if self.residual:
+                e_ik = e_ik + e_in
+            g_reverse.edata['e_ik'] = e_ik
+            g_reverse.edata['sigma_b'] = torch.sigmoid(g_reverse.edata['e_ik'])
+            g_reverse.update_all(fn.u_mul_e('A3h', 'sigma_b', 'm_b'), fn.sum('m_b', 'sum_sigma_h_b'))
+            g_reverse.update_all(fn.copy_e('sigma_b', 'm_b'), fn.sum('m_b', 'sum_sigma_b'))
+            g_reverse.ndata['h_backward'] = g_reverse.ndata['sum_sigma_h_b'] / (g_reverse.ndata['sum_sigma_b'] + 1e-6)
+        else:
+            # Option 2) Backward pass with user-defined functions
+            g_reverse.update_all(self.message_backward, self.reduce_backward)
 
         h = g.ndata['A1h'] + g.ndata['h_forward'] + g_reverse.ndata['h_backward']
         
@@ -159,7 +167,7 @@ class GatedGCN(nn.Module):
             h = h + h_in
 
         h = F.dropout(h, self.dropout, training=self.training)
-        e = g.edata['e_ji']
+        # e = g.edata['e_ji']
 
-        return h, e
+        return h, e_in
 
