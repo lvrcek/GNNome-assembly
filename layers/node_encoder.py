@@ -26,5 +26,4 @@ class NodeEncoder(nn.Module):
 
     def forward(self, x):
         """Return the encoded edge attributes."""
-        x = x.unsqueeze(-1)
         return self.linear(x)

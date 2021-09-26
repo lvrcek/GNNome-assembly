@@ -7,6 +7,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
+import dgl
 
 
 def draw_loss_plots(train_loss, valid_loss, out):
@@ -80,6 +81,7 @@ def set_seed(seed=42):
     torch.cuda.manual_seed_all(seed)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
+    dgl.seed(seed)
 
 
 def get_walks(start, neighbors, num_nodes):

@@ -133,6 +133,8 @@ def process(model, graph, neighbors, reads, solution, edges, criterion, optimize
     mini_batch_loss_list = []
     mini_batch_acc_list= []
 
+    correct = 0
+
     for mini_batch in range(num_mini_batches):
 
         start = mini_batch * walk_length
@@ -141,7 +143,7 @@ def process(model, graph, neighbors, reads, solution, edges, criterion, optimize
 
         loss_list = []
         total_loss = 0
-        correct = 0
+        # correct = 0
         steps = 0
 
         logits = model(graph, reads, norm)
@@ -175,18 +177,20 @@ def process(model, graph, neighbors, reads, solution, edges, criterion, optimize
             steps += 1
 
         if model.training and total_loss > 0:
+            total_loss /= steps
             optimizer.zero_grad()
-            total_loss.backward()  # Backprop summed losses
+            total_loss.backward()  # Backprop averaged (summed) losses
             optimizer.step()
 
         if len(loss_list) == 0:
             continue
         else:
-            accuracy = correct / steps
+            # accuracy = correct / steps
             mini_batch_loss_list.append(np.mean(loss_list))
-            mini_batch_acc_list.append(accuracy)
+            # mini_batch_acc_list.append(accuracy)
 
-    accuracy = np.mean(mini_batch_acc_list)
+    # accuracy = np.mean(mini_batch_acc_list)
+    accuracy = correct / total_steps
     return mini_batch_loss_list, accuracy
 
 
@@ -298,7 +302,10 @@ def train(args):
             train_acc = np.mean(accuracy_per_graph)
             loss_per_epoch_train.append(train_loss)
             accuracy_per_epoch_train.append(train_acc)
-            wandb.log({'epoch': epoch, 'train_loss': train_loss, 'train_accuracy': train_acc}, step=epoch)
+            try:
+                wandb.log({'epoch': epoch, 'train_loss': train_loss, 'train_accuracy': train_acc}, step=epoch)
+            except Exception:
+                print(f'epoch: {epoch}, train_loss: {train_loss}, train_accuracy: {train_acc}')
 
             elapsed = utils.timedelta_to_str(datetime.now() - time_start)
             print(f'\nTraining in epoch {epoch} done. Elapsed time: {elapsed}\n')
@@ -333,22 +340,15 @@ def train(args):
                     elapsed = utils.timedelta_to_str(datetime.now() - time_start)
                     print(f'Processing graph {idx} done. Elapsed time: {elapsed}')
 
-#                if len(loss_per_epoch_valid) > 0 and loss_per_graph[-1] < min(loss_per_epoch_valid):
-#                    patience = 0
-#                    best_model.load_state_dict(copy.deepcopy(model.state_dict()))
-#                    best_model.to(device)
-#                    torch.save(best_model.state_dict(), model_path)
-#                elif patience >= patience_limit:
-#                    pass
-#                    # TODO: Enable early stopping, incrase patience_limit
-#                    # break
-
                 if len(loss_per_graph) > 0:
                     valid_loss = np.mean(loss_per_graph)
                     valid_acc = np.mean(accuracy_per_graph)
                     loss_per_epoch_valid.append(valid_loss)
                     accuracy_per_epoch_valid.append(valid_acc)
-                    wandb.log({'epoch': epoch, 'valid_loss': valid_loss, 'valid_accuracy': valid_acc}, step=epoch)
+                    try:
+                        wandb.log({'epoch': epoch, 'valid_loss': valid_loss, 'valid_accuracy': valid_acc}, step=epoch)
+                    except Exception:
+                        print(f'epoch: {epoch}, valid_loss: {valid_loss}, valid_accuracy: {valid_acc}')
 
                 if len(loss_per_epoch_valid) > 1 and loss_per_epoch_valid[-1] < min(loss_per_epoch_valid[:-1]):
                     patience = 0
@@ -356,11 +356,12 @@ def train(args):
                     best_model.to(device)
                     torch.save(best_model.state_dict(), model_path)
                 elif patience >= patience_limit:
-                    if lr < 1e-7:
+                    out_of_patience = True  # Delete later
+                    if learning_rate < 1e-7:
                         out_of_patience = True
                     else:
                         patience = 0
-                        lr /= 10
+                        learning_rate /= 10
 
                 if len(loss_per_epoch_train) > 0 and len(loss_per_epoch_valid) > 0:
                     save_checkpoint(epoch, model, optimizer, loss_per_epoch_train[-1], loss_per_epoch_valid[-1], out)
@@ -372,14 +373,17 @@ def train(args):
         utils.draw_accuracy_plots(accuracy_per_epoch_train, accuracy_per_epoch_valid, out)
 
         torch.save(best_model.state_dict(), model_path)
-        wandb.save("model.onnx")
+        try:
+            wandb.save("model.onnx")
+        except Exception:
+            pass
 
         # --- Testing ---
         with torch.no_grad():
             test_accuracy = []
             print('TESTING')
             model.eval()
-            for data in dl_test:
+            for i, data in enumerate(dl_test):
                 idx, graph, pred, succ, reads, edges = utils.unpack_data(data, info_all)
                 graph = graph.to(device)
                 solution = utils.get_walks(idx, data_path)
@@ -388,9 +392,14 @@ def train(args):
                 loss_list, accuracy = process(best_model, graph, succ, reads, solution, edges, criterion, optimizer, epoch, norm_test, device=device)
                 test_accuracy.append(accuracy)
 
+                try:
+                    wandb.log({'test_graph': idx, 'test_accuracy': accuracy}, step=i)
+                except Exception:
+                    print(f'test_graph: {idx}, test_accuracy: {accuracy}')
+                    pass
+
             if len(test_accuracy) > 0:
                 test_accuracy = np.mean(test_accuracy)
-                wandb.log({"test_accuracy": test_accuracy})
                 elapsed = utils.timedelta_to_str(datetime.now() - time_start)
                 print(f'\nTesting done. Elapsed time: {elapsed}')
                 print(f'Average accuracy on the test set:', test_accuracy)

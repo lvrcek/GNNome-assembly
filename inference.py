@@ -21,9 +21,9 @@ def predict(model, graph, neighbors, reads, edges):
     print('Finding optimal walk!')
 
     while True:
-        walk.append(current)
         if current in visited:
             break
+        walk.append(current)
         visited.add(current)
         visited.add(current ^ 1)
         if len(neighbors[current]) == 0:
@@ -50,13 +50,14 @@ def inference(args=None):
 
     model_path = args.model
     if model_path is None:
-        model_path = 'pretrained/model_wandb_test_2.pt'
+        model_path = 'pretrained/model_32d_8l_no_e.pt'  # Best performing model
     model = models.NonAutoRegressive(dim_latent, num_gnn_layers).to(device)
     model.load_state_dict(torch.load(model_path, map_location=torch.device(device)))
+    model.eval()
 
     data_path = args.data
     if args.data is None:
-        data_path = 'data/train_2'
+        data_path = 'data/train'
     ds = AssemblyGraphDataset(data_path)
 
     info_all = utils.load_graph_data(len(ds), data_path)
