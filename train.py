@@ -8,6 +8,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import random_split
 from dgl.dataloading import GraphDataLoader
 import wandb
@@ -231,6 +232,7 @@ def train(args):
     model = models.NonAutoRegressive(dim_latent, num_gnn_layers).to(device)
     params = list(model.parameters())
     optimizer = optim.Adam(params, lr=learning_rate)
+    scheduler = ReduceLROnPlateau(optimizer, 'min', patience=3)
     model_path = os.path.abspath(f'pretrained/model_{out}.pt')
 
     best_model = models.NonAutoRegressive(dim_latent, num_gnn_layers)
@@ -365,6 +367,8 @@ def train(args):
 
                 if len(loss_per_epoch_train) > 0 and len(loss_per_epoch_valid) > 0:
                     save_checkpoint(epoch, model, optimizer, loss_per_epoch_train[-1], loss_per_epoch_valid[-1], out)
+
+                scheduler.step(valid_loss)
 
                 elapsed = utils.timedelta_to_str(datetime.now() - time_start)
                 print(f'\nValidation in epoch {epoch} done. Elapsed time: {elapsed}\n')

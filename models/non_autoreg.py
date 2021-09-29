@@ -57,7 +57,7 @@ class NonAutoRegressive(nn.Module):
 
     def forward(self, graph, reads, norm=None):
         """Return the conditional probability for each edge."""
-        self.encode = 'none'
+        self.encode = self.hyperparams['encode']
         if self.encode == 'sequence':
             h = self.seq_encoder(reads)
         elif self.encode == 'node':
@@ -66,7 +66,7 @@ class NonAutoRegressive(nn.Module):
         else:
             h = torch.ones((graph.num_nodes(), self.hyperparams['dim_latent'])).to(self.hyperparams['device'])
 
-        norm = None
+        norm = self.hyperparams['norm']
         if norm is not None:
             e_tmp = (graph.edata['overlap_length'] - norm[0] ) / norm[1]
         else:

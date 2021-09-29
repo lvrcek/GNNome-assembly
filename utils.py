@@ -80,6 +80,7 @@ def set_seed(seed=42):
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
     torch.backends.cudnn.deterministic = True
+    # torch.use_deterministic_algorithms(True)
     torch.backends.cudnn.benchmark = False
     dgl.seed(seed)
 

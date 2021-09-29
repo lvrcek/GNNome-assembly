@@ -32,7 +32,7 @@ class GatedGCN(nn.Module):
         Batch normalization layer used on edge representations
     """
     
-    def __init__(self, in_channels, out_channels, dropout=0, batch_norm=True, residual=True):
+    def __init__(self, in_channels, out_channels, dropout=0, batch_norm=False, residual=True):
         """
         
         """

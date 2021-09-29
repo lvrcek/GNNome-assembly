@@ -10,8 +10,10 @@ def get_hyperparameters():
         'batch_size': 1,
         'patience_limit': 10,
         'device': 'cuda:0' if torch.cuda.is_available() else 'cpu',
-        'lr': 5e-5,
+        'lr': 1e-5,
         'walk_length': 10,
         'bias': False,
-        'gnn_mode': 'builtin'
+        'gnn_mode': 'builtin',
+        'encode': 'none',
+        'norm': None,
     }

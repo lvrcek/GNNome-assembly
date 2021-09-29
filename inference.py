@@ -50,7 +50,7 @@ def inference(args=None):
 
     model_path = args.model
     if model_path is None:
-        model_path = 'pretrained/model_32d_8l_no_e.pt'  # Best performing model
+        model_path = 'pretrained/model_64d_4l.pt'  # Best performing model was 32d_8l_no_e.pt
     model = models.NonAutoRegressive(dim_latent, num_gnn_layers).to(device)
     model.load_state_dict(torch.load(model_path, map_location=torch.device(device)))
     model.eval()
@@ -68,12 +68,13 @@ def inference(args=None):
         graph = graph.to(device)
         
         succ = info_all['succs'][idx]
-        reads = info_all['reads'][idx]
+        # reads = info_all['reads'][idx]
+        reads = None
         edges = info_all['edges'][idx]
 
         walk = predict(model, graph, succ, reads, edges)
 
-        inference_path = os.path.join(data_path, 'inference')
+        inference_path = os.path.join(data_path, 'inference_64d_4l')
         if not os.path.isdir(inference_path):
             os.mkdir(inference_path)
         pickle.dump(walk, open(f'{inference_path}/{idx}_predict.pkl', 'wb'))

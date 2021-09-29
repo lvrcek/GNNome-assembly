@@ -315,9 +315,9 @@ def dfs_gt(graph, start, neighbors, threshold):
 
 
 def get_solutions_for_all():
-    processed_path = 'data/graphs_3.0/processed'
-    neighbors_path = 'data/graphs_3.0/info'
-    solutions_path = 'data/graphs_3.0/solutions'
+    processed_path = 'data/chr12_10M_end/processed'
+    neighbors_path = 'data/chr12_10M_end/info'
+    solutions_path = 'data/chr12_10M_end/solutions'
     start = 0
     for name in os.listdir(processed_path):
         idx = name[:-4]
