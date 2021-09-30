@@ -50,7 +50,7 @@ class NonAutoRegressive(nn.Module):
         #                                     kernel_size=kernel_size, num_conv_layers=num_conv_layers)
         self.hyperparams = get_hyperparameters()
         # self.encode = 'none'  # encode
-        # self.node_encoder = NodeEncoder(1, dim_latent)
+        self.node_encoder = NodeEncoder(1, dim_latent)
         self.edge_encoder = EdgeEncoder(2, dim_latent)
         self.layers = nn.ModuleList([GatedGCN(dim_latent, dim_latent) for _ in range(num_gnn_layers)])
         self.decoder = EdgeDecoder(dim_latent, 1)
@@ -62,19 +62,21 @@ class NonAutoRegressive(nn.Module):
             h = self.seq_encoder(reads)
         elif self.encode == 'node':
             h = torch.ones((graph.num_nodes(), 1)).to(self.hyperparams['device'])
-            # h = self.node_encoder(h)
+            h = self.node_encoder(h)
         else:
             h = torch.ones((graph.num_nodes(), self.hyperparams['dim_latent'])).to(self.hyperparams['device'])
 
-        norm = self.hyperparams['norm']
+        # norm = self.hyperparams['norm']
         if norm is not None:
             e_tmp = (graph.edata['overlap_length'] - norm[0] ) / norm[1]
         else:
             e_tmp = graph.edata['overlap_length'].float() 
             e_tmp = (e_tmp - torch.mean(e_tmp)) / torch.std(e_tmp)
         e = self.edge_encoder(graph.edata['overlap_similarity'], e_tmp)
+        e_f = e.clone()
+        e_b = e.clone()
         for conv in self.layers:
-            h, e = conv(graph, h, e)
-        p = self.decoder(graph, h, e)
+            h, e_f, e_b = conv(graph, h, e_f, e_b)
+        p = self.decoder(graph, h, e_f, e_b)
         return p
 

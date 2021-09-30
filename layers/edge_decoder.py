@@ -22,20 +22,22 @@ class EdgeDecoder(nn.Module):
         out_channels : int
             Dimension of the output vectors (usually 1)
         """
-        self.linear = nn.Linear(3 * in_channels, out_channels, bias=bias)
+        self.linear = nn.Linear(4 * in_channels, out_channels, bias=bias)
 
     def concatenate(self, edges):
         """Concatenate vectors of two adjacent nodes and their edge."""
-        h_k = edges.src['h']
-        h_i = edges.dst['h']
-        e_ki = edges.data['e']
-        p = torch.cat((h_k, h_i, e_ki), dim=1)
+        h_src = edges.src['h']
+        h_dst = edges.dst['h']
+        e_f = edges.data['e_f']
+        e_b = edges.data['e_b']
+        p = torch.cat((h_src, h_dst, e_f, e_b), dim=1)
         return {'p': p}
 
-    def forward(self, g, h, e):
+    def forward(self, g, h, e_f, e_b):
         """Return the conditional probability for each edge."""
         g.ndata['h'] = h
-        g.edata['e'] = e
+        g.edata['e_f'] = e_f
+        g.edata['e_b'] = e_b
         g.apply_edges(self.concatenate)
         p = self.linear(g.edata['p'])
         # p = torch.sigmoid(p)  # I think it's better to return logits

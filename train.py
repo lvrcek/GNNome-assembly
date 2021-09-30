@@ -54,21 +54,6 @@ def get_dataloaders(ds, batch_size, eval, ratio):
         train_size = len(ds) - valid_size - test_size
         ds_train, ds_valid, ds_test = random_split(ds, [train_size, valid_size, test_size])
 
-        # normalize_tensor = torch.cat([ds_train[i][1].edata['overlap_length'] for i in range(len(ds_train))]).float()
-        # norm_mean, norm_std = torch.mean(normalize_tensor), torch.std(normalize_tensor)
-        # for i in range(len(ds_train)):
-        #     ds_train[i][1].edata['overlap_length_normed'] = (ds_train[i][1].edata['overlap_length'] - norm_mean) / norm_std
-
-        # normalize_tensor = torch.cat([ds_train[i][1].edata['overlap_length'] for i in range(len(ds_valid))]).float()
-        # norm_mean, norm_std = torch.mean(normalize_tensor), torch.std(normalize_tensor)
-        # for i in range(len(ds_valid)):
-        #     ds_valid[i][1].edata['overlap_length_normed'] = (ds_valid[i][1].edata['overlap_length'] - norm_mean) / norm_std
-
-        # normalize_tensor = torch.cat([ds_train[i][1].edata['overlap_length'] for i in range(len(ds_test))]).float()
-        # norm_mean, norm_std = torch.mean(normalize_tensor), torch.std(normalize_tensor)
-        # for i in range(len(ds_test)):
-        #     ds_test[i][1].edata['overlap_length_normed'] = (ds_test[i][1].edata['overlap_length'] - norm_mean) / norm_std
-
         dl_train = GraphDataLoader(ds_train, batch_size=batch_size, shuffle=True)
         dl_valid = GraphDataLoader(ds_valid, batch_size=batch_size, shuffle=False)
         dl_test = GraphDataLoader(ds_test, batch_size=batch_size, shuffle=False)
@@ -232,7 +217,7 @@ def train(args):
     model = models.NonAutoRegressive(dim_latent, num_gnn_layers).to(device)
     params = list(model.parameters())
     optimizer = optim.Adam(params, lr=learning_rate)
-    scheduler = ReduceLROnPlateau(optimizer, 'min', patience=3)
+    scheduler = ReduceLROnPlateau(optimizer, 'min', patience=5)
     model_path = os.path.abspath(f'pretrained/model_{out}.pt')
 
     best_model = models.NonAutoRegressive(dim_latent, num_gnn_layers)
@@ -246,8 +231,6 @@ def train(args):
     normalize_tensor = torch.cat([graph.edata['overlap_length'] for _, graph in dl_train]).float()
     norm_mean, norm_std = torch.mean(normalize_tensor), torch.std(normalize_tensor)
     norm_train = (norm_mean.item(), norm_std.item())
-    # for idx, graph in dl_train:
-    #     graph.edata['overlap_length_normed'] = (graph.edata['overlap_length'] - norm_mean) / norm_std
 
     try:
         normalize_tensor = torch.cat([graph.edata['overlap_length'] for _, graph in dl_valid]).float()
@@ -358,12 +341,7 @@ def train(args):
                     best_model.to(device)
                     torch.save(best_model.state_dict(), model_path)
                 elif patience >= patience_limit:
-                    out_of_patience = True  # Delete later
-                    if learning_rate < 1e-7:
-                        out_of_patience = True
-                    else:
-                        patience = 0
-                        learning_rate /= 10
+                    out_of_patience = True
 
                 if len(loss_per_epoch_train) > 0 and len(loss_per_epoch_valid) > 0:
                     save_checkpoint(epoch, model, optimizer, loss_per_epoch_train[-1], loss_per_epoch_valid[-1], out)
