@@ -13,6 +13,9 @@ python train.py.
 ```
 The default data path will be `data/train`, and the default name for the trained model will be current timestamp.
 
+**Note**: It is advisable to run the following script on native Linux.
+Some issues with importing DGL were noticed while using WSL. We are working on fixing these issues.
+
 In order to use the pretrained model for reproducing the reconstructed lengths,
 we provide a script `reproduce.py`.
 For reproducing the length analysis on 2 Mbp, run:
