@@ -32,7 +32,7 @@ class GatedGCN(nn.Module):
         Batch normalization layer used on edge representations
     """
     
-    def __init__(self, in_channels, out_channels, dropout=0, batch_norm=False, residual=True):
+    def __init__(self, in_channels, out_channels, dropout=0, batch_norm=True, residual=True):
         """
         
         """
@@ -50,9 +50,15 @@ class GatedGCN(nn.Module):
         self.B_1 = nn.Linear(in_channels, out_channels)
         self.B_2 = nn.Linear(in_channels, out_channels)
         self.B_3 = nn.Linear(in_channels, out_channels)
-        self.C_1 = nn.Linear(in_channels, out_channels)
-        self.C_2 = nn.Linear(in_channels, out_channels)
-        self.C_3 = nn.Linear(in_channels, out_channels)
+
+        self.back_edge = False
+
+        if self.back_edge:
+            self.C_1 = nn.Linear(in_channels, out_channels)
+            self.C_2 = nn.Linear(in_channels, out_channels)
+            self.C_3 = nn.Linear(in_channels, out_channels)
+        else:
+            self.C_1 = self.C_2 = self.C_3 = None
 
         self.bn_h = nn.BatchNorm1d(out_channels)
         self.bn_e = nn.BatchNorm1d(out_channels)
@@ -120,9 +126,14 @@ class GatedGCN(nn.Module):
         g.ndata['B2h'] = self.B_2(h)
         g.edata['B3e'] = self.B_3(e_f)
 
-        g.ndata['C1h'] = self.C_1(h)
-        g.ndata['C2h'] = self.C_2(h)      
-        g.edata['C3e'] = self.C_3(e_b)
+        if self.back_edge:
+            g.ndata['C1h'] = self.C_1(h)
+            g.ndata['C2h'] = self.C_2(h)      
+            g.edata['C3e'] = self.C_3(e_b)
+        else:
+            g.ndata['C1h'] = self.B_1(h)
+            g.ndata['C2h'] = self.B_2(h)      
+            g.edata['C3e'] = self.B_3(e_b)
 
         g_reverse = dgl.reverse(g, copy_ndata=True, copy_edata=True)
 
@@ -140,8 +151,8 @@ class GatedGCN(nn.Module):
             g.update_all(fn.copy_e('sigma_f', 'm_f'), fn.sum('m_f', 'sum_sigma_f'))
             g.ndata['h_forward'] = g.ndata['sum_sigma_h_f'] / (g.ndata['sum_sigma_f'] + 1e-6)
 
-            g_reverse.apply_edges(fn.u_add_v('C1h', 'C2h', 'C12h'))
-            e_ik = g_reverse.edata['C12h'] + g_reverse.edata['C3e']
+            g_reverse.apply_edges(fn.u_add_v('B1h', 'B2h', 'B12h'))
+            e_ik = g_reverse.edata['B12h'] + g_reverse.edata['B3e']
             g_reverse.edata['e_ik'] = e_ik
             g_reverse.edata['sigma_b'] = torch.sigmoid(g_reverse.edata['e_ik'])
             g_reverse.update_all(fn.u_mul_e('A3h', 'sigma_b', 'm_b'), fn.sum('m_b', 'sum_sigma_h_b'))
@@ -176,4 +187,5 @@ class GatedGCN(nn.Module):
         h = F.dropout(h, self.dropout, training=self.training)
         # e = g.edata['e_ji']
 
-        return h, e_ji, e_ik
+        # return h, e_ji, e_ik
+        return h, e_f, e_b

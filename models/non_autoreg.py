@@ -50,7 +50,7 @@ class NonAutoRegressive(nn.Module):
         #                                     kernel_size=kernel_size, num_conv_layers=num_conv_layers)
         self.hyperparams = get_hyperparameters()
         # self.encode = 'none'  # encode
-        self.node_encoder = NodeEncoder(1, dim_latent)
+        # self.node_encoder = NodeEncoder(1, dim_latent)
         self.edge_encoder = EdgeEncoder(2, dim_latent)
         self.layers = nn.ModuleList([GatedGCN(dim_latent, dim_latent) for _ in range(num_gnn_layers)])
         self.decoder = EdgeDecoder(dim_latent, 1)

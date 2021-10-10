@@ -138,7 +138,8 @@ def unpack_data(data, info_all):
     idx = idx if isinstance(idx, int) else idx.item()
     pred = info_all['preds'][idx]
     succ = info_all['succs'][idx]
-    reads = info_all['reads'][idx]
+    # reads = info_all['reads'][idx]
+    reads = None
     edges = info_all['edges'][idx]
     return idx, graph, pred, succ, reads, edges
 
@@ -153,7 +154,7 @@ def load_graph_data(num_graphs, data_path):
     for idx in range(num_graphs):
         info_all['preds'].append(get_info(idx, data_path, 'pred'))
         info_all['succs'].append(get_info(idx, data_path, 'succ'))
-        info_all['reads'].append(get_info(idx, data_path, 'reads'))
+        # info_all['reads'].append(get_info(idx, data_path, 'reads'))
         info_all['edges'].append(get_info(idx, data_path, 'edges'))
     return info_all
 

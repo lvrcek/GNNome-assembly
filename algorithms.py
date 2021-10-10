@@ -10,6 +10,45 @@ import torch
 from graph_parser import find_edge_index
 
 
+def baseline(graph, start, neighbors, preds, edges):
+
+    # starts = [k for k,v in preds.items() if len(v)==0]
+    starts = [0]
+
+    best_walk = []
+    best_read_idx_walk = []
+    for start in starts:
+        visited = set()
+        current = start
+        walk = []
+        read_idx_walk = []
+
+        while current is not None:
+            if current in visited:
+                break
+            walk.append(current)
+            visited.add(current)
+            visited.add(current ^ 1)
+            read_idx_walk.append(graph.ndata['read_idx'][current].item())
+            if len(neighbors[current]) == 0:
+                break
+            if len(neighbors[current]) == 1:
+                current = neighbors[current][0]
+                continue
+
+            candidates = []
+            neighbor_edges = [edges[(current, n)] for n in neighbors[current]]
+            neighbor_lengths = graph.edata['overlap_length'][neighbor_edges]
+            _, index = torch.topk(neighbor_lengths, k=1, dim=0)
+            current = neighbors[current][index]
+
+        if len(walk) > len(best_walk):
+            best_walk = walk.copy()
+            best_read_idx_walk = read_idx_walk.copy()
+
+    return walk, read_idx_walk
+
+
 def greedy_ground_truth(graph, current, neighbors, visited):
     """Get the ground truth neighbor for a given node.
 
@@ -314,10 +353,12 @@ def dfs_gt(graph, start, neighbors, threshold):
         return max_reach
 
 
-def get_solutions_for_all():
-    processed_path = 'data/chr12_10M_end/processed'
-    neighbors_path = 'data/chr12_10M_end/info'
-    solutions_path = 'data/chr12_10M_end/solutions'
+def get_solutions_for_all(data_path):
+    processed_path = f'{data_path}/processed'
+    neighbors_path = f'{data_path}/info'
+    solutions_path = f'{data_path}/solutions'
+    if not os.path.isdir(solutions_path):
+        os.mkdir(solutions_path)
     start = 0
     for name in os.listdir(processed_path):
         idx = name[:-4]
@@ -326,4 +367,3 @@ def get_solutions_for_all():
         neighbors = pickle.load(open(os.path.join(neighbors_path, idx + '_succ.pkl'), 'rb'))
         walk = dfs_gt(graph, 0, neighbors, threshold=1995000)
         pickle.dump(walk, open(os.path.join(solutions_path, idx + '_gt.pkl'), 'wb'))
-

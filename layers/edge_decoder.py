@@ -22,7 +22,7 @@ class EdgeDecoder(nn.Module):
         out_channels : int
             Dimension of the output vectors (usually 1)
         """
-        self.linear = nn.Linear(4 * in_channels, out_channels, bias=bias)
+        self.linear = nn.Linear(3 * in_channels, out_channels, bias=bias)
 
     def concatenate(self, edges):
         """Concatenate vectors of two adjacent nodes and their edge."""
@@ -30,7 +30,8 @@ class EdgeDecoder(nn.Module):
         h_dst = edges.dst['h']
         e_f = edges.data['e_f']
         e_b = edges.data['e_b']
-        p = torch.cat((h_src, h_dst, e_f, e_b), dim=1)
+        # p = torch.cat((h_src, h_dst, e_f, e_b), dim=1)
+        p = torch.cat((h_src, h_dst, e_f), dim=1)
         return {'p': p}
 
     def forward(self, g, h, e_f, e_b):
