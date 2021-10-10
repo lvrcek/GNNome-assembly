@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
 
-from layers import GatedGCN, SequenceEncoder, EdgeEncoder, EdgeDecoder, NodeEncoder
+import layers
+from layers import GatedGCN_1d, SequenceEncoder, EdgeEncoder, EdgeDecoder, NodeEncoder
 from hyperparameters import get_hyperparameters
 
 
@@ -52,7 +53,7 @@ class NonAutoRegressive(nn.Module):
         # self.encode = 'none'  # encode
         # self.node_encoder = NodeEncoder(1, dim_latent)
         self.edge_encoder = EdgeEncoder(2, dim_latent)
-        self.layers = nn.ModuleList([GatedGCN(dim_latent, dim_latent) for _ in range(num_gnn_layers)])
+        self.layers = nn.ModuleList([GatedGCN_1d(dim_latent, dim_latent) for _ in range(num_gnn_layers)])
         self.decoder = EdgeDecoder(dim_latent, 1)
 
     def forward(self, graph, reads, norm=None):
@@ -76,7 +77,7 @@ class NonAutoRegressive(nn.Module):
         e_f = e.clone()
         e_b = e.clone()
         for conv in self.layers:
-            h, e_f, e_b = conv(graph, h, e_f, e_b)
+            h, e = conv(graph, h, e)
         p = self.decoder(graph, h, e_f, e_b)
         return p
 

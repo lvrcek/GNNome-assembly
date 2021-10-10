@@ -8,6 +8,7 @@ import numpy as np
 
 from algorithms import get_solutions_for_all
 
+
 assert len(sys.argv) == 2, 'Provide an argument 2, 5, or 10.'
 
 mbp = int(sys.argv[1])
