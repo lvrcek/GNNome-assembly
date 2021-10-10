@@ -5,7 +5,7 @@ Download the code and run `pip install -r requirements.txt`.
 
 ## Reproducibilty
 Download the `test_model.zip` from the supplementary materials and unpack it so that `data` and `pretrained` directories are
-immediately inside the project directory (`neural-path-finding`).
+immediately inside the project directory.
 
 In order to reproduce the training, run:
 ```bash
