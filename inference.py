@@ -11,35 +11,40 @@ import algorithms
 from utils import load_graph_data
 
 
-def predict(model, graph, neighbors, reads, edges):
-    start = 0
-    current = start
-    visited = set()
-    walk = []
+def predict(model, graph, pred, neighbors, reads, edges):
+    starts = [k for k,v in pred.items() if len(v)==0 and graph.ndata['read_strand'][k]==1]
+    best_walks = []
+    for start in starts:
+        current = start
+        visited = set()
+        walk = []
 
-    logits = model(graph, reads)
-    print('Finding optimal walk!')
+        logits = model(graph, reads)
+        print('Finding optimal walk!')
 
-    while True:
-        if current in visited:
-            break
-        walk.append(current)
-        visited.add(current)
-        visited.add(current ^ 1)
-        if len(neighbors[current]) == 0:
-            break
-        if len(neighbors[current]) == 1:
-            current = neighbors[current][0]
-            continue
+        while True:
+            if current in visited:
+                break
+            walk.append(current)
+            visited.add(current)
+            visited.add(current ^ 1)
+            if len(neighbors[current]) == 0:
+                break
+            if len(neighbors[current]) == 1:
+                current = neighbors[current][0]
+                continue
 
-        neighbor_edges = [edges[current, n] for n in neighbors[current]]
-        neighbor_logits = logits.squeeze(1)[neighbor_edges]
+            neighbor_edges = [edges[current, n] for n in neighbors[current]]
+            neighbor_logits = logits.squeeze(1)[neighbor_edges]
 
-        _, index = torch.topk(neighbor_logits, k=1, dim=0)
-        choice = neighbors[current][index]
-        current = choice
+            _, index = torch.topk(neighbor_logits, k=1, dim=0)
+            choice = neighbors[current][index]
+            current = choice
 
-    return walk
+        best_walks.append(walk.copy())
+
+    sorted(best_walks, key=lambda x: len(x))
+    return best_walks[0]
 
 
 def inference(model_path=None, data_path=None):
@@ -66,18 +71,19 @@ def inference(model_path=None, data_path=None):
         graph = graph.to(device)
         
         succ = info_all['succs'][idx]
+        pred = info_all['preds'][idx]
         # reads = info_all['reads'][idx]
         reads = None
         edges = info_all['edges'][idx]
 
-        walk = predict(model, graph, succ, reads, edges)
+        walk = predict(model, graph, pred, succ, reads, edges)
 
         inference_path = os.path.join(data_path, 'inference')
         if not os.path.isdir(inference_path):
             os.mkdir(inference_path)
         pickle.dump(walk, open(f'{inference_path}/{idx}_predict.pkl', 'wb'))
 
-        baseline, _ = algorithms.baseline(graph, 0, succ, None, edges)
+        baseline, _ = algorithms.baseline(graph, 0, succ, pred, edges)
         pickle.dump(baseline, open(f'{inference_path}/{idx}_greedy.pkl', 'wb'))
 
 

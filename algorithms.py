@@ -10,11 +10,9 @@ import torch
 
 def baseline(graph, start, neighbors, preds, edges):
 
-    # starts = [k for k,v in preds.items() if len(v)==0]
-    starts = [0]
-
-    best_walk = []
-    best_read_idx_walk = []
+    starts = [k for k,v in preds.items() if len(v)==0 and graph.ndata['read_strand'][k]==1]
+    best_walks = []
+    best_read_idx_walks = []
     for start in starts:
         visited = set()
         current = start
@@ -40,11 +38,13 @@ def baseline(graph, start, neighbors, preds, edges):
             _, index = torch.topk(neighbor_lengths, k=1, dim=0)
             current = neighbors[current][index]
 
-        if len(walk) > len(best_walk):
-            best_walk = walk.copy()
-            best_read_idx_walk = read_idx_walk.copy()
+        best_walks.append(walk.copy())
+        best_read_idx_walks.append(read_idx_walk.copy())
 
-    return walk, read_idx_walk
+    sorted(best_walks, key=lambda x: len(x))
+    sorted(best_read_idx_walks, key=lambda x: len(x))
+
+    return best_walks[0], best_read_idx_walks[0]
 
 
 def greedy_ground_truth(graph, current, neighbors, visited):

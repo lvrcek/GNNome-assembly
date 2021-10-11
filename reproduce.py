@@ -27,7 +27,6 @@ path = os.path.abspath(path)
 mbp *= int(1e6)
 
 print(f'Running GNN and greedy')
-# subprocess.run(f'python -u inference.py --data {path}', shell=True)
 inference(data_path=path)
 print(f'Running exhaustive search')
 print(f'Some graphs might take a while...')
