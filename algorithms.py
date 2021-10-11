@@ -7,8 +7,6 @@ from datetime import datetime
 import dgl
 import torch
 
-from graph_parser import find_edge_index
-
 
 def baseline(graph, start, neighbors, preds, edges):
 

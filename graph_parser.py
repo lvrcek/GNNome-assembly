@@ -5,26 +5,11 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 import dgl
 import networkx as nx
-from matplotlib import pyplot as plt
+# import matplotlib
+# matplotlib.interactive(True)
+# from matplotlib import pyplot as plt
 
 
-def draw_graph(graph_nx):
-    """Visualize the graph in the NetworkX format - DEPRECATED.
-    
-    Parameters
-    ----------
-    graph_nx : networkx.DiGraph
-        A graph to be visualized
-
-    Returns
-    -------
-    None
-    """
-    nx.draw(graph_nx, node_size=6, width=.2, arrowsize=3)
-    plt.show()
-
-
-# TODO: Maybe put all these into a Graph class?
 def get_neighbors(graph):
     """Return neighbors/successors for each node in the graph.
     
@@ -265,7 +250,6 @@ def from_gfa(graph_path, reads_path):
                 try:
                     description = reads_list[int(id)].description
                 except ValueError:
-                    # TODO: The parsing above does not work for unitigs, find a better workaround
                     description = '0 idx=0, strand=+, start=0, end=0'
                 description_queue.append(description)
             else:
@@ -359,12 +343,8 @@ def from_csv(graph_path, reads_path):
                     trim_start = int(trim_start)
                     trim_end = int(trim_end)
                
-
-
-                # start = start + trim_start * strand  # Don't worry bro
-                # end = start + trim_end * strand  # Just trust me on this one
-                # !!!!!!!! end = <<start>> + ... !!!!!!
-                # This <<start>> is most likely incorrect, since it is already updated
+                # start = start + trim_start * strand
+                # end = start + trim_end * strand
 
                 # If + strand: start < end
                 # If - strand: start > and (the read is from the opposite strand, so it kinda goes backwards)
@@ -403,7 +383,6 @@ def from_csv(graph_path, reads_path):
                     read_strand[dst_id] = -strand
                     # This is on purpose so that positive strand reads are 'forwards'
                     # While negative strand reads become 'backwards' (start < end)
-                    # Just trust me bro. It's all ogre now
 
                     # Virtual pairs of - strand reads will be flipped into forward orientation (start < end)
                     read_start[dst_id] = end

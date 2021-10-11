@@ -3,9 +3,10 @@ import pickle
 import random
 
 import torch
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
+# import matplotlib
+# # matplotlib.use('Agg')
+# matplotlib.interactive(True)
+# import matplotlib.pyplot as plt
 import numpy as np
 import dgl
 
@@ -26,14 +27,16 @@ def draw_loss_plots(train_loss, valid_loss, out):
     -------
     None
     """
-    plt.figure()
-    plt.plot(train_loss, label='train')
-    plt.plot(valid_loss, label='validation')
-    plt.title('Loss over epochs')
-    plt.xlabel('Epoch')
-    plt.ylabel('Loss')
-    plt.legend()
-    plt.savefig(f'figures/loss_{out}.png')
+    pass
+    # Removed because importing matplotlib causes terminal to hang in some situations
+    # plt.figure()
+    # plt.plot(train_loss, label='train')
+    # plt.plot(valid_loss, label='validation')
+    # plt.title('Loss over epochs')
+    # plt.xlabel('Epoch')
+    # plt.ylabel('Loss')
+    # plt.legend()
+    # plt.savefig(f'figures/loss_{out}.png')
 
 
 def draw_accuracy_plots(train_acc, valid_acc, out):
@@ -52,14 +55,16 @@ def draw_accuracy_plots(train_acc, valid_acc, out):
     -------
     None
     """
-    plt.figure()
-    plt.plot(train_acc, label='train')
-    plt.plot(valid_acc, label='validation')
-    plt.title('Accuracy over epochs')
-    plt.xlabel('Epoch')
-    plt.ylabel('Accuracy')
-    plt.legend()
-    plt.savefig(f'figures/accuracy_{out}.png')
+    pass
+    # Removed because importing matplotlib causes terminal to hang in some situations
+    # plt.figure()
+    # plt.plot(train_acc, label='train')
+    # plt.plot(valid_acc, label='validation')
+    # plt.title('Accuracy over epochs')
+    # plt.xlabel('Epoch')
+    # plt.ylabel('Accuracy')
+    # plt.legend()
+    # plt.savefig(f'figures/accuracy_{out}.png')
 
 
 def set_seed(seed=42):

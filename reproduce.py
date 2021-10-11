@@ -6,6 +6,7 @@ import subprocess
 import dgl
 import numpy as np
 
+from inference import inference
 from algorithms import get_solutions_for_all
 
 
@@ -26,7 +27,8 @@ path = os.path.abspath(path)
 mbp *= int(1e6)
 
 print(f'Running GNN and greedy')
-subprocess.run(f'python -u inference.py --data {path}', shell=True)
+# subprocess.run(f'python -u inference.py --data {path}', shell=True)
+inference(data_path=path)
 print(f'Running exhaustive search')
 print(f'Some graphs might take a while...')
 get_solutions_for_all(path)

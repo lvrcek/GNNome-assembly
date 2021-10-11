@@ -8,7 +8,7 @@ from graph_dataset import AssemblyGraphDataset
 from hyperparameters import get_hyperparameters
 import models
 import algorithms
-import utils
+from utils import load_graph_data
 
 
 def predict(model, graph, neighbors, reads, edges):
@@ -42,25 +42,23 @@ def predict(model, graph, neighbors, reads, edges):
     return walk
 
 
-def inference(args=None):
+def inference(model_path=None, data_path=None):
     hyperparameters = get_hyperparameters()
     device = hyperparameters['device']
     dim_latent = hyperparameters['dim_latent']
     num_gnn_layers = hyperparameters['num_gnn_layers']
 
-    model_path = args.model
     if model_path is None:
-        model_path = 'pretrained/model_32d_8l.pt'  # Best performing model was 32d_8l_no_e.pt
+        model_path = 'pretrained/model_32d_8l.pt'  # Best performing model
     model = models.NonAutoRegressive(dim_latent, num_gnn_layers).to(device)
     model.load_state_dict(torch.load(model_path, map_location=torch.device(device)))
     model.eval()
 
-    data_path = args.data
-    if args.data is None:
+    if data_path is None:
         data_path = 'data/train'
     ds = AssemblyGraphDataset(data_path)
 
-    info_all = utils.load_graph_data(len(ds), data_path)
+    info_all = load_graph_data(len(ds), data_path)
 
     for i in range(len(ds)):
         idx, graph = ds[i]
@@ -88,4 +86,6 @@ if __name__ == '__main__':
     parser.add_argument('--model', default=None)
     parser.add_argument('--data', default=None)
     args = parser.parse_args()
-    inference(args)
+    model_path = args.model
+    data_path = args.data
+    inference(model_path, data_path)
