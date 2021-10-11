@@ -47,6 +47,7 @@ class GatedGCN_1d(nn.Module):
         self.A_1 = nn.Linear(in_channels, out_channels)
         self.A_2 = nn.Linear(in_channels, out_channels)
         self.A_3 = nn.Linear(in_channels, out_channels)
+        
         self.B_1 = nn.Linear(in_channels, out_channels)
         self.B_2 = nn.Linear(in_channels, out_channels)
         self.B_3 = nn.Linear(in_channels, out_channels)
@@ -107,9 +108,11 @@ class GatedGCN_1d(nn.Module):
 
         g.ndata['h'] = h
         g.edata['e'] = e
+
         g.ndata['A1h'] = self.A_1(h)
         g.ndata['A2h'] = self.A_2(h)
         g.ndata['A3h'] = self.A_3(h)
+
         g.ndata['B1h'] = self.B_1(h)
         g.ndata['B2h'] = self.B_2(h)
         g.edata['B3e'] = self.B_3(e)
@@ -212,18 +215,14 @@ class GatedGCN_2d(nn.Module):
         self.A_1 = nn.Linear(in_channels, out_channels)
         self.A_2 = nn.Linear(in_channels, out_channels)
         self.A_3 = nn.Linear(in_channels, out_channels)
+
         self.B_1 = nn.Linear(in_channels, out_channels)
         self.B_2 = nn.Linear(in_channels, out_channels)
         self.B_3 = nn.Linear(in_channels, out_channels)
 
-        self.back_edge = False
-
-        if self.back_edge:
-            self.C_1 = nn.Linear(in_channels, out_channels)
-            self.C_2 = nn.Linear(in_channels, out_channels)
-            self.C_3 = nn.Linear(in_channels, out_channels)
-        else:
-            self.C_1 = self.C_2 = self.C_3 = None
+        self.C_1 = nn.Linear(in_channels, out_channels)
+        self.C_2 = nn.Linear(in_channels, out_channels)
+        self.C_3 = nn.Linear(in_channels, out_channels)
 
         self.bn_h = nn.BatchNorm1d(out_channels)
         self.bn_e = nn.BatchNorm1d(out_channels)
@@ -277,7 +276,6 @@ class GatedGCN_2d(nn.Module):
     def forward(self, g, h, e_f, e_b):
         """Return updated node representations."""
         h_in = h.clone()
-        # e_in = e.clone()
 
         g.ndata['h'] = h
         g.edata['e_f'] = e_f
@@ -291,14 +289,9 @@ class GatedGCN_2d(nn.Module):
         g.ndata['B2h'] = self.B_2(h)
         g.edata['B3e'] = self.B_3(e_f)
 
-        if self.back_edge:
-            g.ndata['C1h'] = self.C_1(h)
-            g.ndata['C2h'] = self.C_2(h)      
-            g.edata['C3e'] = self.C_3(e_b)
-        else:
-            g.ndata['C1h'] = self.B_1(h).clone()
-            g.ndata['C2h'] = self.B_2(h).clone()
-            g.edata['C3e'] = self.B_3(e_f).clone()
+        g.ndata['C1h'] = self.C_1(h)
+        g.ndata['C2h'] = self.C_2(h)
+        g.edata['C3e'] = self.C_3(e_b)
 
         g_reverse = dgl.reverse(g, copy_ndata=True, copy_edata=True)
 
@@ -350,7 +343,5 @@ class GatedGCN_2d(nn.Module):
             h = h + h_in
 
         h = F.dropout(h, self.dropout, training=self.training)
-        # e = g.edata['e_ji']
 
-        # return h, e_ji, e_ik
         return h, e_f, e_b
