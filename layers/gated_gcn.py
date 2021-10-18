@@ -175,6 +175,110 @@ class GatedGCN_1d(nn.Module):
         return h, e_in
 
 
+class GatedGCN_backwards(nn.Module):
+    """
+    GatedGCN layer, idea based on 'Residual Gated Graph ConvNets'
+    paper by Xavier Bresson and Thomas Laurent, ICLR 2018.
+    https://arxiv.org/pdf/1711.07553v2.pdf
+
+    Attributes
+    ----------
+    dropout : bool
+        Flag indicating whether to use dropout
+    batch_norm : bool
+        Flag indicating whether to use batch normalization.
+    residual : bool
+        Flag indicating whether to use node information from
+        the previous iteration.
+    A_n : torch.nn.Linear
+        Linear layer used to update node representations
+    B_n : torch.nn.Linear
+        Linear layer used to update edge representations
+    bn_h : torch.nn.BatchNorm1d
+        Batch normalization layer used on node representations
+    bn_e : torch.nn.BatchNorm1d
+        Batch normalization layer used on edge representations
+    """
+
+    def __init__(self, in_channels, out_channels, dropout=0, batch_norm=True, residual=True):
+        """
+
+        """
+        super().__init__()
+        self.dropout = dropout
+        self.batch_norm = batch_norm
+        self.residual = residual
+
+        if in_channels != out_channels:
+            self.residual = False
+
+        self.A_1 = nn.Linear(in_channels, out_channels)
+        self.A_2 = nn.Linear(in_channels, out_channels)
+        self.A_3 = nn.Linear(in_channels, out_channels)
+        
+        self.B_1 = nn.Linear(in_channels, out_channels)
+        self.B_2 = nn.Linear(in_channels, out_channels)
+        self.B_3 = nn.Linear(in_channels, out_channels)
+
+        self.bn_h = nn.BatchNorm1d(out_channels)
+        self.bn_e = nn.BatchNorm1d(out_channels)
+
+    def forward(self, g, h, e):
+        """Return updated node representations."""
+        h_in = h.clone()
+        e_in = e.clone()
+
+        g.ndata['h'] = h
+        g.edata['e'] = e
+
+        g.ndata['A1h'] = self.A_1(h)
+        g.ndata['A2h'] = self.A_2(h)
+        g.ndata['A3h'] = self.A_3(h)
+
+        g.ndata['B1h'] = self.B_1(h)
+        g.ndata['B2h'] = self.B_2(h)
+        g.edata['B3e'] = self.B_3(e)
+
+        g_reverse = dgl.reverse(g, copy_ndata=True, copy_edata=True)
+
+        # Reference: https://github.com/graphdeeplearning/benchmarking-gnns/blob/master-dgl-0.6/layers/gated_gcn_layer.py
+
+        mode = get_hyperparameters()['gnn_mode']
+
+        if mode == 'builtin':
+            # Option 1) Backward pass with DGL builtin functions
+            g_reverse.apply_edges(fn.u_add_v('B2h', 'B1h', 'B21h'))
+            e_ik = g_reverse.edata['B21h'] + g_reverse.edata['B3e']
+            if self.batch_norm:
+                e_ik = self.bn_e(e_ik)
+            e_ik = F.relu(e_ik)
+            if self.residual:
+                e_ik = e_ik + e_in
+            g_reverse.edata['e_ik'] = e_ik
+            g_reverse.edata['sigma_b'] = torch.sigmoid(g_reverse.edata['e_ik'])
+            g_reverse.update_all(fn.u_mul_e('A3h', 'sigma_b', 'm_b'), fn.sum('m_b', 'sum_sigma_h_b'))
+            g_reverse.update_all(fn.copy_e('sigma_b', 'm_b'), fn.sum('m_b', 'sum_sigma_b'))
+            g_reverse.ndata['h_backward'] = g_reverse.ndata['sum_sigma_h_b'] / (g_reverse.ndata['sum_sigma_b'] + 1e-6)
+        else:
+            # Option 2) Backward pass with user-defined functions
+            g_reverse.update_all(self.message_backward, self.reduce_backward)
+
+        h = g.ndata['A1h'] + g_reverse.ndata['h_backward']
+
+        if self.batch_norm:
+            h = self.bn_h(h)
+
+        h = F.relu(h)
+
+        if self.residual:
+            h = h + h_in
+
+        h = F.dropout(h, self.dropout, training=self.training)
+        e = g_reverse.edata['e_ik']
+
+        return h, e
+
+
 class GatedGCN_2d(nn.Module):
     """
     GatedGCN layer, idea based on 'Residual Gated Graph ConvNets'

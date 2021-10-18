@@ -351,6 +351,53 @@ def dfs_gt(graph, start, neighbors, threshold):
         return max_reach
 
 
+def dfs_gt_backwards(graph, start, neighbors, threshold):
+    value, idx = torch.topk(graph.ndata['read_start'], k=1)
+    assert graph.ndata['read_strand'][idx] == -1
+    start = idx.item()
+
+    execution = deque()
+    walk = [start]
+    execution.append(walk)
+    max_reach = walk.copy()
+    time_start = datetime.now()
+
+    try:
+        while execution:
+            time_now = datetime.now()
+            if (time_now-time_start).seconds > 300:
+                print(graph.ndata['read_end'][max_reach[-1]])
+                # break
+            walk = execution.pop()
+            visited = set(walk)
+            last_node = walk[-1]
+
+            if graph.ndata['read_end'][last_node] < graph.ndata['read_end'][max_reach[-1]]:
+                max_reach = walk.copy()
+
+            if len(neighbors[last_node]) == 0 and graph.ndata['read_end'][last_node] < threshold:
+                break
+
+            tmp = []
+            for node in neighbors.get(last_node, []):
+                if node in visited:
+                    continue
+                if graph.ndata['read_strand'][node] == 1:
+                    continue
+                if graph.ndata['read_start'][node] < graph.ndata['read_end'][last_node]:
+                    continue
+                tmp.append(node)
+
+            tmp.sort(key=lambda x: graph.ndata['read_start'][x])
+            for node in tmp:
+                execution.append(walk + [node])
+
+        return max_reach
+
+    except KeyboardInterrupt:
+        return max_reach
+
+
 def get_solutions_for_all(data_path):
     processed_path = f'{data_path}/processed'
     neighbors_path = f'{data_path}/info'
