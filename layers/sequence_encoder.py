@@ -104,51 +104,8 @@ class SequenceEncoder(nn.Module):
 
         
 class SequenceEncoder_noCNN(nn.Module):
-    """
-    Module that encodes the genomic sequences into vectors.
-    
-    It consists of a linear embedding layer that first represents
-    the sequences in a continuous space, and of a vairable number
-    of convolutional layers that extract information from the
-    sequences.
-
-    Attributes
-    ----------
-    embedding : torch.nn.Embedding
-        Module that represents the sequences in a continuous space
-    conv1 : torch.nn.Conv1
-        First CNN layer that extracts information from the sequences
-    conv_rest : torch.nn.ModuleList
-        List of the additional CNN layers, where number if input and
-        output channels is the same
-    weighted : bool
-        Flag indicating whether to use weighted mean of the obtained
-        feature maps
-    W_q : torch.nn.Linear
-        Trainable querry matrix, used in weighted mean
-    W_k : torch.nn.Linear
-        Trainable key matrix, used in weighted mean
-    W_v : torch.nn.Linear
-        Trainable value matrix, used in weighted mean
-    """
 
     def __init__(self, dim_hidden):
-        """
-        Parameters
-        ----------
-        dim_linear_emb : int
-            Dimension of linear embedding used to represent A, C, G,
-            and T in a continuous space
-        dim_conv_emb : int
-            Dimension of the output channels of the CNN layers
-        kernel_size : int
-            Size of the convolutional kernel used to represent
-            sequences
-        num_conv_layers : int
-            Number of CNN layers used
-        weighted : bool, optional
-            Flag indicating whether to use weighted mean
-        """
         super().__init__()
         self.embedding = nn.Embedding(4, dim_hidden)
 
