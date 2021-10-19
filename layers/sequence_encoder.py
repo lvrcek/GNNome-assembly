@@ -132,7 +132,7 @@ class SequenceEncoder_noCNN(nn.Module):
         Trainable value matrix, used in weighted mean
     """
 
-    def __init__(self, dim_linear_emb, dim_conv_emb, kernel_size, num_conv_layers, weighted=True):
+    def __init__(self, dim_hidden):
         """
         Parameters
         ----------
@@ -150,7 +150,7 @@ class SequenceEncoder_noCNN(nn.Module):
             Flag indicating whether to use weighted mean
         """
         super().__init__()
-        self.embedding = nn.Embedding(4, dim_linear_emb)
+        self.embedding = nn.Embedding(4, dim_hidden)
 
     def forward(self, reads):
         """Return the list of the encoded reads."""
