@@ -180,6 +180,16 @@ def process(model, graph, neighbors, reads, solution, edges, criterion, optimize
     return mini_batch_loss_list, accuracy
 
 
+def process_reads(reads, device):
+    processed_reads = {}
+    for id, read in reads.items():
+        read = read.replace('A', '0').replace('C', '1').replace('G', '2').replace('T', '3')
+        read = ' '.join(read).split()
+        read = torch.tensor(list(map(int, read)), device=device)
+        processed_reads[id] = read
+    return processed_reads
+
+
 def train(args):
     """Training loop.
     
@@ -272,6 +282,7 @@ def train(args):
             for data in tqdm(dl_train):
                 idx, graph, pred, succ, reads, edges = utils.unpack_data(data, info_all)
                 graph = graph.to(device)
+                reads = process_reads(reads, device)
                 solution = utils.get_walks(idx, data_path)
 
                 utils.print_graph_info(idx, graph)
@@ -314,6 +325,7 @@ def train(args):
                 for data in dl_valid:
                     idx, graph, pred, succ, reads, edges = utils.unpack_data(data, info_all)
                     graph = graph.to(device)
+                    reads = process_reads(reads, device)
                     solution = utils.get_walks(idx, data_path)
 
                     utils.print_graph_info(idx, graph)
@@ -368,6 +380,7 @@ def train(args):
             for i, data in enumerate(dl_test):
                 idx, graph, pred, succ, reads, edges = utils.unpack_data(data, info_all)
                 graph = graph.to(device)
+                reads = process_reads(reads, device)
                 solution = utils.get_walks(idx, data_path)
 
                 utils.print_graph_info(idx, graph)
