@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 import layers
-from layers import GatedGCN_1d, SequenceEncoder, EdgeEncoder, EdgeDecoder, NodeEncoder
+from layers import GatedGCN_1d, SequenceEncoder, EdgeEncoder, EdgeDecoder, NodeEncoder, GatedGCN_backwards, SequenceEncoder_noCNN
 from hyperparameters import get_hyperparameters
 
 
@@ -47,8 +47,7 @@ class NonAutoRegressive(nn.Module):
             node representations
         """
         super().__init__()
-        # self.seq_encoder = SequenceEncoder(dim_linear_emb=dim_linear_emb, dim_conv_emb=dim_latent,
-        #                                     kernel_size=kernel_size, num_conv_layers=num_conv_layers)
+        self.seq_encoder = SequenceEncoder_noCNN(dim_hidden=dim_latent)
         self.hyperparams = get_hyperparameters()
         # self.encode = 'none'  # encode
         # self.node_encoder = NodeEncoder(1, dim_latent)

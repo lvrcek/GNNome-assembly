@@ -100,4 +100,27 @@ class SequenceEncoder(nn.Module):
             embedded_reads.append(h)
 
         embedded_reads = torch.stack(embedded_reads)
-        return embedded_reads    
+        return embedded_reads
+
+        
+class SequenceEncoder_noCNN(nn.Module):
+
+    def __init__(self, dim_hidden):
+        super().__init__()
+        self.embedding = nn.Embedding(4, dim_hidden)
+
+    def forward(self, reads):
+        """Return the list of the encoded reads."""
+        device = get_hyperparameters()['device']
+        embedded_reads = []
+        reads = dict(sorted(reads.items(), key=lambda x: x[0]))
+        for idx, read in reads.items():
+            # read = read.replace('A', '0').replace('C', '1').replace('G', '2').replace('T', '3')
+            # read = ' '.join(read).split()
+            # read = torch.tensor(list(map(int, read)), device=device)
+            read = self.embedding(read)  # len(read) x dim_linear_emb
+            read = torch.mean(read, dim=0)
+            embedded_reads.append(read)
+
+        embedded_reads = torch.stack(embedded_reads)
+        return embedded_reads
