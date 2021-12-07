@@ -90,34 +90,34 @@ def set_seed(seed=42):
     dgl.seed(seed)
 
 
-def get_walks(start, neighbors, num_nodes):
-    """Return all the possible walks from a current node of length
-    num_nodes.
+# def get_paths(start, neighbors, num_nodes):
+#     """Return all the possible walks from a current node of length
+#     num_nodes.
     
-    Parameters
-    ----------
-    start : int
-        Index of the starting node
-    neighbors : dict
-        Dictionary with the list of neighbors for each node
-    num_nodes : int
-        Length of the walks to be returned
+#     Parameters
+#     ----------
+#     start : int
+#         Index of the starting node
+#     neighbors : dict
+#         Dictionary with the list of neighbors for each node
+#     num_nodes : int
+#         Length of the walks to be returned
 
-    Returns
-    -------
-    list
-        a list of all the possible walks, where each walk is also
-        stored in a list with num_nodes consecutive nodes
-    """
-    if num_nodes == 0:
-        return [[start]]
-    paths = []
-    for neighbor in neighbors[start]:
-        next_paths = get_walks(neighbor, neighbors, num_nodes-1)
-        for path in next_paths:
-            path.append(start)
-            paths.append(path)
-    return paths
+#     Returns
+#     -------
+#     list
+#         a list of all the possible walks, where each walk is also
+#         stored in a list with num_nodes consecutive nodes
+#     """
+#     if num_nodes == 0:
+#         return [[start]]
+#     paths = []
+#     for neighbor in neighbors[start]:
+#         next_paths = get_paths(neighbor, neighbors, num_nodes-1)
+#         for path in next_paths:
+#             path.append(start)
+#             paths.append(path)
+#     return paths
 
 
 def timedelta_to_str(delta):
@@ -126,7 +126,8 @@ def timedelta_to_str(delta):
     return f'{hours}h {minutes}m {seconds}s'
 
 
-def get_walks(idx, data_path):
+def get_walk(idx, data_path):
+    # TODO: This implies there is only 1 walk
     walk_path = os.path.join(data_path, f'solutions/{idx}_gt.pkl')
     walk = pickle.load(open(walk_path, 'rb'))
     return walk

@@ -133,9 +133,12 @@ def interval_union(name, root):
 
 
 def dfs_gt_forwards(graph, neighbors, threshold):
-    value, idx = torch.topk(graph.ndata['read_start'], k=1, largest=False)
-    assert graph.ndata['read_strand'][idx] == 1
+    min_value, idx = torch.topk(graph.ndata['read_start'][graph.ndata['read_strand']==1], k=1, largest=False)
+    # assert graph.ndata['read_strand'][idx] == 1
     start = idx.item()
+
+    threshold, _ = torch.topk(graph.ndata['read_start'][graph.ndata['read_strand']==1], k=1)
+    threshold = threshold.item() // 100 * 100
 
     execution = deque()
     walk = [start]
@@ -155,7 +158,7 @@ def dfs_gt_forwards(graph, neighbors, threshold):
             if graph.ndata['read_end'][last_node] > graph.ndata['read_end'][max_reach[-1]]:
                 max_reach = walk.copy()
 
-            if len(neighbors[last_node]) == 0 and graph.ndata['read_end'][last_node] > threshold:
+            if len(neighbors[last_node]) == 0 and graph.ndata['read_end'][last_node] >= threshold:
                 break
 
             tmp = []
@@ -179,9 +182,11 @@ def dfs_gt_forwards(graph, neighbors, threshold):
 
 
 def dfs_gt_backwards(graph, neighbors, threshold):
-    value, idx = torch.topk(graph.ndata['read_start'], k=1)
-    assert graph.ndata['read_strand'][idx] == -1
+    max_value, idx = torch.topk(graph.ndata['read_start'][graph.ndata['read_strand']==-1], k=1)
+    # assert graph.ndata['read_strand'][idx] == -1
     start = idx.item()
+    threshold, _ = torch.topk(graph.ndata['read_end'][graph.ndata['read_strand']==-1], k=1, largest=False)
+    threshold = threshold.item()
 
     execution = deque()
     walk = [start]
@@ -202,7 +207,7 @@ def dfs_gt_backwards(graph, neighbors, threshold):
             if graph.ndata['read_end'][last_node] < graph.ndata['read_end'][max_reach[-1]]:
                 max_reach = walk.copy()
 
-            if len(neighbors[last_node]) == 0 and graph.ndata['read_end'][last_node] < threshold:
+            if len(neighbors[last_node]) == 0 and graph.ndata['read_end'][last_node] <= threshold:
                 break
 
             tmp = []

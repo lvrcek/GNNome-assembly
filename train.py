@@ -94,22 +94,10 @@ def process(model, graph, neighbors, reads, solution, edges, criterion, optimize
     """
     walk_length = get_hyperparameters()['walk_length']
 
+    # TODO: This also assumes just one walk, should implement case if I have multiple (from each end-node)
     ground_truth = {n1: n2 for n1, n2 in zip(solution[:-1], solution[1:])}
     ground_truth[solution[-1]] = None
     total_steps = len(solution) - 1
-
-    # if model.training:
-    #     start = (epoch * walk_length) % total_steps if walk_length != -1 else 0
-    # else:
-    #     start = 0
-    #     walk_length = -1
-
-    # current = solution[start]
-
-    # loss_list = []
-    # total_loss = 0
-    # correct = 0
-    # steps = 0
 
     if walk_length != -1:
         num_mini_batches = total_steps // walk_length + 1
@@ -123,21 +111,23 @@ def process(model, graph, neighbors, reads, solution, edges, criterion, optimize
 
     for mini_batch in range(num_mini_batches):
 
+        # TODO: How to implement this in case of multiple solution-walks. Maybe preprocessing?
         start = mini_batch * walk_length
 
         current = solution[start]
 
         loss_list = []
         total_loss = 0
-        # correct = 0
         steps = 0
 
+        # One forward pass per mini-batch
         logits = model(graph, reads, norm)
 
         while True:
             if steps == walk_length or ground_truth[current] is None:
                 break
             if len(neighbors[current]) == 1:
+                # TODO: This should probably increase the step counter, otherwise difficult to implement
                 current = neighbors[current][0]
                 continue
 
@@ -162,6 +152,7 @@ def process(model, graph, neighbors, reads, solution, edges, criterion, optimize
             current = best_neighbor  # Teacher forcing
             steps += 1
 
+        # TODO: Total loss should never be 0
         if model.training and total_loss > 0:
             total_loss /= steps
             optimizer.zero_grad()
@@ -220,40 +211,49 @@ def train(args):
     out = args.out if args.out is not None else timestamp
     eval = args.eval
 
+    # Get the dataloaders
     ds = AssemblyGraphDataset(data_path)
     dl_train, dl_valid, dl_test = get_dataloaders(ds, batch_size, eval, ratio=0.2)
     num_graphs = len(ds)
 
+    overfit = num_graphs == 1
+
+    # Initialize training specifications
     model = models.NonAutoRegressive(dim_latent, num_gnn_layers).to(device)
     params = list(model.parameters())
     optimizer = optim.Adam(params, lr=learning_rate)
     scheduler = ReduceLROnPlateau(optimizer, 'min', patience=5)
     model_path = os.path.abspath(f'pretrained/model_{out}.pt')
+    criterion = nn.CrossEntropyLoss()
 
+    # Initialize best model obtained during the training process
     best_model = models.NonAutoRegressive(dim_latent, num_gnn_layers)
     best_model.load_state_dict(copy.deepcopy(model.state_dict()))
     best_model.to(device)
     best_model.eval()
 
+    # TODO: For full chromosomes, this will probalby be too large to store in memory
     info_all = utils.load_graph_data(num_graphs, data_path)
 
-    # Normalization
+    # Normalization of the training set
     normalize_tensor = torch.cat([graph.edata['overlap_length'] for _, graph in dl_train]).float()
     norm_mean, norm_std = torch.mean(normalize_tensor), torch.std(normalize_tensor)
     norm_train = (norm_mean.item(), norm_std.item())
 
-    try:
+    # Normalize validation set if it exists
+    if len(dl_valid) > 0:
         normalize_tensor = torch.cat([graph.edata['overlap_length'] for _, graph in dl_valid]).float()
         norm_mean, norm_std = torch.mean(normalize_tensor), torch.std(normalize_tensor)
         norm_valid = (norm_mean.item(), norm_std.item())
-    except NotImplementedError:
+    else:
         norm_valid = None
 
-    try:
+    # Normalize testing set if it exists
+    if len(dl_test) > 0:
         normalize_tensor = torch.cat([graph.edata['overlap_length'] for _, graph in dl_test]).float()
         norm_mean, norm_std = torch.mean(normalize_tensor), torch.std(normalize_tensor)
         norm_test = (norm_mean.item(), norm_std.item())
-    except NotImplementedError:
+    else:
         norm_test = None
 
     elapsed = utils.timedelta_to_str(datetime.now() - time_start)
@@ -261,11 +261,11 @@ def train(args):
 
     with wandb.init(project="assembly-walk", config=hyperparameters):
 
-        criterion = nn.CrossEntropyLoss()
+        
         wandb.watch(model, criterion, log='all', log_freq=1)
 
         patience = 0
-        out_of_patience = False
+        out_of_patience = False  # TODO: Remove, I probably don't need both patience and scheduler
         loss_per_epoch_train, loss_per_epoch_valid = [], []
         accuracy_per_epoch_train, accuracy_per_epoch_valid = [], []
 
@@ -283,7 +283,7 @@ def train(args):
                 idx, graph, pred, succ, reads, edges = utils.unpack_data(data, info_all)
                 graph = graph.to(device)
                 reads = process_reads(reads, device)
-                solution = utils.get_walks(idx, data_path)
+                solution = utils.get_walk(idx, data_path)  # TODO: This implies there is only 1 walk
 
                 utils.print_graph_info(idx, graph)
                 loss_list, accuracy = process(model, graph, succ, reads, solution, edges, criterion, optimizer, epoch, norm_train, device=device)
@@ -298,108 +298,115 @@ def train(args):
             train_acc = np.mean(accuracy_per_graph)
             loss_per_epoch_train.append(train_loss)
             accuracy_per_epoch_train.append(train_acc)
+
             try:
                 wandb.log({'epoch': epoch, 'train_loss': train_loss, 'train_accuracy': train_acc}, step=epoch)
             except Exception:
-                print(f'epoch: {epoch}, train_loss: {train_loss}, train_accuracy: {train_acc}')
+                pass
 
             elapsed = utils.timedelta_to_str(datetime.now() - time_start)
-            print(f'\nTraining in epoch {epoch} done. Elapsed time: {elapsed}\n')
+            print(f'\nTraining in epoch {epoch} done. Elapsed time: {elapsed}')
+            print(f'Train loss: {train_loss},\tTrain accuracy: {train_acc}\n')
 
-            # !!!!!!!!!!! Only for overfitting - REMOVE LATER !!!!!!!!!!!
-            # best_model.load_state_dict(copy.deepcopy(model.state_dict()))
-            # best_model.to(device)
-            # torch.save(best_model.state_dict(), model_path)
-            # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-            # !!!! This should probably go after validation !!!!
-            # save_checkpoint(epoch, model, optimizer, loss)
-            # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            # Save the best model and the checkpoint
+            # Only for overfitting, usually done after validation
+            if overfit:
+                if len(loss_per_epoch_train) > 1 and loss_per_epoch_train[-1] < min(loss_per_epoch_train[:-1]):
+                    best_model.load_state_dict(copy.deepcopy(model.state_dict()))
+                    best_model.to(device)
+                    torch.save(best_model.state_dict(), model_path)
+                save_checkpoint(epoch, model, optimizer, loss_per_epoch_train[-1], 0.0, out)
+                scheduler.step(train_loss)
 
             # --- Validation ---
-            with torch.no_grad():
-                print('VALIDATION')
-                model.eval()
-                loss_per_graph = []
-                accuracy_per_graph = []
-                for data in dl_valid:
-                    idx, graph, pred, succ, reads, edges = utils.unpack_data(data, info_all)
-                    graph = graph.to(device)
-                    reads = process_reads(reads, device)
-                    solution = utils.get_walks(idx, data_path)
+            if not overfit:
+                with torch.no_grad():
+                    print('VALIDATION')
+                    model.eval()
+                    loss_per_graph = []
+                    accuracy_per_graph = []
+                    for data in dl_valid:
+                        idx, graph, pred, succ, reads, edges = utils.unpack_data(data, info_all)
+                        graph = graph.to(device)
+                        reads = process_reads(reads, device)
+                        solution = utils.get_walk(idx, data_path)
 
-                    utils.print_graph_info(idx, graph)
-                    loss_list, accuracy = process(model, graph, succ, reads, solution, edges, criterion, optimizer, epoch, norm_valid, device=device)
-                    if loss_list is not None:
-                        loss_per_graph.append(np.mean(loss_list))
-                        accuracy_per_graph.append(accuracy)
+                        utils.print_graph_info(idx, graph)
+                        loss_list, accuracy = process(model, graph, succ, reads, solution, edges, criterion, optimizer, epoch, norm_valid, device=device)
+                        if loss_list is not None:
+                            loss_per_graph.append(np.mean(loss_list))
+                            accuracy_per_graph.append(accuracy)
 
-                    elapsed = utils.timedelta_to_str(datetime.now() - time_start)
-                    print(f'Processing graph {idx} done. Elapsed time: {elapsed}')
+                        elapsed = utils.timedelta_to_str(datetime.now() - time_start)
+                        print(f'Processing graph {idx} done. Elapsed time: {elapsed}')
 
-                if len(loss_per_graph) > 0:
+                    # Save model, plot loss, etc.
                     valid_loss = np.mean(loss_per_graph)
                     valid_acc = np.mean(accuracy_per_graph)
                     loss_per_epoch_valid.append(valid_loss)
                     accuracy_per_epoch_valid.append(valid_acc)
+
                     try:
                         wandb.log({'epoch': epoch, 'valid_loss': valid_loss, 'valid_accuracy': valid_acc}, step=epoch)
                     except Exception:
-                        print(f'epoch: {epoch}, valid_loss: {valid_loss}, valid_accuracy: {valid_acc}')
+                        pass
 
-                if len(loss_per_epoch_valid) > 1 and loss_per_epoch_valid[-1] < min(loss_per_epoch_valid[:-1]):
-                    patience = 0
-                    best_model.load_state_dict(copy.deepcopy(model.state_dict()))
-                    best_model.to(device)
-                    torch.save(best_model.state_dict(), model_path)
-                elif patience >= patience_limit:
-                    out_of_patience = True
+                    if len(loss_per_epoch_valid) > 1 and loss_per_epoch_valid[-1] < min(loss_per_epoch_valid[:-1]):
+                        patience = 0
+                        best_model.load_state_dict(copy.deepcopy(model.state_dict()))
+                        best_model.to(device)
+                        torch.save(best_model.state_dict(), model_path)
 
-                if len(loss_per_epoch_train) > 0 and len(loss_per_epoch_valid) > 0:
-                    save_checkpoint(epoch, model, optimizer, loss_per_epoch_train[-1], loss_per_epoch_valid[-1], out)
+                    # TODO: Probably should be removed, I have scheduler for this
+                    elif patience >= patience_limit:
+                        out_of_patience = True
 
-                scheduler.step(valid_loss)
+                    if len(loss_per_epoch_train) > 0 and len(loss_per_epoch_valid) > 0:
+                        save_checkpoint(epoch, model, optimizer, loss_per_epoch_train[-1], loss_per_epoch_valid[-1], out)
 
-                elapsed = utils.timedelta_to_str(datetime.now() - time_start)
-                print(f'\nValidation in epoch {epoch} done. Elapsed time: {elapsed}\n')
+                    scheduler.step(valid_loss)
 
+                    elapsed = utils.timedelta_to_str(datetime.now() - time_start)
+                    print(f'\nValidation in epoch {epoch} done. Elapsed time: {elapsed}\n')
+                    print(f'Valid loss: {valid_loss},\tValid accuracy: {valid_acc}\n')
+
+        # TODO: Deprecated, see what you'll do with this
         utils.draw_loss_plots(loss_per_epoch_train, loss_per_epoch_valid, out)
         utils.draw_accuracy_plots(accuracy_per_epoch_train, accuracy_per_epoch_valid, out)
-
-        torch.save(best_model.state_dict(), model_path)
+        
         try:
             wandb.save("model.onnx")
         except Exception:
-            pass
+            print("W&B Error: Did not save the model.onnx")
 
         # --- Testing ---
-        with torch.no_grad():
-            test_accuracy = []
-            print('TESTING')
-            model.eval()
-            for i, data in enumerate(dl_test):
-                idx, graph, pred, succ, reads, edges = utils.unpack_data(data, info_all)
-                graph = graph.to(device)
-                reads = process_reads(reads, device)
-                solution = utils.get_walks(idx, data_path)
+        if not overfit:
+            with torch.no_grad():
+                test_accuracy = []
+                print('TESTING')
+                model.eval()
+                for i, data in enumerate(dl_test):
+                    idx, graph, pred, succ, reads, edges = utils.unpack_data(data, info_all)
+                    graph = graph.to(device)
+                    reads = process_reads(reads, device)
+                    solution = utils.get_walk(idx, data_path)
 
-                utils.print_graph_info(idx, graph)
-                loss_list, accuracy = process(best_model, graph, succ, reads, solution, edges, criterion, optimizer, epoch, norm_test, device=device)
-                test_accuracy.append(accuracy)
+                    utils.print_graph_info(idx, graph)
+                    loss_list, accuracy = process(best_model, graph, succ, reads, solution, edges, criterion, optimizer, epoch, norm_test, device=device)
+                    test_accuracy.append(accuracy)
 
-                try:
-                    wandb.log({'test_graph': idx, 'test_accuracy': accuracy}, step=i)
-                except Exception:
-                    print(f'test_graph: {idx}, test_accuracy: {accuracy}')
-                    pass
+                    try:
+                        wandb.log({'test_graph': idx, 'test_accuracy': accuracy}, step=i)
+                    except Exception:
+                        print(f'test_graph: {idx}, test_accuracy: {accuracy}')
+                        pass
 
-            if len(test_accuracy) > 0:
                 test_accuracy = np.mean(test_accuracy)
                 elapsed = utils.timedelta_to_str(datetime.now() - time_start)
                 print(f'\nTesting done. Elapsed time: {elapsed}')
                 print(f'Average accuracy on the test set:', test_accuracy)
 
-        print('Testing done')
+            print('Testing done')
 
 
 if __name__ == '__main__':
