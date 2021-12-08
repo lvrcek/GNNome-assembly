@@ -132,6 +132,68 @@ def interval_union(name, root):
     return result
 
 
+def dfs(graph, neighbors, start=None):
+    # TODO: Take only those with in-degree 0
+    # TODO: Take only those with strand == 1, this is not working
+    if start is None:
+        min_value, idx = torch.topk(graph.ndata['read_start'], k=1, largest=False)
+        start = idx.item()
+
+    threshold, _ = torch.topk(graph.ndata['read_start'][graph.ndata['read_strand']==1], k=1)
+    threshold = threshold.item()
+
+    stack = deque()
+    stack.append(start)
+
+    visited = [False for i in range(graph.num_nodes())]
+    visited[start] = True
+
+    path = {start: None}
+    max_node = start
+    max_value = graph.ndata['read_end'][start]
+
+    try:
+        while stack:
+            current = stack.pop()
+            if visited[current]:
+                continue
+            
+            if graph.ndata['read_end'][current] == threshold:
+                break
+
+            if graph.ndata['read_end'][current] > max_value:
+                max_value = graph.ndata['read_end'][current]
+                max_node = current
+
+            visited[current] = True
+            tmp = []
+            for node in neighbors.get(current, []):
+                if visited[node]:
+                    continue
+                if graph.ndata['read_strand'] == -1:
+                    continue
+                if graph.ndata['read_start'][node] > graph.ndata['read_end'][current]:
+                    continue
+                tmp.append(node)
+
+            tmp.sort(key=lambda x: -graph.ndata['read_start'][x])
+            for node in tmp:
+                stack.append(node)
+                path[node] = current
+
+        walk = []
+        current = max_node
+        while current is not None:
+            walk.append(current)
+            current = path[current]
+        walk.reverse()
+        return walk
+
+
+    except KeyboardInterrupt:
+        return walk
+
+
 def dfs_gt_forwards(graph, neighbors, threshold):
     min_value, idx = torch.topk(graph.ndata['read_start'][graph.ndata['read_strand']==1], k=1, largest=False)
     # assert graph.ndata['read_strand'][idx] == 1
@@ -150,7 +212,8 @@ def dfs_gt_forwards(graph, neighbors, threshold):
         while execution:
             time_now = datetime.now()
             if (time_now-time_start).seconds > 300:
-                break
+                print(graph.ndata['read_end'][max_reach[-1]])
+                # break
             walk = execution.pop()
             visited = set(walk)
             last_node = walk[-1]

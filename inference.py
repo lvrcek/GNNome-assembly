@@ -13,6 +13,7 @@ from utils import load_graph_data
 
 def predict(model, graph, pred, neighbors, reads, edges):
     starts = [k for k,v in pred.items() if len(v)==0 and graph.ndata['read_strand'][k]==1]
+    # TODO: This already returns all the possible walks, I just need to refine it
     best_walks = []
     for start in starts:
         current = start
@@ -83,6 +84,7 @@ def inference(model_path=None, data_path=None):
             os.mkdir(inference_path)
         pickle.dump(walk, open(f'{inference_path}/{idx}_predict.pkl', 'wb'))
 
+        # TODO: Greedy will not be too relevant soon, most likely
         baseline, _ = algorithms.baseline(graph, 0, succ, pred, edges)
         pickle.dump(baseline, open(f'{inference_path}/{idx}_greedy.pkl', 'wb'))
 
