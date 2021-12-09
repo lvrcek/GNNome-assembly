@@ -16,4 +16,5 @@ def get_hyperparameters():
         'gnn_mode': 'builtin',
         'encode': 'sequence',
         'norm': 'all',
+        'use_reads': False,
     }

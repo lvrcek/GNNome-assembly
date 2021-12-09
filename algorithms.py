@@ -134,7 +134,6 @@ def interval_union(name, root):
 
 def dfs(graph, neighbors, start=None):
     # TODO: Take only those with in-degree 0
-    # TODO: Take only those with strand == 1, this is not working
     if start is None:
         min_value, idx = torch.topk(graph.ndata['read_start'], k=1, largest=False)
         start = idx.item()
@@ -189,12 +188,18 @@ def dfs(graph, neighbors, start=None):
         walk.reverse()
         return walk
 
-
     except KeyboardInterrupt:
+        walk = []
+        current = max_node
+        while current is not None:
+            walk.append(current)
+            current = path[current]
+        walk.reverse()
         return walk
 
 
 def dfs_gt_forwards(graph, neighbors, threshold):
+    # TODO: DEPRECATE
     min_value, idx = torch.topk(graph.ndata['read_start'][graph.ndata['read_strand']==1], k=1, largest=False)
     # assert graph.ndata['read_strand'][idx] == 1
     start = idx.item()
@@ -245,6 +250,7 @@ def dfs_gt_forwards(graph, neighbors, threshold):
 
 
 def dfs_gt_backwards(graph, neighbors, threshold):
+    # TODO: DEPRECATE
     max_value, idx = torch.topk(graph.ndata['read_start'][graph.ndata['read_strand']==-1], k=1)
     # assert graph.ndata['read_strand'][idx] == -1
     start = idx.item()
@@ -293,7 +299,7 @@ def dfs_gt_backwards(graph, neighbors, threshold):
         return max_reach
 
 
-def get_solutions_for_all(data_path, threshold):
+def get_solutions_for_all(data_path, threshold=None):
     processed_path = f'{data_path}/processed'
     neighbors_path = f'{data_path}/info'
     solutions_path = f'{data_path}/solutions'

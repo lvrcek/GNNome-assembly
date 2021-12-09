@@ -53,6 +53,7 @@ def inference(model_path=None, data_path=None):
     device = hyperparameters['device']
     dim_latent = hyperparameters['dim_latent']
     num_gnn_layers = hyperparameters['num_gnn_layers']
+    use_reads = hyperparameters['use_reads']
 
     if model_path is None:
         model_path = 'pretrained/model_32d_8l.pt'  # Best performing model
@@ -64,7 +65,7 @@ def inference(model_path=None, data_path=None):
         data_path = 'data/train'
     ds = AssemblyGraphDataset(data_path)
 
-    info_all = load_graph_data(len(ds), data_path)
+    info_all = load_graph_data(len(ds), data_path, use_reads)
 
     for i in range(len(ds)):
         idx, graph = ds[i]
@@ -73,8 +74,10 @@ def inference(model_path=None, data_path=None):
         
         succ = info_all['succs'][idx]
         pred = info_all['preds'][idx]
-        # reads = info_all['reads'][idx]
-        reads = None
+        if use_reads:
+            reads = info_all['reads'][idx]
+        else:
+            reads = None
         edges = info_all['edges'][idx]
 
         walk = predict(model, graph, pred, succ, reads, edges)
@@ -85,7 +88,7 @@ def inference(model_path=None, data_path=None):
         pickle.dump(walk, open(f'{inference_path}/{idx}_predict.pkl', 'wb'))
 
         # TODO: Greedy will not be too relevant soon, most likely
-        baseline, _ = algorithms.baseline(graph, 0, succ, pred, edges)
+        baseline = algorithms.baseline(graph, 0, succ, pred, edges)
         pickle.dump(baseline, open(f'{inference_path}/{idx}_greedy.pkl', 'wb'))
 
 

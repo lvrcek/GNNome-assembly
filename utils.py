@@ -139,17 +139,20 @@ def get_info(idx, data_path, type):
     return info
 
 
-def unpack_data(data, info_all):
+def unpack_data(data, info_all, use_reads):
     idx, graph = data
     idx = idx if isinstance(idx, int) else idx.item()
     pred = info_all['preds'][idx]
     succ = info_all['succs'][idx]
-    reads = info_all['reads'][idx]
+    if use_reads:
+        reads = info_all['reads'][idx]
+    else:
+        reads = None
     edges = info_all['edges'][idx]
     return idx, graph, pred, succ, reads, edges
 
 
-def load_graph_data(num_graphs, data_path):
+def load_graph_data(num_graphs, data_path, use_reads):
     info_all = {
         'preds': [],
         'succs': [],
@@ -159,7 +162,8 @@ def load_graph_data(num_graphs, data_path):
     for idx in range(num_graphs):
         info_all['preds'].append(get_info(idx, data_path, 'pred'))
         info_all['succs'].append(get_info(idx, data_path, 'succ'))
-        info_all['reads'].append(get_info(idx, data_path, 'reads'))
+        if use_reads:
+            info_all['reads'].append(get_info(idx, data_path, 'reads'))
         info_all['edges'].append(get_info(idx, data_path, 'edges'))
     return info_all
 

@@ -202,6 +202,7 @@ def train(args):
     patience_limit = hyperparameters['patience_limit']
     learning_rate = hyperparameters['lr']
     device = hyperparameters['device']
+    use_reads = hyperparameters['use_reads']
 
     utils.set_seed(seed)
 
@@ -233,7 +234,7 @@ def train(args):
     best_model.eval()
 
     # TODO: For full chromosomes, this will probalby be too large to store in memory
-    info_all = utils.load_graph_data(num_graphs, data_path)
+    info_all = utils.load_graph_data(num_graphs, data_path, use_reads)
 
     # Normalization of the training set
     normalize_tensor = torch.cat([graph.edata['overlap_length'] for _, graph in dl_train]).float()
@@ -280,9 +281,10 @@ def train(args):
             loss_per_graph = []
             accuracy_per_graph = []
             for data in tqdm(dl_train):
-                idx, graph, pred, succ, reads, edges = utils.unpack_data(data, info_all)
+                idx, graph, pred, succ, reads, edges = utils.unpack_data(data, info_all, use_reads)
                 graph = graph.to(device)
-                reads = process_reads(reads, device)
+                if use_reads:
+                    reads = process_reads(reads, device)
                 solution = utils.get_walk(idx, data_path)  # TODO: This implies there is only 1 walk
 
                 utils.print_graph_info(idx, graph)
@@ -326,9 +328,10 @@ def train(args):
                     loss_per_graph = []
                     accuracy_per_graph = []
                     for data in dl_valid:
-                        idx, graph, pred, succ, reads, edges = utils.unpack_data(data, info_all)
+                        idx, graph, pred, succ, reads, edges = utils.unpack_data(data, info_all, use_reads)
                         graph = graph.to(device)
-                        reads = process_reads(reads, device)
+                        if use_reads:
+                            reads = process_reads(reads, device)
                         solution = utils.get_walk(idx, data_path)
 
                         utils.print_graph_info(idx, graph)
@@ -386,9 +389,10 @@ def train(args):
                 print('TESTING')
                 model.eval()
                 for i, data in enumerate(dl_test):
-                    idx, graph, pred, succ, reads, edges = utils.unpack_data(data, info_all)
+                    idx, graph, pred, succ, reads, edges = utils.unpack_data(data, info_all, use_reads)
                     graph = graph.to(device)
-                    reads = process_reads(reads, device)
+                    if use_reads:
+                        reads = process_reads(reads, device)
                     solution = utils.get_walk(idx, data_path)
 
                     utils.print_graph_info(idx, graph)
