@@ -1,4 +1,5 @@
 import os
+import math
 import pickle
 import subprocess
 from collections import deque
@@ -130,6 +131,43 @@ def interval_union(name, root):
             result.append(interval)
 
     return result
+
+
+def bfs_visit(graph, neighbors, start):
+    queue = deque()
+    queue.append(start)
+    visited = set()
+    visited.add(start)
+    while queue:
+        current = queue.popleft()
+        if current in visited:
+            continue
+        visited.add(current)
+        queue.extend(neighbors[current])
+    return visited
+
+
+def dijkstra(graph, neighbors, start, subset):
+    # TODO:
+    # This Dijkstra won't really work for us
+    # I'll need a better solution
+    def length(u, v):
+        return 1
+    dist = {}
+    parent = {}
+    for node in subset:
+        dist[node] = math.inf
+        parent[node] = None
+    dist[start] = 0
+    while subset:
+        u = min([dist[v] for v in subset])
+        subset.remove(u)
+        for v in (set(neighbors[u]) & subset):
+            alt = dist[u] + length(u, v)
+            if alt < dist[v]:
+                dist[v] = alt
+                parent[v] = u
+    return dist, parent
 
 
 def dfs(graph, neighbors, start=None):
@@ -300,6 +338,7 @@ def dfs_gt_backwards(graph, neighbors, threshold):
 
 
 def get_solutions_for_all(data_path, threshold=None):
+    # TODO: Deprecate or fix to work with the new dfs
     processed_path = f'{data_path}/processed'
     neighbors_path = f'{data_path}/info'
     solutions_path = f'{data_path}/solutions'

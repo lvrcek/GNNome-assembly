@@ -260,74 +260,135 @@ def train(args):
     elapsed = utils.timedelta_to_str(datetime.now() - time_start)
     print(f'Loading data done. Elapsed time: {elapsed}')
 
-    with wandb.init(project="assembly-walk", config=hyperparameters):
+    try:
+        with wandb.init(project="assembly-walk", config=hyperparameters):
+            wandb.watch(model, criterion, log='all', log_freq=1)
 
-        
-        wandb.watch(model, criterion, log='all', log_freq=1)
+            patience = 0
+            out_of_patience = False  # TODO: Remove, I probably don't need both patience and scheduler
+            loss_per_epoch_train, loss_per_epoch_valid = [], []
+            accuracy_per_epoch_train, accuracy_per_epoch_valid = [], []
 
-        patience = 0
-        out_of_patience = False  # TODO: Remove, I probably don't need both patience and scheduler
-        loss_per_epoch_train, loss_per_epoch_valid = [], []
-        accuracy_per_epoch_train, accuracy_per_epoch_valid = [], []
+            # --- Training ---
+            for epoch in range(num_epochs):
+                model.train()
+                print(f'Epoch: {epoch}')
+                if out_of_patience:
+                    print('Out of patience!')
+                    break
+                patience += 1
+                loss_per_graph = []
+                accuracy_per_graph = []
+                for data in tqdm(dl_train):
+                    idx, graph, pred, succ, reads, edges = utils.unpack_data(data, info_all, use_reads)
+                    graph = graph.to(device)
+                    if use_reads:
+                        reads = process_reads(reads, device)
+                    solution = utils.get_walk(idx, data_path)  # TODO: This implies there is only 1 walk
 
-        # --- Training ---
-        for epoch in range(num_epochs):
-            model.train()
-            print(f'Epoch: {epoch}')
-            if out_of_patience:
-                print('Out of patience!')
-                break
-            patience += 1
-            loss_per_graph = []
-            accuracy_per_graph = []
-            for data in tqdm(dl_train):
-                idx, graph, pred, succ, reads, edges = utils.unpack_data(data, info_all, use_reads)
-                graph = graph.to(device)
-                if use_reads:
-                    reads = process_reads(reads, device)
-                solution = utils.get_walk(idx, data_path)  # TODO: This implies there is only 1 walk
+                    utils.print_graph_info(idx, graph)
+                    loss_list, accuracy = process(model, graph, succ, reads, solution, edges, criterion, optimizer, epoch, norm_train, device=device)
+                    if loss_list is not None:
+                        loss_per_graph.append(np.mean(loss_list))
+                        accuracy_per_graph.append(accuracy)
 
-                utils.print_graph_info(idx, graph)
-                loss_list, accuracy = process(model, graph, succ, reads, solution, edges, criterion, optimizer, epoch, norm_train, device=device)
-                if loss_list is not None:
-                    loss_per_graph.append(np.mean(loss_list))
-                    accuracy_per_graph.append(accuracy)
+                    elapsed = utils.timedelta_to_str(datetime.now() - time_start)
+                    print(f'Processing graph {idx} done. Elapsed time: {elapsed}')
+
+                train_loss = np.mean(loss_per_graph)
+                train_acc = np.mean(accuracy_per_graph)
+                loss_per_epoch_train.append(train_loss)
+                accuracy_per_epoch_train.append(train_acc)
+
+                try:
+                    wandb.log({'epoch': epoch, 'train_loss': train_loss, 'train_accuracy': train_acc}, step=epoch)
+                except Exception:
+                    pass
 
                 elapsed = utils.timedelta_to_str(datetime.now() - time_start)
-                print(f'Processing graph {idx} done. Elapsed time: {elapsed}')
+                print(f'\nTraining in epoch {epoch} done. Elapsed time: {elapsed}')
+                print(f'Train loss: {train_loss},\tTrain accuracy: {train_acc}\n')
 
-            train_loss = np.mean(loss_per_graph)
-            train_acc = np.mean(accuracy_per_graph)
-            loss_per_epoch_train.append(train_loss)
-            accuracy_per_epoch_train.append(train_acc)
+                # Save the best model and the checkpoint
+                # Only for overfitting, usually done after validation
+                if overfit:
+                    if len(loss_per_epoch_train) > 1 and loss_per_epoch_train[-1] < min(loss_per_epoch_train[:-1]):
+                        best_model.load_state_dict(copy.deepcopy(model.state_dict()))
+                        best_model.to(device)
+                        torch.save(best_model.state_dict(), model_path)
+                    save_checkpoint(epoch, model, optimizer, loss_per_epoch_train[-1], 0.0, out)
+                    scheduler.step(train_loss)
 
+                # --- Validation ---
+                if not overfit:
+                    with torch.no_grad():
+                        print('VALIDATION')
+                        model.eval()
+                        loss_per_graph = []
+                        accuracy_per_graph = []
+                        for data in dl_valid:
+                            idx, graph, pred, succ, reads, edges = utils.unpack_data(data, info_all, use_reads)
+                            graph = graph.to(device)
+                            if use_reads:
+                                reads = process_reads(reads, device)
+                            solution = utils.get_walk(idx, data_path)
+
+                            utils.print_graph_info(idx, graph)
+                            loss_list, accuracy = process(model, graph, succ, reads, solution, edges, criterion, optimizer, epoch, norm_valid, device=device)
+                            if loss_list is not None:
+                                loss_per_graph.append(np.mean(loss_list))
+                                accuracy_per_graph.append(accuracy)
+
+                            elapsed = utils.timedelta_to_str(datetime.now() - time_start)
+                            print(f'Processing graph {idx} done. Elapsed time: {elapsed}')
+
+                        # Save model, plot loss, etc.
+                        valid_loss = np.mean(loss_per_graph)
+                        valid_acc = np.mean(accuracy_per_graph)
+                        loss_per_epoch_valid.append(valid_loss)
+                        accuracy_per_epoch_valid.append(valid_acc)
+
+                        try:
+                            wandb.log({'epoch': epoch, 'valid_loss': valid_loss, 'valid_accuracy': valid_acc}, step=epoch)
+                        except Exception:
+                            pass
+
+                        if len(loss_per_epoch_valid) > 1 and loss_per_epoch_valid[-1] < min(loss_per_epoch_valid[:-1]):
+                            patience = 0
+                            best_model.load_state_dict(copy.deepcopy(model.state_dict()))
+                            best_model.to(device)
+                            torch.save(best_model.state_dict(), model_path)
+
+                        # TODO: Probably should be removed, I have scheduler for this
+                        elif patience >= patience_limit:
+                            out_of_patience = True
+
+                        if len(loss_per_epoch_train) > 0 and len(loss_per_epoch_valid) > 0:
+                            save_checkpoint(epoch, model, optimizer, loss_per_epoch_train[-1], loss_per_epoch_valid[-1], out)
+
+                        scheduler.step(valid_loss)
+
+                        elapsed = utils.timedelta_to_str(datetime.now() - time_start)
+                        print(f'\nValidation in epoch {epoch} done. Elapsed time: {elapsed}\n')
+                        print(f'Valid loss: {valid_loss},\tValid accuracy: {valid_acc}\n')
+
+            # TODO: Deprecated, see what you'll do with this
+            utils.draw_loss_plots(loss_per_epoch_train, loss_per_epoch_valid, out)
+            utils.draw_accuracy_plots(accuracy_per_epoch_train, accuracy_per_epoch_valid, out)
+            
             try:
-                wandb.log({'epoch': epoch, 'train_loss': train_loss, 'train_accuracy': train_acc}, step=epoch)
+                # TODO: This doesn't seem to work
+                wandb.save("model.onnx")
             except Exception:
-                pass
+                print("W&B Error: Did not save the model.onnx")
 
-            elapsed = utils.timedelta_to_str(datetime.now() - time_start)
-            print(f'\nTraining in epoch {epoch} done. Elapsed time: {elapsed}')
-            print(f'Train loss: {train_loss},\tTrain accuracy: {train_acc}\n')
-
-            # Save the best model and the checkpoint
-            # Only for overfitting, usually done after validation
-            if overfit:
-                if len(loss_per_epoch_train) > 1 and loss_per_epoch_train[-1] < min(loss_per_epoch_train[:-1]):
-                    best_model.load_state_dict(copy.deepcopy(model.state_dict()))
-                    best_model.to(device)
-                    torch.save(best_model.state_dict(), model_path)
-                save_checkpoint(epoch, model, optimizer, loss_per_epoch_train[-1], 0.0, out)
-                scheduler.step(train_loss)
-
-            # --- Validation ---
+            # --- Testing ---
             if not overfit:
                 with torch.no_grad():
-                    print('VALIDATION')
+                    test_accuracy = []
+                    print('TESTING')
                     model.eval()
-                    loss_per_graph = []
-                    accuracy_per_graph = []
-                    for data in dl_valid:
+                    for i, data in enumerate(dl_test):
                         idx, graph, pred, succ, reads, edges = utils.unpack_data(data, info_all, use_reads)
                         graph = graph.to(device)
                         if use_reads:
@@ -335,82 +396,26 @@ def train(args):
                         solution = utils.get_walk(idx, data_path)
 
                         utils.print_graph_info(idx, graph)
-                        loss_list, accuracy = process(model, graph, succ, reads, solution, edges, criterion, optimizer, epoch, norm_valid, device=device)
-                        if loss_list is not None:
-                            loss_per_graph.append(np.mean(loss_list))
-                            accuracy_per_graph.append(accuracy)
+                        loss_list, accuracy = process(best_model, graph, succ, reads, solution, edges, criterion, optimizer, epoch, norm_test, device=device)
+                        test_accuracy.append(accuracy)
 
-                        elapsed = utils.timedelta_to_str(datetime.now() - time_start)
-                        print(f'Processing graph {idx} done. Elapsed time: {elapsed}')
+                        try:
+                            wandb.log({'test_graph': idx, 'test_accuracy': accuracy}, step=i)
+                        except Exception:
+                            print(f'test_graph: {idx}, test_accuracy: {accuracy}')
+                            pass
 
-                    # Save model, plot loss, etc.
-                    valid_loss = np.mean(loss_per_graph)
-                    valid_acc = np.mean(accuracy_per_graph)
-                    loss_per_epoch_valid.append(valid_loss)
-                    accuracy_per_epoch_valid.append(valid_acc)
-
-                    try:
-                        wandb.log({'epoch': epoch, 'valid_loss': valid_loss, 'valid_accuracy': valid_acc}, step=epoch)
-                    except Exception:
-                        pass
-
-                    if len(loss_per_epoch_valid) > 1 and loss_per_epoch_valid[-1] < min(loss_per_epoch_valid[:-1]):
-                        patience = 0
-                        best_model.load_state_dict(copy.deepcopy(model.state_dict()))
-                        best_model.to(device)
-                        torch.save(best_model.state_dict(), model_path)
-
-                    # TODO: Probably should be removed, I have scheduler for this
-                    elif patience >= patience_limit:
-                        out_of_patience = True
-
-                    if len(loss_per_epoch_train) > 0 and len(loss_per_epoch_valid) > 0:
-                        save_checkpoint(epoch, model, optimizer, loss_per_epoch_train[-1], loss_per_epoch_valid[-1], out)
-
-                    scheduler.step(valid_loss)
-
+                    test_accuracy = np.mean(test_accuracy)
                     elapsed = utils.timedelta_to_str(datetime.now() - time_start)
-                    print(f'\nValidation in epoch {epoch} done. Elapsed time: {elapsed}\n')
-                    print(f'Valid loss: {valid_loss},\tValid accuracy: {valid_acc}\n')
+                    print(f'\nTesting done. Elapsed time: {elapsed}')
+                    print(f'Average accuracy on the test set:', test_accuracy)
 
-        # TODO: Deprecated, see what you'll do with this
-        utils.draw_loss_plots(loss_per_epoch_train, loss_per_epoch_valid, out)
-        utils.draw_accuracy_plots(accuracy_per_epoch_train, accuracy_per_epoch_valid, out)
-        
-        try:
-            wandb.save("model.onnx")
-        except Exception:
-            print("W&B Error: Did not save the model.onnx")
+                print('Testing done')
 
-        # --- Testing ---
-        if not overfit:
-            with torch.no_grad():
-                test_accuracy = []
-                print('TESTING')
-                model.eval()
-                for i, data in enumerate(dl_test):
-                    idx, graph, pred, succ, reads, edges = utils.unpack_data(data, info_all, use_reads)
-                    graph = graph.to(device)
-                    if use_reads:
-                        reads = process_reads(reads, device)
-                    solution = utils.get_walk(idx, data_path)
-
-                    utils.print_graph_info(idx, graph)
-                    loss_list, accuracy = process(best_model, graph, succ, reads, solution, edges, criterion, optimizer, epoch, norm_test, device=device)
-                    test_accuracy.append(accuracy)
-
-                    try:
-                        wandb.log({'test_graph': idx, 'test_accuracy': accuracy}, step=i)
-                    except Exception:
-                        print(f'test_graph: {idx}, test_accuracy: {accuracy}')
-                        pass
-
-                test_accuracy = np.mean(test_accuracy)
-                elapsed = utils.timedelta_to_str(datetime.now() - time_start)
-                print(f'\nTesting done. Elapsed time: {elapsed}')
-                print(f'Average accuracy on the test set:', test_accuracy)
-
-            print('Testing done')
+    except KeyboardInterrupt:
+        # TODO: Implement this to do something, maybe evaluate on test set?
+        print("Keyboard Interrupt...")
+        print("Exiting...")
 
 
 if __name__ == '__main__':
