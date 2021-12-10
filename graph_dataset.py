@@ -31,7 +31,7 @@ class AssemblyGraphDataset(DGLDataset):
         Path to the raven assembler
     """
 
-    def __init__(self, root):
+    def __init__(self, root, specs=None):
         """
         Parameters
         ----------
@@ -41,6 +41,7 @@ class AssemblyGraphDataset(DGLDataset):
             processing results are stored.
         """
         self.root = os.path.abspath(root)
+        self.specs = specs
         if 'raw' not in os.listdir(self.root):
             subprocess.run(f"mkdir 'raw'", shell=True, cwd=self.root)
         if 'tmp' not in os.listdir(self.root):
@@ -70,6 +71,15 @@ class AssemblyGraphDataset(DGLDataset):
 
     def process(self):
         """Process the raw data and save it on the disk."""
+        if self.specs is None:
+            threads = 32
+            filter = 0.99
+            out = 'assembly.fasta'
+        else:
+            threads = self.specs['threads']
+            filter = self.specs['filter']
+            out = self.specs['filter']
+
         graphia_dir = os.path.join(self.root, 'graphia')
         if not os.path.isdir(graphia_dir):
             os.mkdir(graphia_dir)
@@ -79,7 +89,7 @@ class AssemblyGraphDataset(DGLDataset):
                 print(cnt, fastq)
                 reads_path = os.path.abspath(os.path.join(self.raw_dir, fastq))
                 print(reads_path)
-                subprocess.run(f'{self.raven_path} --filter 1.0 --weaken -t32 -p0 {reads_path} > assembly.fasta', shell=True, cwd=self.tmp_dir)
+                subprocess.run(f'{self.raven_path} --filter {filter} --weaken -t{threads} -p0 {reads_path} > {out}', shell=True, cwd=self.tmp_dir)
                 for j in range(1, 2):
                     print(f'graph {j}')
                     # processed_path = os.path.join(self.save_dir, f'd{cnt}_g{j}.dgl')
