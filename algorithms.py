@@ -144,6 +144,7 @@ def bfs_visit(graph, neighbors, start, all_visited):
         if current in visited:
             continue
         if current in all_visited:
+            # visited.add(current)
             continue
         visited.add(current)
         queue.extend(neighbors[current])
@@ -162,8 +163,9 @@ def get_components(graph, neighbors, preds):
         components.append(comp)
         all_visited = all_visited | set(comp)
 
-    print(components)
+    print(len(components))
     changes = True
+
     while changes:
         changes = False
         components = sorted(components, key=lambda x: len(x))
@@ -193,6 +195,48 @@ def get_components(graph, neighbors, preds):
                     break
             if changes:
                 break
+
+#    # Atempt to solve an issue with repeating components
+#    threshold = len(components)
+#    num_iter = 0
+#    while changes or num_iter < threshold:
+#        num_iter += 1
+#        changes = False
+#        components = sorted(components, key=lambda x: len(x))
+#        for j, comp in enumerate(components):
+#            for i in range(j+1, len(components)):
+#                larger_comp = components[i]
+#                # if len(comp) == 6:
+#                #     print(comp)
+#                for node in comp:
+#                    # if node == 31098:
+#                    #     print('hajhajh')
+#                    intersect = set(neighbors[node]) & larger_comp
+#                    if len(intersect) > 0:
+#                        skip = True
+#                        for joint in intersect:
+#                            # if joint == 31100:
+#                            #     print('here')
+#                            if len(neighbors[joint]) > 0:
+#                                # Join the two components together
+#                                skip = False
+#                                break
+#                            else:
+#                                # Don't join them together
+#                                # Because you can't visit any other nodes from the joint node
+#                                pass
+#                        if skip:
+#                            continue
+#                        new_comp = comp | larger_comp
+#                        components.remove(comp)
+#                        components.remove(larger_comp)
+#                        components.append(new_comp)
+#                        changes = True
+#                        break
+#                if changes:
+#                    break
+#            if changes:
+#                break
 
     print(len(components))  # Number of components
     return components
@@ -242,7 +286,6 @@ def dfs(graph, neighbors, start=None):
     stack.append(start)
 
     visited = [False for i in range(graph.num_nodes())]
-    visited[start] = True
 
     path = {start: None}
     max_node = start
@@ -266,7 +309,7 @@ def dfs(graph, neighbors, start=None):
             for node in neighbors.get(current, []):
                 if visited[node]:
                     continue
-                if graph.ndata['read_strand'] == -1:
+                if graph.ndata['read_strand'][node] == -1:
                     continue
                 if graph.ndata['read_start'][node] > graph.ndata['read_end'][current]:
                     continue
@@ -295,17 +338,37 @@ def dfs(graph, neighbors, start=None):
         return walk
 
 
-def dfs_gt_another(graph, subset, neighbors, preds, threshold):
+def dfs_gt_another(graph, neighbors, preds):
     components = get_components(graph, neighbors, preds)
+    # components = [c for c in components if len(c) >= 10]
+    components = sorted(components, key=lambda x: -len(x))
     walks = []
-    for component in components:
-        start_nodes = [node for node in component if len(preds[node]) == 0 and graph.ndata['read_strand'] == 1]
-        start = min(start_nodes, key=lambda x: graph.ndata['read_start'][x])
-        walk = dfs(graph, neighbors, start)
-        walks.append(walk)
+    for i, component in enumerate(components):
+        try:
+            start_nodes = [node for node in component if len(preds[node]) == 0 and graph.ndata['read_strand'][node] == 1]
+            start = min(start_nodes, key=lambda x: graph.ndata['read_start'][x])
+            walk = dfs(graph, neighbors, start)
+            print(f'Component {i}: length = {len(walk)}')
+            print(f'\tStart: {graph.ndata["read_start"][walk[0]]}\tEnd: {graph.ndata["read_end"][walk[-1]]}')
+            walks.append(walk)
+        except ValueError:
+            # len(start_nodes) == 0
+            # Means it's a negative-strand component, neglect for now
+            print(f'Component {i}: passed')
+            pass
     # What then? Multiple walks per graph - not an issue, just fix the training loop to work that way
     # Test this thing first
-    return walks
+
+    walks = sorted(walks, key=lambda x: -len(x))
+    final = [walks[0]]
+    if len(walks) > 1:
+        all_nodes = set(walks[0])
+        for w in walks[1:]:
+            if len(set(w) & all_nodes) == 0:
+                final.append(w)
+                all_nodes = all_nodes | set(w)
+
+    return final
 
 
 def dfs_gt_forwards(graph, neighbors, threshold):
@@ -421,5 +484,7 @@ def get_solutions_for_all(data_path, threshold=None):
         print(idx)
         graph = dgl.load_graphs(os.path.join(processed_path, name))[0][0]
         neighbors = pickle.load(open(os.path.join(neighbors_path, idx + '_succ.pkl'), 'rb'))
-        walk = dfs_gt_forwards(graph, neighbors, threshold=threshold)
+        preds = pickle.load(open(os.path.join(neighbors_path, idx + '_pred.pkl'), 'rb'))
+        walks = dfs_gt_another(graph, neighbors, preds)
+        # walk = dfs_gt_forwards(graph, neighbors, threshold=threshold)
         pickle.dump(walk, open(os.path.join(solutions_path, idx + '_gt.pkl'), 'wb'))

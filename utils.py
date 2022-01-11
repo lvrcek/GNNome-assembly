@@ -126,11 +126,11 @@ def timedelta_to_str(delta):
     return f'{hours}h {minutes}m {seconds}s'
 
 
-def get_walk(idx, data_path):
+def get_walks(idx, data_path):
     # TODO: This implies there is only 1 walk
     walk_path = os.path.join(data_path, f'solutions/{idx}_gt.pkl')
-    walk = pickle.load(open(walk_path, 'rb'))
-    return walk
+    walks = pickle.load(open(walk_path, 'rb'))
+    return walks
 
 
 def get_info(idx, data_path, type):
