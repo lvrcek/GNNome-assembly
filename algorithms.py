@@ -133,41 +133,100 @@ def interval_union(name, root):
     return result
 
 
-def bfs_visit(graph, neighbors, start):
+def bfs_visit(graph, neighbors, start, all_visited):
+    # Get al the nodes in the component, regardless of the strand
     queue = deque()
     queue.append(start)
     visited = set()
-    visited.add(start)
     while queue:
+        # print('here')
         current = queue.popleft()
         if current in visited:
+            continue
+        if current in all_visited:
             continue
         visited.add(current)
         queue.extend(neighbors[current])
     return visited
 
 
-def dijkstra(graph, neighbors, start, subset):
-    # TODO:
-    # This Dijkstra won't really work for us
-    # I'll need a better solution
-    def length(u, v):
-        return 1
+def get_components(graph, neighbors, preds):
+    # Connect all the components in the defined manner, regardless of the strands
+    components = []
+    start = 0
+    all_visited = set()
+    starts = [n.item() for n in graph.nodes() if len(preds[n.item()]) == 0]
+    print(starts)
+    for start in starts:
+        comp = bfs_visit(graph, neighbors, start, all_visited)
+        components.append(comp)
+        all_visited = all_visited | set(comp)
+
+    print(components)
+    changes = True
+    while changes:
+        changes = False
+        components = sorted(components, key=lambda x: len(x))
+        comp = components[0]
+        for i in range(1, len(components)):
+            larger_comp = components[i]
+            for node in comp:
+                intersect = set(neighbors[node]) & larger_comp
+                if len(intersect) > 0:
+                    skip = True
+                    for joint in intersect:
+                        if len(neighbors[joint]) > 0:
+                            # Join the two components together
+                            skip = False
+                            break
+                        else:
+                            # Don't join them together
+                            # Because you can't visit any other nodes from the joint node
+                            pass
+                    if skip:
+                        continue
+                    new_comp = comp | larger_comp
+                    components.remove(comp)
+                    components.remove(larger_comp)
+                    components.append(new_comp)
+                    changes = True
+                    break
+            if changes:
+                break
+
+    print(len(components))  # Number of components
+    return components
+
+
+def dijkstra_gt(graph, neighbors, start, subset):
+    # Here I should take into account strands and reference info
+    # Start = obviously the 0 in-degree node with lowest read-start position
+    # Take the nodes 1 by 1, but only the positive strand and only those that have a reference-overlap
     dist = {}
     parent = {}
+    subset = set([node for node in subset if graph.ndata['read_strand'][node] == 1])
     for node in subset:
-        dist[node] = math.inf
+        # dist[node] = math.inf
+        dist[node] = -1
         parent[node] = None
     dist[start] = 0
     while subset:
-        u = min([dist[v] for v in subset])
+        # u = min([dist[v] for v in subset])
+        u = max([dist[v] for v in subset])
         subset.remove(u)
         for v in (set(neighbors[u]) & subset):
-            alt = dist[u] + length(u, v)
-            if alt < dist[v]:
+            alt = dist[u] + 1
+            if alt > dist[v]:
                 dist[v] = alt
                 parent[v] = u
     return dist, parent
+
+
+def test_gt_dijkstra(graph, neighbors, predecessors):
+    # get components
+    # dijsktra on each component - where to start?
+    # find the longest path for each component
+    pass
 
 
 def dfs(graph, neighbors, start=None):
@@ -234,6 +293,19 @@ def dfs(graph, neighbors, start=None):
             current = path[current]
         walk.reverse()
         return walk
+
+
+def dfs_gt_another(graph, subset, neighbors, preds, threshold):
+    components = get_components(graph, neighbors, preds)
+    walks = []
+    for component in components:
+        start_nodes = [node for node in component if len(preds[node]) == 0 and graph.ndata['read_strand'] == 1]
+        start = min(start_nodes, key=lambda x: graph.ndata['read_start'][x])
+        walk = dfs(graph, neighbors, start)
+        walks.append(walk)
+    # What then? Multiple walks per graph - not an issue, just fix the training loop to work that way
+    # Test this thing first
+    return walks
 
 
 def dfs_gt_forwards(graph, neighbors, threshold):
