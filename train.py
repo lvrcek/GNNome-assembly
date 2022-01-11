@@ -319,6 +319,20 @@ def train(args):
                     save_checkpoint(epoch, model, optimizer, loss_per_epoch_train[-1], 0.0, out)
                     scheduler.step(train_loss)
 
+                    # Taken from the older training code, see if you can delete this
+                    # last_losses = loss_per_epoch_train[-6:-1]
+                    # if len(loss_per_epoch_train) > 10 and loss_per_epoch_train[-1] <= min(last_losses):
+                    #     print(f'epoch: {epoch}, lr: {optimizer.param_groups[0]["lr"] / 5}')
+                    #     for g in optimizer.param_groups:
+                    #         g['lr'] /= 5
+
+                    # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+                    # !!!! This should probably go after validation !!!!
+                    # save_checkpoint(epoch, model, optimizer, loss)
+                    # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
                 # --- Validation ---
                 if not overfit:
                     with torch.no_grad():
@@ -361,7 +375,15 @@ def train(args):
 
                         # TODO: Probably should be removed, I have scheduler for this
                         elif patience >= patience_limit:
-                            out_of_patience = True
+                            out_of_patience = True  # Delete later
+                            # Not sure about this
+                            #####
+                            if learning_rate == 1e-7:
+                                out_of_patience = True
+                            else:
+                                patience = 0
+                                learning_rate /= 10
+                            ######
 
                         if len(loss_per_epoch_train) > 0 and len(loss_per_epoch_valid) > 0:
                             save_checkpoint(epoch, model, optimizer, loss_per_epoch_train[-1], loss_per_epoch_valid[-1], out)
