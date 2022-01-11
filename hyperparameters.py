@@ -4,7 +4,7 @@ import torch
 def get_hyperparameters():
     return {
         'seed': 0,
-        'num_epochs': 100,
+        'num_epochs': 300,
         'dim_latent': 32,
         'num_gnn_layers': 8,
         'batch_size': 1,
@@ -14,7 +14,7 @@ def get_hyperparameters():
         'walk_length': 10,
         'bias': False,
         'gnn_mode': 'builtin',
-        'encode': 'sequence',
+        'encode': 'none',
         'norm': 'all',
         'use_reads': False,
     }
