@@ -290,7 +290,7 @@ def train(args):
                     graph = graph.to(device)
                     if use_reads:
                         reads = process_reads(reads, device)
-                    solution = utils.get_walk(idx, data_path)  # TODO: This implies there is only 1 walk
+                    solution = utils.get_walks(idx, data_path)
 
                     utils.print_graph_info(idx, graph)
                     loss_list, accuracy_list = process(model, graph, succ, reads, solution, edges, criterion, optimizer, epoch, norm_train, device=device)
@@ -351,7 +351,7 @@ def train(args):
                             graph = graph.to(device)
                             if use_reads:
                                 reads = process_reads(reads, device)
-                            solution = utils.get_walk(idx, data_path)
+                            solution = utils.get_walks(idx, data_path)
 
                             utils.print_graph_info(idx, graph)
                             loss_list, accuracy_list = process(model, graph, succ, reads, solution, edges, criterion, optimizer, epoch, norm_valid, device=device)
@@ -421,7 +421,7 @@ def train(args):
                         graph = graph.to(device)
                         if use_reads:
                             reads = process_reads(reads, device)
-                        solution = utils.get_walk(idx, data_path)
+                        solution = utils.get_walks(idx, data_path)
 
                         utils.print_graph_info(idx, graph)
                         loss_list, accuracy_list = process(best_model, graph, succ, reads, solution, edges, criterion, optimizer, epoch, norm_test, device=device)
