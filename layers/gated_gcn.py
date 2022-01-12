@@ -54,8 +54,8 @@ class GatedGCN_1d(nn.Module):
         self.B_2 = nn.Linear(in_channels, out_channels, dtype=dtype)
         self.B_3 = nn.Linear(in_channels, out_channels, dtype=dtype)
 
-        self.bn_h = nn.BatchNorm1d(out_channels, dtype=dtype)
-        self.bn_e = nn.BatchNorm1d(out_channels, dtype=dtype)
+        self.bn_h = nn.BatchNorm1d(out_channels)
+        self.bn_e = nn.BatchNorm1d(out_channels)
 
     def message_forward(self, edges):
         """Message function used on the original graph."""
@@ -224,8 +224,8 @@ class GatedGCN_backwards(nn.Module):
         self.B_2 = nn.Linear(in_channels, out_channels, dtype=dtype)
         self.B_3 = nn.Linear(in_channels, out_channels, dtype=dtype)
 
-        self.bn_h = nn.BatchNorm1d(out_channels, dtype=dtype)
-        self.bn_e = nn.BatchNorm1d(out_channels, dtype=dtype)
+        self.bn_h = nn.BatchNorm1d(out_channels)
+        self.bn_e = nn.BatchNorm1d(out_channels)
 
     def forward(self, g, h, e):
         """Return updated node representations."""
