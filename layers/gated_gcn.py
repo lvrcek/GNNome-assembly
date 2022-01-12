@@ -111,13 +111,13 @@ class GatedGCN_1d(nn.Module):
         g.ndata['h'] = h
         g.edata['e'] = e
 
-        g.ndata['A1h'] = self.A_1(h).dtype(torch.float32)
-        g.ndata['A2h'] = self.A_2(h).dtype(torch.float32)
-        g.ndata['A3h'] = self.A_3(h).dtype(torch.float32)
+        g.ndata['A1h'] = self.A_1(h).type(torch.float32)
+        g.ndata['A2h'] = self.A_2(h).type(torch.float32)
+        g.ndata['A3h'] = self.A_3(h).type(torch.float32)
 
-        g.ndata['B1h'] = self.B_1(h).dtype(torch.float32)
-        g.ndata['B2h'] = self.B_2(h).dtype(torch.float32)
-        g.edata['B3e'] = self.B_3(e).dtype(torch.float32)
+        g.ndata['B1h'] = self.B_1(h).type(torch.float32)
+        g.ndata['B2h'] = self.B_2(h).type(torch.float32)
+        g.edata['B3e'] = self.B_3(e).type(torch.float32)
 
         g_reverse = dgl.reverse(g, copy_ndata=True, copy_edata=True)
 
@@ -235,13 +235,13 @@ class GatedGCN_backwards(nn.Module):
         g.ndata['h'] = h
         g.edata['e'] = e
 
-        g.ndata['A1h'] = self.A_1(h).dtype(torch.float32)
-        g.ndata['A2h'] = self.A_2(h).dtype(torch.float32)
-        g.ndata['A3h'] = self.A_3(h).dtype(torch.float32)
+        g.ndata['A1h'] = self.A_1(h).type(torch.float32)
+        g.ndata['A2h'] = self.A_2(h).type(torch.float32)
+        g.ndata['A3h'] = self.A_3(h).type(torch.float32)
 
-        g.ndata['B1h'] = self.B_1(h).dtype(torch.float32)
-        g.ndata['B2h'] = self.B_2(h).dtype(torch.float32)
-        g.edata['B3e'] = self.B_3(e).dtype(torch.float32)
+        g.ndata['B1h'] = self.B_1(h).type(torch.float32)
+        g.ndata['B2h'] = self.B_2(h).type(torch.float32)
+        g.edata['B3e'] = self.B_3(e).type(torch.float32)
 
         g_reverse = dgl.reverse(g, copy_ndata=True, copy_edata=True)
 
