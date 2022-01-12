@@ -212,16 +212,18 @@ class GatedGCN_backwards(nn.Module):
         if in_channels != out_channels:
             self.residual = False
 
-        self.A_1 = nn.Linear(in_channels, out_channels)
-        self.A_2 = nn.Linear(in_channels, out_channels)
-        self.A_3 = nn.Linear(in_channels, out_channels)
-        
-        self.B_1 = nn.Linear(in_channels, out_channels)
-        self.B_2 = nn.Linear(in_channels, out_channels)
-        self.B_3 = nn.Linear(in_channels, out_channels)
+        dtype = torch.float16
 
-        self.bn_h = nn.BatchNorm1d(out_channels)
-        self.bn_e = nn.BatchNorm1d(out_channels)
+        self.A_1 = nn.Linear(in_channels, out_channels, dtype=dtype)
+        self.A_2 = nn.Linear(in_channels, out_channels, dtype=dtype)
+        self.A_3 = nn.Linear(in_channels, out_channels, dtype=dtype)
+        
+        self.B_1 = nn.Linear(in_channels, out_channels, dtype=dtype)
+        self.B_2 = nn.Linear(in_channels, out_channels, dtype=dtype)
+        self.B_3 = nn.Linear(in_channels, out_channels, dtype=dtype)
+
+        self.bn_h = nn.BatchNorm1d(out_channels, dtype=dtype)
+        self.bn_e = nn.BatchNorm1d(out_channels, dtype=dtype)
 
     def forward(self, g, h, e):
         """Return updated node representations."""
