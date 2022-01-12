@@ -266,13 +266,6 @@ def dijkstra_gt(graph, neighbors, start, subset):
     return dist, parent
 
 
-def test_gt_dijkstra(graph, neighbors, predecessors):
-    # get components
-    # dijsktra on each component - where to start?
-    # find the longest path for each component
-    pass
-
-
 def dfs(graph, neighbors, start=None):
     # TODO: Take only those with in-degree 0
     if start is None:
@@ -371,107 +364,6 @@ def dfs_gt_another(graph, neighbors, preds):
     return final
 
 
-def dfs_gt_forwards(graph, neighbors, threshold):
-    # TODO: DEPRECATE
-    min_value, idx = torch.topk(graph.ndata['read_start'][graph.ndata['read_strand']==1], k=1, largest=False)
-    # assert graph.ndata['read_strand'][idx] == 1
-    start = idx.item()
-
-    threshold, _ = torch.topk(graph.ndata['read_start'][graph.ndata['read_strand']==1], k=1)
-    threshold = threshold.item() // 100 * 100
-
-    execution = deque()
-    walk = [start]
-    execution.append(walk)
-    max_reach = walk.copy()
-    time_start = datetime.now()
-
-    try:
-        while execution:
-            time_now = datetime.now()
-            if (time_now-time_start).seconds > 300:
-                print(graph.ndata['read_end'][max_reach[-1]])
-                # break
-            walk = execution.pop()
-            visited = set(walk)
-            last_node = walk[-1]
-            
-            if graph.ndata['read_end'][last_node] > graph.ndata['read_end'][max_reach[-1]]:
-                max_reach = walk.copy()
-
-            if len(neighbors[last_node]) == 0 and graph.ndata['read_end'][last_node] >= threshold:
-                break
-
-            tmp = []
-            for node in neighbors.get(last_node, []):
-                if node in visited:
-                    continue
-                if graph.ndata['read_strand'][node] == -1:
-                    continue
-                if graph.ndata['read_start'][node] > graph.ndata['read_end'][last_node]:
-                    continue
-                tmp.append(node)
-            
-            tmp.sort(key=lambda x: -graph.ndata['read_start'][x])
-            for node in tmp:
-                execution.append(walk + [node])
-
-        return max_reach
-    
-    except KeyboardInterrupt:
-        return max_reach
-
-
-def dfs_gt_backwards(graph, neighbors, threshold):
-    # TODO: DEPRECATE
-    max_value, idx = torch.topk(graph.ndata['read_start'][graph.ndata['read_strand']==-1], k=1)
-    # assert graph.ndata['read_strand'][idx] == -1
-    start = idx.item()
-    threshold, _ = torch.topk(graph.ndata['read_end'][graph.ndata['read_strand']==-1], k=1, largest=False)
-    threshold = threshold.item()
-
-    execution = deque()
-    walk = [start]
-    execution.append(walk)
-    max_reach = walk.copy()
-    time_start = datetime.now()
-
-    try:
-        while execution:
-            time_now = datetime.now()
-            if (time_now-time_start).seconds > 300:
-                print(graph.ndata['read_end'][max_reach[-1]])
-                # break
-            walk = execution.pop()
-            visited = set(walk)
-            last_node = walk[-1]
-
-            if graph.ndata['read_end'][last_node] < graph.ndata['read_end'][max_reach[-1]]:
-                max_reach = walk.copy()
-
-            if len(neighbors[last_node]) == 0 and graph.ndata['read_end'][last_node] <= threshold:
-                break
-
-            tmp = []
-            for node in neighbors.get(last_node, []):
-                if node in visited:
-                    continue
-                if graph.ndata['read_strand'][node] == 1:
-                    continue
-                if graph.ndata['read_start'][node] < graph.ndata['read_end'][last_node]:
-                    continue
-                tmp.append(node)
-
-            tmp.sort(key=lambda x: graph.ndata['read_start'][x])
-            for node in tmp:
-                execution.append(walk + [node])
-
-        return max_reach
-
-    except KeyboardInterrupt:
-        return max_reach
-
-
 def get_solutions_for_all(data_path, threshold=None):
     # TODO: Deprecate or fix to work with the new dfs
     processed_path = f'{data_path}/processed'
@@ -487,4 +379,4 @@ def get_solutions_for_all(data_path, threshold=None):
         preds = pickle.load(open(os.path.join(neighbors_path, idx + '_pred.pkl'), 'rb'))
         walks = dfs_gt_another(graph, neighbors, preds)
         # walk = dfs_gt_forwards(graph, neighbors, threshold=threshold)
-        pickle.dump(walk, open(os.path.join(solutions_path, idx + '_gt.pkl'), 'wb'))
+        pickle.dump(walks, open(os.path.join(solutions_path, idx + '_gt.pkl'), 'wb'))
