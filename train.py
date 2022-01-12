@@ -84,7 +84,7 @@ def load_checkpoint(out, model, optimizer):
     return epoch, model, optimizer, loss_train, loss_valid
 
 
-def process(model, graph, neighbors, reads, solution, edges, criterion, optimizer, epoch, norm, device):
+def process(model, graph, neighbors, reads, walks, edges, criterion, optimizer, epoch, norm, device):
     """Process the graph by predicting the correct next neighbor.
     
     A graph is processed by simulating a walk over it where the 
@@ -94,81 +94,87 @@ def process(model, graph, neighbors, reads, solution, edges, criterion, optimize
     """
     walk_length = get_hyperparameters()['walk_length']
 
+    per_walk_loss = []
+    per_walk_acc = []
+
     # TODO: This also assumes just one walk, should implement case if I have multiple (from each end-node)
-    ground_truth = {n1: n2 for n1, n2 in zip(solution[:-1], solution[1:])}
-    ground_truth[solution[-1]] = None
-    total_steps = len(solution) - 1
+    for solution in walks:
+        ground_truth = {n1: n2 for n1, n2 in zip(solution[:-1], solution[1:])}
+        ground_truth[solution[-1]] = None
+        total_steps = len(solution) - 1
 
-    if walk_length != -1:
-        num_mini_batches = total_steps // walk_length + 1
-    else:
-        num_mini_batches = 1
-
-    mini_batch_loss_list = []
-    mini_batch_acc_list= []
-
-    correct = 0
-
-    for mini_batch in range(num_mini_batches):
-
-        # TODO: How to implement this in case of multiple solution-walks. Maybe preprocessing?
-        start = mini_batch * walk_length
-
-        current = solution[start]
-
-        loss_list = []
-        total_loss = 0
-        steps = 0
-
-        # One forward pass per mini-batch
-        logits = model(graph, reads, norm)
-
-        while True:
-            if steps == walk_length or ground_truth[current] is None:
-                break
-            if len(neighbors[current]) == 1:
-                # TODO: This should probably increase the step counter, otherwise difficult to implement
-                current = neighbors[current][0]
-                continue
-
-            neighbor_edges = [edges[current, n] for n in neighbors[current]]
-            neighbor_logits = logits.squeeze(1)[neighbor_edges]
-            value, index = torch.topk(neighbor_logits, k=1, dim=0)
-            choice = neighbors[current][index]
-
-            best_neighbor = ground_truth[current]
-            best_idx = neighbors[current].index(best_neighbor)
-
-            # utils.print_prediction(walk, current, neighbors, neighbor_logits, choice, best_neighbor)
-
-            # Calculate loss
-            best_idx = torch.tensor([best_idx], dtype=torch.long, device=device)
-            loss = criterion(neighbor_logits.unsqueeze(0), best_idx)  # First squeeze, then unsqueeze - redundant?
-            loss_list.append(loss.item())
-            total_loss += loss
-
-            if choice == best_neighbor:
-                correct += 1
-            current = best_neighbor  # Teacher forcing
-            steps += 1
-
-        # TODO: Total loss should never be 0
-        if model.training and total_loss > 0:
-            total_loss /= steps
-            optimizer.zero_grad()
-            total_loss.backward()  # Backprop averaged (summed) losses
-            optimizer.step()
-
-        if len(loss_list) == 0:
-            continue
+        if walk_length != -1:
+            num_mini_batches = total_steps // walk_length + 1
         else:
-            # accuracy = correct / steps
-            mini_batch_loss_list.append(np.mean(loss_list))
-            # mini_batch_acc_list.append(accuracy)
+            num_mini_batches = 1
+
+        mini_batch_loss_list = []
+        mini_batch_acc_list= []
+
+        correct = 0
+
+        for mini_batch in range(num_mini_batches):
+
+            # TODO: How to implement this in case of multiple solution-walks. Maybe preprocessing?
+            start = mini_batch * walk_length
+            current = solution[start]
+
+            loss_list = []
+            total_loss = 0
+            steps = 0
+
+            # One forward pass per mini-batch
+            logits = model(graph, reads, norm)
+
+            while True:
+                if steps == walk_length or ground_truth[current] is None:
+                    break
+                if len(neighbors[current]) == 1:
+                    # TODO: This should probably increase the step counter, otherwise difficult to implement
+                    current = neighbors[current][0]
+                    continue
+
+                neighbor_edges = [edges[current, n] for n in neighbors[current]]
+                neighbor_logits = logits.squeeze(1)[neighbor_edges]
+                value, index = torch.topk(neighbor_logits, k=1, dim=0)
+                choice = neighbors[current][index]
+
+                best_neighbor = ground_truth[current]
+                best_idx = neighbors[current].index(best_neighbor)
+
+                # utils.print_prediction(walk, current, neighbors, neighbor_logits, choice, best_neighbor)
+
+                # Calculate loss
+                best_idx = torch.tensor([best_idx], dtype=torch.long, device=device)
+                loss = criterion(neighbor_logits.unsqueeze(0), best_idx)  # First squeeze, then unsqueeze - redundant?
+                loss_list.append(loss.item())
+                total_loss += loss
+
+                if choice == best_neighbor:
+                    correct += 1
+                current = best_neighbor  # Teacher forcing
+                steps += 1
+
+            # TODO: Total loss should never be 0
+            if model.training and total_loss > 0:
+                total_loss /= steps
+                optimizer.zero_grad()
+                total_loss.backward()  # Backprop averaged (summed) losses
+                optimizer.step()
+
+            if len(loss_list) == 0:
+                continue
+            else:
+                # accuracy = correct / steps
+                mini_batch_loss_list.append(np.mean(loss_list))
+                # mini_batch_acc_list.append(accuracy)
+
+        per_walk_loss.append(mini_batch_loss_list)
+        per_walk_acc.append(correct / total_steps)
 
     # accuracy = np.mean(mini_batch_acc_list)
-    accuracy = correct / total_steps
-    return mini_batch_loss_list, accuracy
+    # accuracy = correct / total_steps
+    return per_walk_loss, per_walk_acc
 
 
 def process_reads(reads, device):
@@ -287,10 +293,10 @@ def train(args):
                     solution = utils.get_walk(idx, data_path)  # TODO: This implies there is only 1 walk
 
                     utils.print_graph_info(idx, graph)
-                    loss_list, accuracy = process(model, graph, succ, reads, solution, edges, criterion, optimizer, epoch, norm_train, device=device)
+                    loss_list, accuracy_list = process(model, graph, succ, reads, solution, edges, criterion, optimizer, epoch, norm_train, device=device)
                     if loss_list is not None:
                         loss_per_graph.append(np.mean(loss_list))
-                        accuracy_per_graph.append(accuracy)
+                        accuracy_per_graph.append(np.mean(accuracy_list))
 
                     elapsed = utils.timedelta_to_str(datetime.now() - time_start)
                     print(f'Processing graph {idx} done. Elapsed time: {elapsed}')
@@ -348,10 +354,10 @@ def train(args):
                             solution = utils.get_walk(idx, data_path)
 
                             utils.print_graph_info(idx, graph)
-                            loss_list, accuracy = process(model, graph, succ, reads, solution, edges, criterion, optimizer, epoch, norm_valid, device=device)
+                            loss_list, accuracy_list = process(model, graph, succ, reads, solution, edges, criterion, optimizer, epoch, norm_valid, device=device)
                             if loss_list is not None:
                                 loss_per_graph.append(np.mean(loss_list))
-                                accuracy_per_graph.append(accuracy)
+                                accuracy_per_graph.append(np.mean(accuracy_list))
 
                             elapsed = utils.timedelta_to_str(datetime.now() - time_start)
                             print(f'Processing graph {idx} done. Elapsed time: {elapsed}')
@@ -418,13 +424,13 @@ def train(args):
                         solution = utils.get_walk(idx, data_path)
 
                         utils.print_graph_info(idx, graph)
-                        loss_list, accuracy = process(best_model, graph, succ, reads, solution, edges, criterion, optimizer, epoch, norm_test, device=device)
-                        test_accuracy.append(accuracy)
+                        loss_list, accuracy_list = process(best_model, graph, succ, reads, solution, edges, criterion, optimizer, epoch, norm_test, device=device)
+                        test_accuracy.append(np.mean(accuracy_list))
 
                         try:
-                            wandb.log({'test_graph': idx, 'test_accuracy': accuracy}, step=i)
+                            wandb.log({'test_graph': idx, 'test_accuracy': np.mean(accuracy_list)}, step=i)
                         except Exception:
-                            print(f'test_graph: {idx}, test_accuracy: {accuracy}')
+                            print(f'test_graph: {idx}, test_accuracy: {np.mean(accuracy_list)}')
                             pass
 
                     test_accuracy = np.mean(test_accuracy)
