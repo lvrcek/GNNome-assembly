@@ -80,6 +80,8 @@ class NonAutoRegressive(nn.Module):
         e_b = e.clone()
         for conv in self.layers:
             h, e = conv(graph, h, e)
+            h = h.type(torch.float16)
+            e = e.type(torch.float16)
         p = self.decoder(graph, h, e_f, e_b)
         return p
 

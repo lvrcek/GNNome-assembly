@@ -267,7 +267,7 @@ def train(args):
     print(f'Loading data done. Elapsed time: {elapsed}')
 
     try:
-        with wandb.init(project="assembly-walk", config=hyperparameters):
+        with wandb.init(project="assembly-walk-icml", config=hyperparameters):
             wandb.watch(model, criterion, log='all', log_freq=1)
 
             patience = 0
