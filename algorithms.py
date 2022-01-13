@@ -9,6 +9,31 @@ import dgl
 import torch
 
 
+def greedy(graph, start, neighbors, preds, edges):
+
+    visited = set()
+    current = start
+    walk = []
+
+    while current is not None:
+        if current in visited:
+            break
+        walk.append(current)
+        visited.add(current)
+        visited.add(current ^ 1)
+        if len(neighbors[current]) == 0:
+            break
+        if len(neighbors[current]) == 1:
+            current = neighbors[current][0]
+            continue
+        neighbor_edges = [edges[(current, n)] for n in neighbors[current]]
+        neighbor_lengths = graph.edata['overlap_length'][neighbor_edges]
+        _, index = torch.topk(neighbor_lengths, k=1, dim=0)
+        current = neighbors[current][index]
+
+    return walk
+
+
 def baseline(graph, start, neighbors, preds, edges):
 
     starts = [k for k,v in preds.items() if len(v)==0 and graph.ndata['read_strand'][k]==1]

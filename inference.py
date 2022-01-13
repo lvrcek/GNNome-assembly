@@ -13,10 +13,9 @@ from utils import load_graph_data
 
 def predict(model, graph, pred, neighbors, reads, edges):
     starts = [k for k,v in pred.items() if len(v)==0 and graph.ndata['read_strand'][k]==1]
-    # TODO: This already returns all the possible walks, I just need to refine it
     
     components = algorithms.get_components(graph, neighbors, pred)
-    components = [c for c in components if len(c) >= 10]
+    # components = [c for c in components if len(c) >= 10]  # For some reason components are not split properly so I should leave this line out
     components = sorted(components, key=lambda x: -len(x))
     walks = []
 
@@ -25,8 +24,9 @@ def predict(model, graph, pred, neighbors, reads, edges):
     for i, component in enumerate(components):
         try:
             start_nodes = [node for node in component if len(pred[node]) == 0 and graph.ndata['read_strand'][node] == 1]
-            start = min(start_nodes, key=lambda x: graph.ndata['read_start'][x])
+            start = min(start_nodes, key=lambda x: graph.ndata['read_start'][x])  # TODO: Wait a sec, 'read_start' shouldn't be used!!
             walk = decode(neighbors, edges, start, logits)
+            walks.append(walk)
         except ValueError:
             # Negative strand
             # TODO: Solve later
