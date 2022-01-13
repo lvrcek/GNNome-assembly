@@ -224,11 +224,11 @@ def train(args):
     if 'train' in os.listdir(data_path) and 'valid' in os.listdir(data_path):
         ds_train = AssemblyGraphDataset(os.path.join(data_path, 'train'))
         ds_valid = AssemblyGraphDataset(os.path.join(data_path, 'valid'))
-        # ds_test = AssemblyGraphDataset(os.path.join(data_path, 'test'))
+        ds_test = AssemblyGraphDataset(os.path.join(data_path, 'test'))
         dl_train = GraphDataLoader(ds_train, batch_size=batch_size, shuffle=True)
         dl_valid = GraphDataLoader(ds_valid, batch_size=batch_size, shuffle=False)
-        # dl_test = GraphDataLoader(ds_test, batch_size=batch_size, shuffle=False)
-        num_graphs = len(ds_train) + len(ds_valid)
+        dl_test = GraphDataLoader(ds_test, batch_size=batch_size, shuffle=False)
+        num_graphs = len(ds_train) + len(ds_valid)  # ???
 
     else:
         ds = AssemblyGraphDataset(data_path)
