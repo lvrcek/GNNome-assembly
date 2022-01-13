@@ -134,7 +134,7 @@ def interval_union(name, root):
 
 
 def bfs_visit(graph, neighbors, start, all_visited):
-    # Get al the nodes in the component, regardless of the strand
+    """Get al the nodes in the component, regardless of the strand."""
     queue = deque()
     queue.append(start)
     visited = set()
@@ -196,7 +196,7 @@ def get_components(graph, neighbors, preds):
             if changes:
                 break
 
-#    # Atempt to solve an issue with repeating components
+#    # Attempt to solve an issue with repeating components
 #    threshold = len(components)
 #    num_iter = 0
 #    while changes or num_iter < threshold:
@@ -242,28 +242,28 @@ def get_components(graph, neighbors, preds):
     return components
 
 
-def dijkstra_gt(graph, neighbors, start, subset):
-    # Here I should take into account strands and reference info
-    # Start = obviously the 0 in-degree node with lowest read-start position
-    # Take the nodes 1 by 1, but only the positive strand and only those that have a reference-overlap
-    dist = {}
-    parent = {}
-    subset = set([node for node in subset if graph.ndata['read_strand'][node] == 1])
-    for node in subset:
-        # dist[node] = math.inf
-        dist[node] = -1
-        parent[node] = None
-    dist[start] = 0
-    while subset:
-        # u = min([dist[v] for v in subset])
-        u = max([dist[v] for v in subset])
-        subset.remove(u)
-        for v in (set(neighbors[u]) & subset):
-            alt = dist[u] + 1
-            if alt > dist[v]:
-                dist[v] = alt
-                parent[v] = u
-    return dist, parent
+# def dijkstra_gt(graph, neighbors, start, subset):
+#     # Here I should take into account strands and reference info
+#     # Start = obviously the 0 in-degree node with lowest read-start position
+#     # Take the nodes 1 by 1, but only the positive strand and only those that have a reference-overlap
+#     dist = {}
+#     parent = {}
+#     subset = set([node for node in subset if graph.ndata['read_strand'][node] == 1])
+#     for node in subset:
+#         # dist[node] = math.inf
+#         dist[node] = -1
+#         parent[node] = None
+#     dist[start] = 0
+#     while subset:
+#         # u = min([dist[v] for v in subset])
+#         u = max([dist[v] for v in subset])
+#         subset.remove(u)
+#         for v in (set(neighbors[u]) & subset):
+#             alt = dist[u] + 1
+#             if alt > dist[v]:
+#                 dist[v] = alt
+#                 parent[v] = u
+#     return dist, parent
 
 
 def dfs(graph, neighbors, start=None):
@@ -313,15 +313,11 @@ def dfs(graph, neighbors, start=None):
                 stack.append(node)
                 path[node] = current
 
-        walk = []
-        current = max_node
-        while current is not None:
-            walk.append(current)
-            current = path[current]
-        walk.reverse()
-        return walk
-
     except KeyboardInterrupt:
+        print("DFS takes too long... Interrupting...")
+        pass
+    
+    finally:
         walk = []
         current = max_node
         while current is not None:
@@ -347,16 +343,17 @@ def dfs_gt_another(graph, neighbors, preds):
         except ValueError:
             # len(start_nodes) == 0
             # Means it's a negative-strand component, neglect for now
+            # TODO: Solve later
             print(f'Component {i}: passed')
             pass
-    # What then? Multiple walks per graph - not an issue, just fix the training loop to work that way
-    # Test this thing first
 
     walks = sorted(walks, key=lambda x: -len(x))
     final = [walks[0]]
     if len(walks) > 1:
         all_nodes = set(walks[0])
         for w in walks[1:]:
+            if len(w) < 10:
+                continue
             if len(set(w) & all_nodes) == 0:
                 final.append(w)
                 all_nodes = all_nodes | set(w)
@@ -365,7 +362,6 @@ def dfs_gt_another(graph, neighbors, preds):
 
 
 def get_solutions_for_all(data_path, threshold=None):
-    # TODO: Deprecate or fix to work with the new dfs
     processed_path = f'{data_path}/processed'
     neighbors_path = f'{data_path}/info'
     solutions_path = f'{data_path}/solutions'

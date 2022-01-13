@@ -14,38 +14,64 @@ from utils import load_graph_data
 def predict(model, graph, pred, neighbors, reads, edges):
     starts = [k for k,v in pred.items() if len(v)==0 and graph.ndata['read_strand'][k]==1]
     # TODO: This already returns all the possible walks, I just need to refine it
-    best_walks = []
-    for start in starts:
-        current = start
-        visited = set()
-        walk = []
+    
+    components = algorithms.get_components(graph, neighbors, pred)
+    components = [c for c in components if len(c) >= 10]
+    components = sorted(components, key=lambda x: -len(x))
+    walks = []
 
-        logits = model(graph, reads)
-        print('Finding optimal walk!')
+    logits = model(graph, reads)
 
-        while True:
-            if current in visited:
-                break
-            walk.append(current)
-            visited.add(current)
-            visited.add(current ^ 1)
-            if len(neighbors[current]) == 0:
-                break
-            if len(neighbors[current]) == 1:
-                current = neighbors[current][0]
+    for i, component in enumerate(components):
+        try:
+            start_nodes = [node for node in component if len(pred[node]) == 0 and graph.ndata['read_strand'][node] == 1]
+            start = min(start_nodes, key=lambda x: graph.ndata['read_start'][x])
+            walk = decode(neighbors, edges, start, logits)
+        except ValueError:
+            # Negative strand
+            # TODO: Solve later
+            pass
+
+    walks = sorted(walks, key=lambda x: -len(x))
+    final = [walks[0]]
+
+    if len(walks) > 1:
+        all_nodes = set(walks[0])
+        for w in walks[1:]:
+            if len(w) < 10:
                 continue
+            if len(set(w) & all_nodes) == 0:
+                final.append(w)
+                all_nodes = all_nodes | set(w)
 
-            neighbor_edges = [edges[current, n] for n in neighbors[current]]
-            neighbor_logits = logits.squeeze(1)[neighbor_edges]
+    return final
 
-            _, index = torch.topk(neighbor_logits, k=1, dim=0)
-            choice = neighbors[current][index]
-            current = choice
 
-        best_walks.append(walk.copy())
+def decode(neighbors, edges, start, logits):
+    current = start
+    visited = set()
+    walk = []
 
-    sorted(best_walks, key=lambda x: len(x))
-    return best_walks[0]
+    while True:
+        if current in visited:
+            break
+        walk.append(current)
+        visited.add(current)
+        visited.add(current ^ 1)
+        if len(neighbors[current]) == 0:
+            break
+        if len(neighbors[current]) == 1:
+            current = neighbors[current][0]
+            continue
+
+        neighbor_edges = [edges[current, n] for n in neighbors[current]]
+        neighbor_logits = logits.squeeze(1)[neighbor_edges]
+
+        _, index = torch.topk(neighbor_logits, k=1, dim=0)
+        choice = neighbors[current][index]
+        current = choice
+
+    return walk
 
 
 def inference(model_path=None, data_path=None):
