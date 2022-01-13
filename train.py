@@ -99,6 +99,8 @@ def process(model, graph, neighbors, reads, walks, edges, criterion, optimizer, 
 
     # TODO: This also assumes just one walk, should implement case if I have multiple (from each end-node)
     for solution in walks:
+        if len(solution) < 10:
+            continue
         ground_truth = {n1: n2 for n1, n2 in zip(solution[:-1], solution[1:])}
         ground_truth[solution[-1]] = None
         total_steps = len(solution) - 1

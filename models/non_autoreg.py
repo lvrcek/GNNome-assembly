@@ -65,7 +65,7 @@ class NonAutoRegressive(nn.Module):
             h = torch.ones((graph.num_nodes(), 1), dtype=torch.float16).to(self.hyperparams['device'])
             h = self.node_encoder(h)
         else:
-            h = torch.ones((graph.num_nodes(), self.hyperparams['dim_latent']), dtype=torch.float16).to(self.hyperparams['device'])
+            h = torch.ones((graph.num_nodes(), self.hyperparams['dim_latent'])).to(self.hyperparams['device'])
         # h = h.type(torch.float16)
 
         # norm = self.hyperparams['norm']
