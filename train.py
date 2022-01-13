@@ -252,8 +252,9 @@ def train(args):
     best_model.eval()
 
     # TODO: For full chromosomes, this will probalby be too large to store in memory
-    info_all_train = utils.load_graph_data(num_graphs, data_path+'/train', use_reads)
-    info_all_valid = utils.load_graph_data(num_graphs, data_path+'/valid', use_reads)
+    # info_all = utils.load_graph_data(num_graphs, data_path, use_reads)
+    info_all_train = utils.load_graph_data(len(ds_train), data_path+'/train', use_reads)
+    info_all_valid = utils.load_graph_data(len(ds_valid), data_path+'/valid', use_reads)
 
     # Normalization of the training set
     normalize_tensor = torch.cat([graph.edata['overlap_length'] for _, graph in dl_train]).float()
