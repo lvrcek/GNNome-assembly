@@ -304,7 +304,8 @@ def train(args):
                     graph = graph.to(device)
                     if use_reads:
                         reads = process_reads(reads, device)
-                    solution = utils.get_walks(idx, data_path)
+                    # solution = utils.get_walks(idx, data_path)
+                    solution = utils.get_walks(idx, data_path + '/train')
 
                     utils.print_graph_info(idx, graph)
                     loss_list, accuracy_list = process(model, graph, succ, reads, solution, edges, criterion, optimizer, epoch, norm_train, device=device)
@@ -365,7 +366,8 @@ def train(args):
                             graph = graph.to(device)
                             if use_reads:
                                 reads = process_reads(reads, device)
-                            solution = utils.get_walks(idx, data_path)
+                            # solution = utils.get_walks(idx, data_path)
+                            solution = utils.get_walks(idx, data_path + '/valid')
 
                             utils.print_graph_info(idx, graph)
                             loss_list, accuracy_list = process(model, graph, succ, reads, solution, edges, criterion, optimizer, epoch, norm_valid, device=device)
