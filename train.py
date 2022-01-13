@@ -252,7 +252,8 @@ def train(args):
     best_model.eval()
 
     # TODO: For full chromosomes, this will probalby be too large to store in memory
-    info_all = utils.load_graph_data(num_graphs, data_path, use_reads)
+    info_all_train = utils.load_graph_data(num_graphs, data_path+'/train', use_reads)
+    info_all_valid = utils.load_graph_data(num_graphs, data_path+'/valid', use_reads)
 
     # Normalization of the training set
     normalize_tensor = torch.cat([graph.edata['overlap_length'] for _, graph in dl_train]).float()
@@ -298,7 +299,7 @@ def train(args):
                 loss_per_graph = []
                 accuracy_per_graph = []
                 for data in tqdm(dl_train):
-                    idx, graph, pred, succ, reads, edges = utils.unpack_data(data, info_all, use_reads)
+                    idx, graph, pred, succ, reads, edges = utils.unpack_data(data, info_all_train, use_reads)
                     graph = graph.to(device)
                     if use_reads:
                         reads = process_reads(reads, device)
@@ -359,7 +360,7 @@ def train(args):
                         loss_per_graph = []
                         accuracy_per_graph = []
                         for data in dl_valid:
-                            idx, graph, pred, succ, reads, edges = utils.unpack_data(data, info_all, use_reads)
+                            idx, graph, pred, succ, reads, edges = utils.unpack_data(data, info_all_valid, use_reads)
                             graph = graph.to(device)
                             if use_reads:
                                 reads = process_reads(reads, device)
