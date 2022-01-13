@@ -221,9 +221,19 @@ def train(args):
     eval = args.eval
 
     # Get the dataloaders
-    ds = AssemblyGraphDataset(data_path)
-    dl_train, dl_valid, dl_test = get_dataloaders(ds, batch_size, eval, ratio=0.2)
-    num_graphs = len(ds)
+    if 'train' in os.listdir(data_path) and 'valid' in os.listdir(data_path):
+        ds_train = AssemblyGraphDataset(os.path.join(data_path, 'train'))
+        ds_valid = AssemblyGraphDataset(os.path.join(data_path, 'valid'))
+        # ds_test = AssemblyGraphDataset(os.path.join(data_path, 'test'))
+        dl_train = GraphDataLoader(ds_train, batch_size=batch_size, shuffle=True)
+        dl_valid = GraphDataLoader(ds_valid, batch_size=batch_size, shuffle=False)
+        # dl_test = GraphDataLoader(ds_test, batch_size=batch_size, shuffle=False)
+        num_graphs = len(ds_train) + len(ds_valid)
+
+    else:
+        ds = AssemblyGraphDataset(data_path)
+        dl_train, dl_valid, dl_test = get_dataloaders(ds, batch_size, eval, ratio=0.2)
+        num_graphs = len(ds)
 
     overfit = num_graphs == 1
 
@@ -413,7 +423,7 @@ def train(args):
                 print("W&B Error: Did not save the model.onnx")
 
             # --- Testing ---
-            if not overfit:
+            if not overfit and False:  # No testing needed now
                 with torch.no_grad():
                     test_accuracy = []
                     print('TESTING')
