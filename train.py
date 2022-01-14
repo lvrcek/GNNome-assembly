@@ -162,11 +162,14 @@ def process(model, graph, neighbors, reads, walks, edges, criterion, optimizer, 
             if model.training and total_loss > 0:
                 total_loss /= steps
                 optimizer.zero_grad()
-                total_loss.backward()  # Backprop averaged (summed) losses for one mini-walk
-                optimizer.step()
-                scaler.scale(total_loss).backward()
-                scaler.step(optimizer)
-                scaler.update()
+                if use_amp:
+                    scaler.scale(total_loss).backward()
+                    scaler.step(optimizer)
+                    scaler.update()
+                else:
+                    total_loss.backward()  # Backprop averaged (summed) losses for one mini-walk
+                    optimizer.step()
+
 
             if len(loss_list) == 0:
                 continue
