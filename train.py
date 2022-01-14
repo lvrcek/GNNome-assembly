@@ -2,6 +2,7 @@ import argparse
 from datetime import datetime
 import copy
 import os
+from posixpath import split
 
 from tqdm import tqdm
 import numpy as np
@@ -19,7 +20,7 @@ import models
 import utils
 
 
-def get_dataloaders(ds, batch_size, eval, ratio):
+def get_dataloaders(ds, batch_size, is_eval, ratio):
     """Load the dataset and initialize dataloaders.
 
     Given a path to data, first an AssemblyGraphDataset is initialized.
@@ -32,7 +33,7 @@ def get_dataloaders(ds, batch_size, eval, ratio):
         Path to directory where the graphs are stored
     batch_size : int
         Size of a batch for the dataloaders
-    eval : bool
+    is_eval : bool
         True if only the evaluation perfomed and training is skipped
     ratio : float
         Ratio how to split the dataset into train/valid/test datasets
@@ -40,13 +41,13 @@ def get_dataloaders(ds, batch_size, eval, ratio):
     Returns
     -------
     torch.DataLoader
-        a dataloader for the training set, None if eval
+        a dataloader for the training set, None if is_eval
     torch.DataLoader
-        a dataloader for the validation set, None if eval
+        a dataloader for the validation set, None if is_eval
     torch.DataLoader
         a dataloader for the testing set
     """
-    if eval:
+    if is_eval:
         dl_train, dl_valid = None, None
         dl_test = GraphDataLoader(ds, batch_size=batch_size, shuffle=False)
     else:
@@ -218,10 +219,11 @@ def train(args):
     timestamp = time_start.strftime('%Y-%b-%d-%H-%M-%S')
     data_path = os.path.abspath(args.data)
     out = args.out if args.out is not None else timestamp
-    eval = args.eval
+    is_eval = args.eval
+    is_split = args.split
 
     # Get the dataloaders
-    if 'train' in os.listdir(data_path) and 'valid' in os.listdir(data_path):
+    if is_split:
         ds_train = AssemblyGraphDataset(os.path.join(data_path, 'train'))
         ds_valid = AssemblyGraphDataset(os.path.join(data_path, 'valid'))
         ds_test = AssemblyGraphDataset(os.path.join(data_path, 'test'))
@@ -229,10 +231,9 @@ def train(args):
         dl_valid = GraphDataLoader(ds_valid, batch_size=batch_size, shuffle=False)
         dl_test = GraphDataLoader(ds_test, batch_size=batch_size, shuffle=False)
         num_graphs = len(ds_train) + len(ds_valid)  # ???
-
     else:
         ds = AssemblyGraphDataset(data_path)
-        dl_train, dl_valid, dl_test = get_dataloaders(ds, batch_size, eval, ratio=0.2)
+        dl_train, dl_valid, dl_test = get_dataloaders(ds, batch_size, is_eval, ratio=0.2)
         num_graphs = len(ds)
 
     overfit = num_graphs == 1
@@ -252,9 +253,11 @@ def train(args):
     best_model.eval()
 
     # TODO: For full chromosomes, this will probalby be too large to store in memory
-    # info_all = utils.load_graph_data(num_graphs, data_path, use_reads)
-    info_all_train = utils.load_graph_data(len(ds_train), data_path+'/train', use_reads)
-    info_all_valid = utils.load_graph_data(len(ds_valid), data_path+'/valid', use_reads)
+    if is_split:
+        info_all_train = utils.load_graph_data(len(ds_train), data_path+'/train', use_reads)
+        info_all_valid = utils.load_graph_data(len(ds_valid), data_path+'/valid', use_reads)
+    else:
+        info_all = utils.load_graph_data(num_graphs, data_path, use_reads)
 
     # Normalization of the training set
     normalize_tensor = torch.cat([graph.edata['overlap_length'] for _, graph in dl_train]).float()
@@ -306,8 +309,10 @@ def train(args):
                     graph = graph.to(device)
                     if use_reads:
                         reads = process_reads(reads, device)
-                    # solution = utils.get_walks(idx, data_path)
-                    solution = utils.get_walks(idx, data_path + '/train')
+                    if is_split:
+                        solution = utils.get_walks(idx, data_path + '/train')
+                    else:
+                        solution = utils.get_walks(idx, data_path)
 
                     utils.print_graph_info(idx, graph)
                     loss_list, accuracy_list = process(model, graph, succ, reads, solution, edges, criterion, optimizer, scaler, epoch, norm_train, device=device)
@@ -368,8 +373,10 @@ def train(args):
                             graph = graph.to(device)
                             if use_reads:
                                 reads = process_reads(reads, device)
-                            # solution = utils.get_walks(idx, data_path)
-                            solution = utils.get_walks(idx, data_path + '/valid')
+                            if is_split:
+                                solution = utils.get_walks(idx, data_path + '/valid')
+                            else:
+                                solution = utils.get_walks(idx, data_path)
 
                             utils.print_graph_info(idx, graph)
                             loss_list, accuracy_list = process(model, graph, succ, reads, solution, edges, criterion, optimizer, scaler, epoch, norm_valid, device=device)
@@ -439,7 +446,10 @@ def train(args):
                         graph = graph.to(device)
                         if use_reads:
                             reads = process_reads(reads, device)
-                        solution = utils.get_walks(idx, data_path)
+                        if is_split:
+                            solution = utils.get_walks(idx, data_path + '/test')
+                        else:
+                            solution = utils.get_walks(idx, data_path)
 
                         utils.print_graph_info(idx, graph)
                         loss_list, accuracy_list = process(best_model, graph, succ, reads, solution, edges, criterion, optimizer, scaler, epoch, norm_test, device=device)
@@ -466,8 +476,9 @@ def train(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data', type=str, default='data/train', help='path to directory with training data')
+    parser.add_argument('--data', type=str, default='data/train', help='Path to directory with training data')
     parser.add_argument('--out', type=str, default=None, help='Output name for figures and models')
     parser.add_argument('--eval', action='store_true')
+    parser.add_argument('--split', action='store_true', default=False, help='Is the dataset already split into train/valid/test')
     args = parser.parse_args()
     train(args)
