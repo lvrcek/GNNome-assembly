@@ -305,7 +305,10 @@ def train(args):
                 loss_per_graph = []
                 accuracy_per_graph = []
                 for data in tqdm(dl_train):
-                    idx, graph, pred, succ, reads, edges = utils.unpack_data(data, info_all_train, use_reads)
+                    if is_split:
+                        idx, graph, pred, succ, reads, edges = utils.unpack_data(data, info_all_train, use_reads)
+                    else:
+                        idx, graph, pred, succ, reads, edges = utils.unpack_data(data, info_all, use_reads)
                     graph = graph.to(device)
                     if use_reads:
                         reads = process_reads(reads, device)
@@ -369,7 +372,10 @@ def train(args):
                         loss_per_graph = []
                         accuracy_per_graph = []
                         for data in dl_valid:
-                            idx, graph, pred, succ, reads, edges = utils.unpack_data(data, info_all_valid, use_reads)
+                            if is_split:
+                                idx, graph, pred, succ, reads, edges = utils.unpack_data(data, info_all_valid, use_reads)
+                            else:
+                                idx, graph, pred, succ, reads, edges = utils.unpack_data(data, info_all, use_reads)
                             graph = graph.to(device)
                             if use_reads:
                                 reads = process_reads(reads, device)
