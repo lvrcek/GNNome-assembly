@@ -117,7 +117,6 @@ def process(model, graph, neighbors, reads, walks, edges, criterion, optimizer, 
 
         for mini_batch in range(num_mini_batches):
 
-            # TODO: How to implement this in case of multiple solution-walks. Maybe preprocessing?
             start = mini_batch * walk_length
             current = solution[start]
 
@@ -132,7 +131,6 @@ def process(model, graph, neighbors, reads, walks, edges, criterion, optimizer, 
                 if steps == walk_length or ground_truth[current] is None:
                     break
                 if len(neighbors[current]) == 1:
-                    # TODO: This should probably increase the step counter, otherwise difficult to implement
                     current = neighbors[current][0]
                     continue
 
@@ -161,21 +159,19 @@ def process(model, graph, neighbors, reads, walks, edges, criterion, optimizer, 
             if model.training and total_loss > 0:
                 total_loss /= steps
                 optimizer.zero_grad()
-                total_loss.backward()  # Backprop averaged (summed) losses
+                total_loss.backward()  # Backprop averaged (summed) losses for one mini-walk
                 optimizer.step()
 
             if len(loss_list) == 0:
                 continue
             else:
                 # accuracy = correct / steps
-                mini_batch_loss_list.append(np.mean(loss_list))
+                mini_batch_loss_list.append(np.mean(loss_list))  # List of mean loss per mini-walk
                 # mini_batch_acc_list.append(accuracy)
 
-        per_walk_loss.append(mini_batch_loss_list)
-        per_walk_acc.append(correct / total_steps)
+        per_walk_loss.append(np.mean(mini_batch_loss_list))  # List of mean loss per solution-walk
+        per_walk_acc.append(correct / total_steps)  # List of accuracies per solution-walk
 
-    # accuracy = np.mean(mini_batch_acc_list)
-    # accuracy = correct / total_steps
     return per_walk_loss, per_walk_acc
 
 
