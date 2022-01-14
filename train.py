@@ -94,6 +94,7 @@ def process(model, graph, neighbors, reads, walks, edges, criterion, optimizer, 
     The list of losses and accuracy for the given graph are returned.
     """
     walk_length = get_hyperparameters()['walk_length']
+    use_amp = get_hyperparameters()['use_amp']
 
     per_walk_loss = []
     per_walk_acc = []
@@ -126,7 +127,7 @@ def process(model, graph, neighbors, reads, walks, edges, criterion, optimizer, 
             steps = 0
 
             # One forward pass per mini-batch
-            with torch.cuda.amp.autocast():
+            with torch.cuda.amp.autocast(enabled=use_amp):
                 logits = model(graph, reads, norm)
 
                 while True:
@@ -212,6 +213,7 @@ def train(args):
     learning_rate = hyperparameters['lr']
     device = hyperparameters['device']
     use_reads = hyperparameters['use_reads']
+    use_amp = hyperparameters['use_amp']
 
     utils.set_seed(seed)
 
