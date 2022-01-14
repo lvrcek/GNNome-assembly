@@ -9,7 +9,7 @@ def get_hyperparameters():
         'num_gnn_layers': 8,
         'batch_size': 1,
         'patience_limit': 5,
-        'device': 'cuda:5' if torch.cuda.is_available() else 'cpu',
+        'device': 'cuda:7' if torch.cuda.is_available() else 'cpu',
         'lr': 1e-5,
         'walk_length': 10,
         'bias': False,
@@ -17,4 +17,5 @@ def get_hyperparameters():
         'encode': 'none',
         'norm': 'all',
         'use_reads': False,
+        'use_amp': False,
     }
