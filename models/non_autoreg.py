@@ -62,7 +62,7 @@ class NonAutoRegressive(nn.Module):
         if self.encode == 'sequence' and use_reads:
             h = self.seq_encoder(reads)
         elif self.encode == 'node':
-            h = torch.ones((graph.num_nodes(), 1), dtype=torch.float16).to(self.hyperparams['device'])
+            h = torch.ones((graph.num_nodes(), 1)).to(self.hyperparams['device'])
             h = self.node_encoder(h)
         else:
             h = torch.ones((graph.num_nodes(), self.hyperparams['dim_latent'])).to(self.hyperparams['device'])

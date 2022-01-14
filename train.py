@@ -84,7 +84,7 @@ def load_checkpoint(out, model, optimizer):
     return epoch, model, optimizer, loss_train, loss_valid
 
 
-def process(model, graph, neighbors, reads, walks, edges, criterion, optimizer, epoch, norm, device):
+def process(model, graph, neighbors, reads, walks, edges, criterion, optimizer, scaler, epoch, norm, device):
     """Process the graph by predicting the correct next neighbor.
     
     A graph is processed by simulating a walk over it where the 
@@ -125,35 +125,36 @@ def process(model, graph, neighbors, reads, walks, edges, criterion, optimizer, 
             steps = 0
 
             # One forward pass per mini-batch
-            logits = model(graph, reads, norm)
+            with torch.cuda.amp.autocast():
+                logits = model(graph, reads, norm)
 
-            while True:
-                if steps == walk_length or ground_truth[current] is None:
-                    break
-                if len(neighbors[current]) == 1:
-                    current = neighbors[current][0]
-                    continue
+                while True:
+                    if steps == walk_length or ground_truth[current] is None:
+                        break
+                    if len(neighbors[current]) == 1:
+                        current = neighbors[current][0]
+                        continue
 
-                neighbor_edges = [edges[current, n] for n in neighbors[current]]
-                neighbor_logits = logits.squeeze(1)[neighbor_edges]
-                value, index = torch.topk(neighbor_logits, k=1, dim=0)
-                choice = neighbors[current][index]
+                    neighbor_edges = [edges[current, n] for n in neighbors[current]]
+                    neighbor_logits = logits.squeeze(1)[neighbor_edges]
+                    value, index = torch.topk(neighbor_logits, k=1, dim=0)
+                    choice = neighbors[current][index]
 
-                best_neighbor = ground_truth[current]
-                best_idx = neighbors[current].index(best_neighbor)
+                    best_neighbor = ground_truth[current]
+                    best_idx = neighbors[current].index(best_neighbor)
 
-                # utils.print_prediction(walk, current, neighbors, neighbor_logits, choice, best_neighbor)
+                    # utils.print_prediction(walk, current, neighbors, neighbor_logits, choice, best_neighbor)
 
-                # Calculate loss
-                best_idx = torch.tensor([best_idx], dtype=torch.long, device=device)
-                loss = criterion(neighbor_logits.unsqueeze(0), best_idx)  # First squeeze, then unsqueeze - redundant?
-                loss_list.append(loss.item())
-                total_loss += loss
+                    # Calculate loss
+                    best_idx = torch.tensor([best_idx], dtype=torch.long, device=device)
+                    loss = criterion(neighbor_logits.unsqueeze(0), best_idx)  # First squeeze, then unsqueeze - redundant?
+                    loss_list.append(loss.item())
+                    total_loss += loss
 
-                if choice == best_neighbor:
-                    correct += 1
-                current = best_neighbor  # Teacher forcing
-                steps += 1
+                    if choice == best_neighbor:
+                        correct += 1
+                    current = best_neighbor  # Teacher forcing
+                    steps += 1
 
             # TODO: Total loss should never be 0
             if model.training and total_loss > 0:
@@ -161,6 +162,9 @@ def process(model, graph, neighbors, reads, walks, edges, criterion, optimizer, 
                 optimizer.zero_grad()
                 total_loss.backward()  # Backprop averaged (summed) losses for one mini-walk
                 optimizer.step()
+                scaler.scale(total_loss).backward()
+                scaler.step(optimizer)
+                scaler.update()
 
             if len(loss_list) == 0:
                 continue
@@ -276,6 +280,8 @@ def train(args):
     elapsed = utils.timedelta_to_str(datetime.now() - time_start)
     print(f'Loading data done. Elapsed time: {elapsed}')
 
+    scaler = torch.cuda.amp.GradScaler()
+
     try:
         with wandb.init(project="assembly-walk-icml", config=hyperparameters):
             wandb.watch(model, criterion, log='all', log_freq=1)
@@ -304,7 +310,7 @@ def train(args):
                     solution = utils.get_walks(idx, data_path + '/train')
 
                     utils.print_graph_info(idx, graph)
-                    loss_list, accuracy_list = process(model, graph, succ, reads, solution, edges, criterion, optimizer, epoch, norm_train, device=device)
+                    loss_list, accuracy_list = process(model, graph, succ, reads, solution, edges, criterion, optimizer, scaler, epoch, norm_train, device=device)
                     if loss_list is not None:
                         loss_per_graph.append(np.mean(loss_list))
                         accuracy_per_graph.append(np.mean(accuracy_list))
@@ -366,7 +372,7 @@ def train(args):
                             solution = utils.get_walks(idx, data_path + '/valid')
 
                             utils.print_graph_info(idx, graph)
-                            loss_list, accuracy_list = process(model, graph, succ, reads, solution, edges, criterion, optimizer, epoch, norm_valid, device=device)
+                            loss_list, accuracy_list = process(model, graph, succ, reads, solution, edges, criterion, optimizer, scaler, epoch, norm_valid, device=device)
                             if loss_list is not None:
                                 loss_per_graph.append(np.mean(loss_list))
                                 accuracy_per_graph.append(np.mean(accuracy_list))
@@ -436,7 +442,7 @@ def train(args):
                         solution = utils.get_walks(idx, data_path)
 
                         utils.print_graph_info(idx, graph)
-                        loss_list, accuracy_list = process(best_model, graph, succ, reads, solution, edges, criterion, optimizer, epoch, norm_test, device=device)
+                        loss_list, accuracy_list = process(best_model, graph, succ, reads, solution, edges, criterion, optimizer, scaler, epoch, norm_test, device=device)
                         test_accuracy.append(np.mean(accuracy_list))
 
                         try:
