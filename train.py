@@ -247,7 +247,7 @@ def train(args):
     model = models.NonAutoRegressive(dim_latent, num_gnn_layers).to(device)
     params = list(model.parameters())
     optimizer = optim.Adam(params, lr=learning_rate)
-    scheduler = ReduceLROnPlateau(optimizer, 'min', patience=5)
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
     model_path = os.path.abspath(f'pretrained/model_{out}.pt')
     criterion = nn.CrossEntropyLoss()
 
@@ -417,14 +417,14 @@ def train(args):
 
                         # TODO: Probably should be removed, I have scheduler for this
                         elif patience >= patience_limit:
-                            out_of_patience = True  # Delete later
+                            # out_of_patience = True  # Delete later
                             # Not sure about this
                             #####
-                            if learning_rate == 1e-7:
+                            if learning_rate <= 5e-8:
                                 out_of_patience = True
                             else:
                                 patience = 0
-                                learning_rate /= 10
+                            #     learning_rate /= 10
                             ######
 
                         if len(loss_per_epoch_train) > 0 and len(loss_per_epoch_valid) > 0:
