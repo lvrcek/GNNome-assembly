@@ -128,8 +128,8 @@ def process(model, graph, neighbors, reads, walks, edges, criterion, optimizer, 
             steps = 0
 
             # One forward pass per mini-batch
-            with torch.cuda.amp.autocast(enabled=use_amp), profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
-                                                                   record_shapes=True, profile_memory=True) as prof:
+            with torch.cuda.amp.autocast(enabled=use_amp), profile(activities=[ProfilerActivity.CUDA],
+                                                                   profile_memory=True) as prof:
                 with record_function('model_forward_pass'):
                     logits = model(graph, reads, norm)
 
@@ -162,8 +162,8 @@ def process(model, graph, neighbors, reads, walks, edges, criterion, optimizer, 
                     steps += 1
 
             print()
-            print(prof.key_averages().table(sort_by="self_cuda_time_total", row_limit=10))
-            print()
+            # print(prof.key_averages().table(sort_by="self_cuda_time_total", row_limit=10))
+            # print()
             print(prof.key_averages().table(sort_by="self_cuda_memory_usage", row_limit=10))
             print()
 
