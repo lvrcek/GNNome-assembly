@@ -128,7 +128,7 @@ def process(model, graph, neighbors, reads, walks, edges, criterion, optimizer, 
             steps = 0
 
             # One forward pass per mini-batch
-            with torch.cuda.amp.autocast(enabled=use_amp), profile(activities=[ProfilerActivity.CUDA],
+            with torch.cuda.amp.autocast(enabled=use_amp), profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
                                                                    profile_memory=True) as prof:
                 with record_function('model_forward_pass'):
                     logits = model(graph, reads, norm)
@@ -166,6 +166,8 @@ def process(model, graph, neighbors, reads, walks, edges, criterion, optimizer, 
             # print()
             print(prof.key_averages().table(sort_by="self_cuda_memory_usage", row_limit=10))
             print()
+            prof.export_chrome_trace('trace.json')
+            exit()
 
             # TODO: Total loss should never be 0
             if model.training and total_loss > 0:
