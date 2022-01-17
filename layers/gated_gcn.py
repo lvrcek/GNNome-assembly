@@ -133,6 +133,9 @@ class GatedGCN_1d(nn.Module):
                 e_ji = self.bn_e(e_ji)
             e_ji = F.relu(e_ji)
             if self.residual:
+                # device = e_ji.device
+                # tmp = e_ji.half().to('cpu') + e_in.half().to('cpu')
+                # e_ji = tmp.float().to(device)
                 e_ji = e_ji + e_in
             g.edata['e_ji'] = e_ji
             g.edata['sigma_f'] = torch.sigmoid(g.edata['e_ji'])

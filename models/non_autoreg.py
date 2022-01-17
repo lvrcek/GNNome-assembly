@@ -76,12 +76,16 @@ class NonAutoRegressive(nn.Module):
             e_tmp = (e_tmp - torch.mean(e_tmp)) / torch.std(e_tmp)
         e = self.edge_encoder(graph.edata['overlap_similarity'], e_tmp)
         #  e = e.type(torch.float16)
-        e_f = e.clone()
-        e_b = e.clone()
         for conv in self.layers:
             h, e = conv(graph, h, e)
             # h = h.type(torch.float16)
             # e = e.type(torch.float16)
-        p = self.decoder(graph, h, e_f, e_b)
+        
+        # This might take a lot of memory
+        # e_f = e.clone()
+        # e_b = e.clone()
+        # p = self.decoder(graph, h, e_f, e_b)
+
+        p = self.decoder(graph, h, e, e)
         return p
 

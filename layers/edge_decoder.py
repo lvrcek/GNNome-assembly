@@ -29,7 +29,7 @@ class EdgeDecoder(nn.Module):
         h_src = edges.src['h']
         h_dst = edges.dst['h']
         e_f = edges.data['e_f']
-        e_b = edges.data['e_b']
+        # e_b = edges.data['e_b']
         # p = torch.cat((h_src, h_dst, e_f, e_b), dim=1)
         p = torch.cat((h_src, h_dst, e_f), dim=1)
         return {'p': p}
@@ -38,7 +38,7 @@ class EdgeDecoder(nn.Module):
         """Return the conditional probability for each edge."""
         g.ndata['h'] = h
         g.edata['e_f'] = e_f
-        g.edata['e_b'] = e_b
+        # g.edata['e_b'] = e_b
         g.apply_edges(self.concatenate)
         p = self.linear(g.edata['p'])
         # p = torch.sigmoid(p)  # I think it's better to return logits
