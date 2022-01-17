@@ -1,3 +1,6 @@
+from functools import reduce
+from operator import iadd
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -133,10 +136,17 @@ class GatedGCN_1d(nn.Module):
                 e_ji = self.bn_e(e_ji)
             e_ji = F.relu(e_ji)
             if self.residual:
+                # Attempt 1 - .to() is expensive operation
                 # device = e_ji.device
                 # tmp = e_ji.half().to('cpu') + e_in.half().to('cpu')
                 # e_ji = tmp.float().to(device)
+
+                # Atetmpt 0 - the basic way to do it
                 e_ji = e_ji + e_in
+
+                # Attempt 2 - try to reduce memory
+                reduce(iadd, [e_ji, e_in])
+
             g.edata['e_ji'] = e_ji
             g.edata['sigma_f'] = torch.sigmoid(g.edata['e_ji'])
             g.update_all(fn.u_mul_e('A2h', 'sigma_f', 'm_f'), fn.sum('m_f', 'sum_sigma_h_f'))
@@ -154,7 +164,9 @@ class GatedGCN_1d(nn.Module):
                 e_ik = self.bn_e(e_ik)
             e_ik = F.relu(e_ik)
             if self.residual:
-                e_ik = e_ik + e_in
+                # e_ik = e_ik + e_in
+                # Attempt 2 - try to reduce memory
+                reduce(iadd, [e_ik, e_in])
             g_reverse.edata['e_ik'] = e_ik
             g_reverse.edata['sigma_b'] = torch.sigmoid(g_reverse.edata['e_ik'])
             g_reverse.update_all(fn.u_mul_e('A3h', 'sigma_b', 'm_b'), fn.sum('m_b', 'sum_sigma_h_b'))
@@ -172,7 +184,8 @@ class GatedGCN_1d(nn.Module):
         h = F.relu(h)
 
         if self.residual:
-            h = h + h_in
+            # h = h + h_in
+            reduce(iadd, [h, h_in])
 
         h = F.dropout(h, self.dropout, training=self.training)
         # e = g.edata['e_ji']
