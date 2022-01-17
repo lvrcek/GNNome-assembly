@@ -128,10 +128,8 @@ def process(model, graph, neighbors, reads, walks, edges, criterion, optimizer, 
             steps = 0
 
             # One forward pass per mini-batch
-            with torch.cuda.amp.autocast(enabled=use_amp), profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
-                                                                   profile_memory=True) as prof:
-                with record_function('model_forward_pass'):
-                    logits = model(graph, reads, norm)
+            with torch.cuda.amp.autocast(enabled=use_amp):
+                logits = model(graph, reads, norm)
 
                 while True:
                     if steps == walk_length or ground_truth[current] is None:
@@ -161,15 +159,13 @@ def process(model, graph, neighbors, reads, walks, edges, criterion, optimizer, 
                     current = best_neighbor  # Teacher forcing
                     steps += 1
 
-            print()
             # print(prof.key_averages().table(sort_by="self_cuda_time_total", row_limit=10))
-            # print()
-            print(prof.key_averages().table(sort_by="self_cuda_memory_usage", row_limit=10))
-            print()
-            prof.export_chrome_trace('trace.json')
-            exit()
+            # print(prof.key_averages().table(sort_by="self_cuda_memory_usage", row_limit=10))
+            # prof.export_chrome_trace('trace.json')
 
             # TODO: Total loss should never be 0
+            # with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], profile_memory=True) as prof:
+                # with record_function('model_backward_pass'):
             if model.training and total_loss > 0:
                 total_loss /= steps
                 optimizer.zero_grad()
@@ -181,6 +177,8 @@ def process(model, graph, neighbors, reads, walks, edges, criterion, optimizer, 
                     total_loss.backward()  # Backprop averaged (summed) losses for one mini-walk
                     optimizer.step()
 
+            # print(prof.key_averages().table(sort_by="self_cuda_memory_usage", row_limit=10))
+            # exit()
 
             if len(loss_list) == 0:
                 continue
