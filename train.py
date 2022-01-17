@@ -133,12 +133,6 @@ def process(model, graph, neighbors, reads, walks, edges, criterion, optimizer, 
                 with record_function('model_forward_pass'):
                     logits = model(graph, reads, norm)
 
-                print()
-                print(prof.key_averages().table(sort_by="self_cuda_time_total"), row_limits=10)
-                print()
-                print(prof.key_averages().table(sort_by="self_cuda_memory_usage"), row_limits=10)
-                print()
-
                 while True:
                     if steps == walk_length or ground_truth[current] is None:
                         break
@@ -166,6 +160,12 @@ def process(model, graph, neighbors, reads, walks, edges, criterion, optimizer, 
                         correct += 1
                     current = best_neighbor  # Teacher forcing
                     steps += 1
+
+            print()
+            print(prof.key_averages().table(sort_by="self_cuda_time_total"), row_limits=10)
+            print()
+            print(prof.key_averages().table(sort_by="self_cuda_memory_usage"), row_limits=10)
+            print()
 
             # TODO: Total loss should never be 0
             if model.training and total_loss > 0:
