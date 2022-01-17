@@ -11,6 +11,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import random_split
+from torch.profiler import profile, record_function, ProfilerActivity
 from dgl.dataloading import GraphDataLoader
 import wandb
 
@@ -127,8 +128,16 @@ def process(model, graph, neighbors, reads, walks, edges, criterion, optimizer, 
             steps = 0
 
             # One forward pass per mini-batch
-            with torch.cuda.amp.autocast(enabled=use_amp):
-                logits = model(graph, reads, norm)
+            with torch.cuda.amp.autocast(enabled=use_amp), profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
+                                                                   record_shapes=True, profile_memory=True) as prof:
+                with record_function('model_forward_pass'):
+                    logits = model(graph, reads, norm)
+
+                print()
+                print(prof.key_averages().table(sort_by="self_cuda_time_total"), row_limits=10)
+                print()
+                print(prof.key_averages().table(sort_by="self_cuda_memory_usage"), row_limits=10)
+                print()
 
                 while True:
                     if steps == walk_length or ground_truth[current] is None:
