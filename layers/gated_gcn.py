@@ -142,7 +142,7 @@ class GatedGCN_1d(nn.Module):
                 # e_ji = tmp.float().to(device)
 
                 # Atetmpt 0 - the basic way to do it
-                e_ji = e_ji + e_in
+                # e_ji = e_ji + e_in
 
                 # Attempt 2 - try to reduce memory
                 reduce(iadd, [e_ji, e_in])
