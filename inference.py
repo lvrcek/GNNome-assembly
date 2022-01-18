@@ -75,13 +75,17 @@ def decode(neighbors, edges, start, logits):
 
 
 def analyze(graph, gnn_paths, greedy_paths, out):
-    with open(f'{out}/analysis.txt') as f:
+    with open(f'{out}/analysis.txt', 'w') as f:
         # f.write(f'Chromosome total length:\t\n')
+        print(f'GNN contigs:\t{len(gnn_paths)}\n')
         f.write(f'GNN contigs:\t{len(gnn_paths)}\n')
         for path in gnn_paths:
+            print(f'\t{graph.ndata["read_end"][path[-1]] - graph.ndata["read_start"][path[0]]}\n')
             f.write(f'\t{graph.ndata["read_end"][path[-1]] - graph.ndata["read_start"][path[0]]}\n')
+        print(f'Greedy paths:\t{len(greedy_paths)}\n')
         f.write(f'Greedy paths:\t{len(greedy_paths)}\n')
         for path in greedy_paths:
+            print(f'\t{graph.ndata["read_end"][path[-1]] - graph.ndata["read_start"][path[0]]}\n')
             f.write(f'\t{graph.ndata["read_end"][path[-1]] - graph.ndata["read_start"][path[0]]}\n')
         # Calculate N50, NG50, NGA50
 
