@@ -74,6 +74,18 @@ def decode(neighbors, edges, start, logits):
     return walk
 
 
+def analyze(graph, gnn_paths, greedy_paths, out):
+    with open(f'{out}/analysis.txt') as f:
+        # f.write(f'Chromosome total length:\t\n')
+        f.write(f'GNN contigs:\t{len(gnn_paths)}\n')
+        for path in gnn_paths:
+            f.write(f'\t{graph.ndata["read_end"][path[-1]] - graph.ndata["read_start"][path[0]]}\n')
+        f.write(f'Greedy paths:\t{len(greedy_paths)}\n')
+        for path in greedy_paths:
+            f.write(f'\t{graph.ndata["read_end"][path[-1]] - graph.ndata["read_start"][path[0]]}\n')
+        # Calculate N50, NG50, NGA50
+
+
 def inference(model_path=None, data_path=None):
     hyperparameters = get_hyperparameters()
     device = hyperparameters['device']
@@ -122,6 +134,7 @@ def inference(model_path=None, data_path=None):
             baselines.append(baseline)
         pickle.dump(baselines, open(f'{inference_path}/{idx}_greedy.pkl', 'wb'))
 
+        analyze(graph, walks, baselines, inference_path)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
