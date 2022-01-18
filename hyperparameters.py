@@ -5,7 +5,7 @@ def get_hyperparameters():
     return {
         'seed': 0,
         'num_epochs': 300,
-        'dim_latent': 16,
+        'dim_latent': 32,
         'num_gnn_layers': 8,
         'batch_size': 1,
         'patience_limit': 10,
