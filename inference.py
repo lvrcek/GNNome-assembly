@@ -106,16 +106,21 @@ def inference(model_path=None, data_path=None):
             reads = None
         edges = info_all['edges'][idx]
 
-        walk = predict(model, graph, pred, succ, reads, edges)
+        walks = predict(model, graph, pred, succ, reads, edges)
 
         inference_path = os.path.join(data_path, 'inference')
         if not os.path.isdir(inference_path):
             os.mkdir(inference_path)
-        pickle.dump(walk, open(f'{inference_path}/{idx}_predict.pkl', 'wb'))
+        pickle.dump(walks, open(f'{inference_path}/{idx}_predict.pkl', 'wb'))
+
+        start_nodes = [w[0] for w in walks]
 
         # TODO: Greedy will not be too relevant soon, most likely
-        baseline = algorithms.baseline(graph, 0, succ, pred, edges)
-        pickle.dump(baseline, open(f'{inference_path}/{idx}_greedy.pkl', 'wb'))
+        baselines = []
+        for start in start_nodes:
+            baseline = algorithms.greedy(graph, start, succ, pred, edges)
+            baselines.append(baseline)
+        pickle.dump(baselines, open(f'{inference_path}/{idx}_greedy.pkl', 'wb'))
 
 
 if __name__ == '__main__':
