@@ -78,7 +78,7 @@ class AssemblyGraphDataset(DGLDataset):
         else:
             threads = self.specs['threads']
             filter = self.specs['filter']
-            out = self.specs['filter']
+            out = self.specs['out']
 
         graphia_dir = os.path.join(self.root, 'graphia')
         if not os.path.isdir(graphia_dir):

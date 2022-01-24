@@ -326,7 +326,11 @@ def from_csv(graph_path, reads_path):
                 # Here overlap is actually trimming info! trim_begin trim_end
                 description = description_queue.popleft()
                 id, idx, strand, start, end = description.split()
-                idx = int(re.findall(r'idx=(\d+)', idx)[0])
+
+                # TODO: only for the current type of real reads, doesn't work with simulated
+                # TODO: E.g., if the oridinal id is SRR9087597.16, the idx will be 16
+                idx = int(re.findall(r'idx=[a-zA-Z]*\.{0,1}(\d+)', idx)[0])
+
                 strand = 1 if strand[-2] == '+' else -1  # strand[-1] == ','
 
                 # -----------------------------------------
