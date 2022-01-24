@@ -256,7 +256,7 @@ def train(args):
     model = models.NonAutoRegressive(dim_latent, num_gnn_layers).to(device)
     params = list(model.parameters())
     optimizer = optim.Adam(params, lr=learning_rate)
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=1, verbose=True)
     model_path = os.path.abspath(f'pretrained/model_{out}.pt')
     criterion = nn.CrossEntropyLoss()
 
