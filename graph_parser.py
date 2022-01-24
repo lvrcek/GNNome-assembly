@@ -248,7 +248,7 @@ def from_gfa(graph_path, reads_path):
                 read_sequences.append(sequence)
                 read_sequences.append(sequence.reverse_complement())
                 try:
-                    description = reads_list[int(id)]
+                    description = reads_list[id]
                 except ValueError:
                     description = '0 idx=0, strand=+, start=0, end=0'
                 description_queue.append(description)
