@@ -238,7 +238,7 @@ def from_gfa(graph_path, reads_path):
     read_sequences = deque()
     description_queue = deque()
     # TODO: Parsing of reads won't work for larger datasets nor gzipped files
-    reads_list = list(SeqIO.parse(reads_path, 'fastq'))
+    reads_list = {read.id: read.description for read in SeqIO.parse(reads_path, 'fastq')}
     with open(graph_path) as f:
         for line in f.readlines():
             line = line.strip().split()
@@ -248,7 +248,7 @@ def from_gfa(graph_path, reads_path):
                 read_sequences.append(sequence)
                 read_sequences.append(sequence.reverse_complement())
                 try:
-                    description = reads_list[int(id)].description
+                    description = reads_list[int(id)]
                 except ValueError:
                     description = '0 idx=0, strand=+, start=0, end=0'
                 description_queue.append(description)
