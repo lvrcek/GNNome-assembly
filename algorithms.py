@@ -331,6 +331,8 @@ def dfs(graph, neighbors, start=None):
                     continue
                 if graph.ndata['read_start'][node] > graph.ndata['read_end'][current]:
                     continue
+                if graph.ndata['read_start'][node] < graph.ndata['read_start'][current]:
+                    continue
                 tmp.append(node)
 
             tmp.sort(key=lambda x: -graph.ndata['read_start'][x])
