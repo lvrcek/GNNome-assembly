@@ -4,7 +4,7 @@ import torch
 import dgl
 
 import graph_dataset
-
+import algorithms
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -19,3 +19,4 @@ if __name__ == '__main__':
         'out': args.out
     }
     ds = graph_dataset.AssemblyGraphDataset(args.data, specs)
+    algorithms.get_solutions_for_all(args.data)

@@ -335,6 +335,17 @@ def dfs(graph, neighbors, start=None):
                     continue
                 tmp.append(node)
 
+            if len(tmp) == 0:
+                for node in neighbors.get(current, []):
+                    if visited[node]:
+                        continue
+                    if graph.ndata['read_strand'][node] == -1:
+                        continue
+                    if graph.ndata['read_start'][node] < graph.ndata['read_start'][current]:
+                        continue
+                    if graph.ndata['read_start'][node] > graph.ndata['read_end'][current]:
+                        tmp.append(node)
+
             tmp.sort(key=lambda x: -graph.ndata['read_start'][x])
             for node in tmp:
                 stack.append(node)
