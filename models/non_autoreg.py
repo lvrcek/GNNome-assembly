@@ -2,8 +2,9 @@ import torch
 import torch.nn as nn
 
 import layers
-from layers import GatedGCN_1d, SequenceEncoder, EdgeEncoder, EdgeDecoder, NodeEncoder, GatedGCN_backwards, SequenceEncoder_noCNN
+from layers import *
 from hyperparameters import get_hyperparameters
+from layers.node_decoder import NodeDecoder
 
 
 class NonAutoRegressive(nn.Module):
@@ -89,3 +90,44 @@ class NonAutoRegressive(nn.Module):
         p = self.decoder(graph, h, e, e)
         return p
 
+
+class NonAutoRegressive_gt_graph(nn.Module):
+
+    def __init__(self, dim_latent, num_gnn_layers, encode='node', dim_linear_emb=3, kernel_size=20, num_conv_layers=1):
+
+        super().__init__()
+        # self.seq_encoder = SequenceEncoder_noCNN(dim_hidden=dim_latent)
+        self.hyperparams = get_hyperparameters()
+        # self.encode = 'none'  # encode
+        # self.node_encoder = NodeEncoder(1, dim_latent)
+        self.edge_encoder = EdgeEncoder(2, dim_latent)
+        self.layers = nn.ModuleList([GatedGCN_1d(dim_latent, dim_latent) for _ in range(num_gnn_layers)])
+        self.node_decoder = NodeDecoder(dim_latent, 1)
+        self.edge_decoder = EdgeDecoder(dim_latent, 1)
+
+    def forward(self, graph, reads, norm=None):
+        """Return the conditional probability for each edge."""
+        self.encode = self.hyperparams['encode']
+        use_reads = self.hyperparams['use_reads']
+        if self.encode == 'sequence' and use_reads:
+            h = self.seq_encoder(reads)
+        elif self.encode == 'node':
+            h = torch.ones((graph.num_nodes(), 1)).to(self.hyperparams['device'])
+            h = self.node_encoder(h)
+        else:
+            h = torch.ones((graph.num_nodes(), self.hyperparams['dim_latent'])).to(self.hyperparams['device'])
+
+        # norm = self.hyperparams['norm']
+        if norm is not None:
+            e_tmp = (graph.edata['overlap_length'] - norm[0] ) / norm[1]
+        else:
+            e_tmp = graph.edata['overlap_length'].float() 
+            e_tmp = (e_tmp - torch.mean(e_tmp)) / torch.std(e_tmp)
+        e = self.edge_encoder(graph.edata['overlap_similarity'], e_tmp)
+        #  e = e.type(torch.float16)
+        for conv in self.layers:
+            h, e = conv(graph, h, e)
+
+        p_n = self.node_decoder(graph, h)
+        p_e = self.edge_decoder(graph, h, e, e)
+        return p_n, p_e

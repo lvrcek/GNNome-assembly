@@ -365,6 +365,47 @@ def dfs(graph, neighbors, start=None):
         return walk
 
 
+def get_start(graph, strand=1, last=-1):
+    bools = torch.logical_and(graph.ndata['read_strand']==strand, graph.ndata['read_start']>last)
+    start_pos = graph.ndata['read_start'][bools].min()
+    start_idx = (graph.ndata['read_start']).nonzero()[0].item()
+    return start_pos, start_idx
+
+
+def get_correct_edges(graph, neighbors, edges, walk):
+    correct_edges = set()
+    for src in walk[:-1]:
+        for dst in walk[1:]:
+            if dst in neighbors[src] and graph.ndata['read_start'][dst] < graph.ndata['read_end'][src]:
+                try:
+                    correct_edges.add(edges[(src, dst)])
+                except KeyError:
+                    print('Edge not found in the edge dictionary')
+                    raise
+            else:
+                break
+    return correct_edges
+
+
+def dfs_gt_graph(graph, neighbors, preds):
+    threshold, _ = torch.topk(graph.ndata['read_start'][graph.ndata['read_strand']==1], k=1)
+    last_pos = -1
+    strand = 1
+
+    while True:
+        start_pos, start_idx = get_start(graph, strand, last_pos)
+        correct_nodes, correct_edges = set(), set()
+        walk = dfs(graph, neighbors, start=start_idx)
+        correct_nodes = correct_nodes | set(walk)
+        correct_edges = correct_edges | get_correct_edges(graph, neighbors, walk)
+        if graph.ndata['read_end'][walk[-1]] > 0.99 * threshold:
+            break
+
+    return correct_nodes, correct_edges
+
+
+
+
 def dfs_gt_another(graph, neighbors, preds):
     components = get_components(graph, neighbors, preds)
     # components = [c for c in components if len(c) >= 10]
