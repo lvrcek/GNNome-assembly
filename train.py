@@ -192,30 +192,28 @@ def process(model, graph, neighbors, reads, walks, edges, criterion, optimizer, 
     return per_walk_loss, per_walk_acc
 
 
-def process_gt_graph(model, graph, neighbors, reads, walks, edges, criterion, optimizer, scaler, epoch, norm, device, nodes_gt, edges_gt):
+def process_gt_graph(model, graph, neighbors, edges, criterion, optimizer, scaler, epoch, norm, device, nodes_gt, edges_gt):
 
-    use_amp = get_hyperparameters()['use_amp']
+    # use_amp = get_hyperparameters()['use_amp']
 
-    per_walk_loss = []
-    per_walk_acc = []
-
-    # I don't have walks and I don't have to do it iteratively
-    # I have a collection of correct nodes and correct edges
-    # No walk length or anything such
-    # Look into batching the graph-components
-    # Make a prediction on both the nodes and the edges
+    nodes_gt = torch.tensor([1 if i in nodes_gt else 0 for i in range(graph.num_nodes())], dtype=torch.float)
+    edges_gt = torch.tensor([1 if i in edges_gt else 0 for i in range(graph.num_edges())], dtype=torch.float)
 
     nodes_p, edges_p = model(graph, None)
     node_criterion = nn.BCEWithLogitsLoss()
     edge_criterion = nn.BCEWithLogitsLoss()
-    node_loss = node_criterion(nodes_p, nodes_gt)
-    edge_loss = edge_criterion(edges_p, edges_gt)
+    node_loss = node_criterion(nodes_p.squeeze(-1), nodes_gt)
+    edge_loss = edge_criterion(edges_p.squeeze(-1), edges_gt)
     loss = node_loss + edge_loss
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
+
+    node_accuracy = (torch.round(torch.sigmoid(nodes_p.squeeze(-1))) == nodes_gt).sum().item() / graph.num_nodes()
+    edge_accuracy = (torch.round(torch.sigmoid(edges_p.squeeze(-1))) == edges_gt).sum().item() / graph.num_edges()
+    accuracy = (node_accuracy + edge_accuracy) / 2
     
-    return
+    return [loss], [accuracy]
 
 
 def process_reads(reads, device):
@@ -353,11 +351,14 @@ def train(args):
                         reads = process_reads(reads, device)
                     if is_split:
                         solution = utils.get_walks(idx, data_path + '/train')
+                        nodes_gt, edges_gt = utils.get_correct_ne(idx, data_path + '/train')
                     else:
                         solution = utils.get_walks(idx, data_path)
+                        nodes_gt, edges_gt = utils.get_correct_ne(idx, data_path)
 
                     utils.print_graph_info(idx, graph)
                     loss_list, accuracy_list = process(model, graph, succ, reads, solution, edges, criterion, optimizer, scaler, epoch, norm_train, device=device)
+                    loss_list, accuracy_list = process_gt_graph(model, graph, succ, edges, criterion, optimizer, scaler, epoch, norm_train, device, nodes_gt, edges_gt)
                     if loss_list is not None:
                         loss_per_graph.append(np.mean(loss_list))
                         accuracy_per_graph.append(np.mean(accuracy_list))
@@ -420,8 +421,10 @@ def train(args):
                                 reads = process_reads(reads, device)
                             if is_split:
                                 solution = utils.get_walks(idx, data_path + '/valid')
+                                nodes_gt, edges_gt = utils.get_correct_ne(idx, data_path + '/valid')
                             else:
                                 solution = utils.get_walks(idx, data_path)
+                                nodes_gt, edges_gt = utils.get_correct_ne(idx, data_path)
 
                             utils.print_graph_info(idx, graph)
                             loss_list, accuracy_list = process(model, graph, succ, reads, solution, edges, criterion, optimizer, scaler, epoch, norm_valid, device=device)
@@ -493,8 +496,10 @@ def train(args):
                             reads = process_reads(reads, device)
                         if is_split:
                             solution = utils.get_walks(idx, data_path + '/test')
+                            nodes_gt, edges_gt = utils.get_correct_ne(idx, data_path + '/test')
                         else:
                             solution = utils.get_walks(idx, data_path)
+                            nodes_gt, edges_gt = utils.get_correct_ne(idx, data_path)
 
                         utils.print_graph_info(idx, graph)
                         loss_list, accuracy_list = process(best_model, graph, succ, reads, solution, edges, criterion, optimizer, scaler, epoch, norm_test, device=device)

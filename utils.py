@@ -127,10 +127,15 @@ def timedelta_to_str(delta):
 
 
 def get_walks(idx, data_path):
-    # TODO: This implies there is only 1 walk
     walk_path = os.path.join(data_path, f'solutions/{idx}_gt.pkl')
     walks = pickle.load(open(walk_path, 'rb'))
     return walks
+
+
+def get_correct_ne(idx, data_path):
+    nodes_gt = os.path.join(data_path, f'solutions/{idx}_nodes.pkl')
+    edges_gt = os.path.join(data_path, f'solutions/{idx}_edges.pkl')
+    return nodes_gt, edges_gt
 
 
 def get_info(idx, data_path, type):
