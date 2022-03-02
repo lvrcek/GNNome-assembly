@@ -133,8 +133,10 @@ def get_walks(idx, data_path):
 
 
 def get_correct_ne(idx, data_path):
-    nodes_gt = os.path.join(data_path, f'solutions/{idx}_nodes.pkl')
-    edges_gt = os.path.join(data_path, f'solutions/{idx}_edges.pkl')
+    nodes_path = os.path.join(data_path, f'solutions/{idx}_nodes.pkl')
+    edges_path = os.path.join(data_path, f'solutions/{idx}_edges.pkl')
+    nodes_gt = pickle.load(open(nodes_path, 'rb'))
+    edges_gt = pickle.load(open(edges_path, 'rb'))
     return nodes_gt, edges_gt
 
 
