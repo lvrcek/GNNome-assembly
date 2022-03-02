@@ -194,7 +194,6 @@ def process(model, graph, neighbors, reads, walks, edges, criterion, optimizer, 
 
 def process_gt_graph(model, graph, neighbors, reads, walks, edges, criterion, optimizer, scaler, epoch, norm, device, nodes_gt, edges_gt):
 
-    walk_length = get_hyperparameters()['walk_length']
     use_amp = get_hyperparameters()['use_amp']
 
     per_walk_loss = []
@@ -206,111 +205,17 @@ def process_gt_graph(model, graph, neighbors, reads, walks, edges, criterion, op
     # Look into batching the graph-components
     # Make a prediction on both the nodes and the edges
 
-    nodes_p, edges_p = model(graph)
-    node_criterion = nn.BinaryCrossEntropy()
-    edge_criterion = nn.BinaryCrossEntropy()
+    nodes_p, edges_p = model(graph, None)
+    node_criterion = nn.BCEWithLogitsLoss()
+    edge_criterion = nn.BCEWithLogitsLoss()
     node_loss = node_criterion(nodes_p, nodes_gt)
     edge_loss = edge_criterion(edges_p, edges_gt)
     loss = node_loss + edge_loss
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
-
-    # I think that's it
     
     return
-
-
-    for solution in walks:
-        if len(solution) < 10:
-            continue
-        ground_truth = {n1: n2 for n1, n2 in zip(solution[:-1], solution[1:])}
-        ground_truth[solution[-1]] = None
-        total_steps = len(solution) - 1
-
-        if walk_length != -1:
-            num_mini_batches = total_steps // walk_length + 1
-        else:
-            num_mini_batches = 1
-
-        mini_batch_loss_list = []
-        mini_batch_acc_list= []
-
-        correct = 0
-
-        for mini_batch in range(num_mini_batches):
-
-            start = mini_batch * walk_length
-            current = solution[start]
-
-            loss_list = []
-            total_loss = 0
-            steps = 0
-
-            # One forward pass per mini-batch
-            with torch.cuda.amp.autocast(enabled=use_amp):
-                logits = model(graph, reads, norm)
-
-                while True:
-                    if steps == walk_length or ground_truth[current] is None:
-                        break
-                    if len(neighbors[current]) == 1:
-                        current = neighbors[current][0]
-                        continue
-
-                    neighbor_edges = [edges[current, n] for n in neighbors[current]]
-                    neighbor_logits = logits.squeeze(1)[neighbor_edges]
-                    value, index = torch.topk(neighbor_logits, k=1, dim=0)
-                    choice = neighbors[current][index]
-
-                    best_neighbor = ground_truth[current]
-                    best_idx = neighbors[current].index(best_neighbor)
-
-                    # utils.print_prediction(walk, current, neighbors, neighbor_logits, choice, best_neighbor)
-
-                    # Calculate loss
-                    best_idx = torch.tensor([best_idx], dtype=torch.long, device=device)
-                    loss = criterion(neighbor_logits.unsqueeze(0), best_idx)  # First squeeze, then unsqueeze - redundant?
-                    loss_list.append(loss.item())
-                    total_loss += loss
-
-                    if choice == best_neighbor:
-                        correct += 1
-                    current = best_neighbor  # Teacher forcing
-                    steps += 1
-
-            # print(prof.key_averages().table(sort_by="self_cuda_time_total", row_limit=10))
-            # print(prof.key_averages().table(sort_by="self_cuda_memory_usage", row_limit=10))
-            # prof.export_chrome_trace('trace.json')
-
-            # TODO: Total loss should never be 0
-            # with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], profile_memory=True) as prof:
-                # with record_function('model_backward_pass'):
-            if model.training and total_loss > 0:
-                total_loss /= steps
-                optimizer.zero_grad()
-                if use_amp:
-                    scaler.scale(total_loss).backward()
-                    scaler.step(optimizer)
-                    scaler.update()
-                else:
-                    total_loss.backward()  # Backprop averaged (summed) losses for one mini-walk
-                    optimizer.step()
-
-            # print(prof.key_averages().table(sort_by="self_cuda_memory_usage", row_limit=10))
-            # exit()
-
-            if len(loss_list) == 0:
-                continue
-            else:
-                # accuracy = correct / steps
-                mini_batch_loss_list.append(np.mean(loss_list))  # List of mean loss per mini-walk
-                # mini_batch_acc_list.append(accuracy)
-
-        per_walk_loss.append(np.mean(mini_batch_loss_list))  # List of mean loss per solution-walk
-        per_walk_acc.append(correct / total_steps)  # List of accuracies per solution-walk
-
-    return per_walk_loss, per_walk_acc
 
 
 def process_reads(reads, device):

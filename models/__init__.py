@@ -1,1 +1,1 @@
-from models.non_autoreg import NonAutoRegressive
+from models.non_autoreg import NonAutoRegressive, NonAutoRegressive_gt_graph
