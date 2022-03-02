@@ -368,42 +368,63 @@ def dfs(graph, neighbors, start=None):
 def get_start(graph, strand=1, last=-1):
     bools = torch.logical_and(graph.ndata['read_strand']==strand, graph.ndata['read_start']>last)
     start_pos = graph.ndata['read_start'][bools].min()
-    start_idx = (graph.ndata['read_start']).nonzero()[0].item()
+    start_idx = (graph.ndata['read_start'] == start_pos).nonzero()[0].item()
     return start_pos, start_idx
 
 
 def get_correct_edges(graph, neighbors, edges, walk):
     correct_edges = set()
-    for src in walk[:-1]:
-        for dst in walk[1:]:
+    neg_str_correct_edges = set()
+    for i, src in enumerate(walk[:-1]):
+        for dst in walk[i+1:]:
             if dst in neighbors[src] and graph.ndata['read_start'][dst] < graph.ndata['read_end'][src]:
                 try:
                     correct_edges.add(edges[(src, dst)])
                 except KeyError:
                     print('Edge not found in the edge dictionary')
                     raise
+                try:
+                    neg_str_correct_edges.add(edges[dst^1, src^1])
+                except KeyError:
+                    print('Negative strand edge not found in the edge dictionary')
+                    raise
             else:
                 break
-    return correct_edges
+    return correct_edges, neg_str_correct_edges
 
 
-def dfs_gt_graph(graph, neighbors, preds):
+def dfs_gt_graph(graph, neighbors, edges):
     threshold, _ = torch.topk(graph.ndata['read_start'][graph.ndata['read_strand']==1], k=1)
     last_pos = -1
     strand = 1
+    all_walks = []
 
     while True:
+        print('in')
         start_pos, start_idx = get_start(graph, strand, last_pos)
         correct_nodes, correct_edges = set(), set()
+        neg_str_correct_edges = set()
         walk = dfs(graph, neighbors, start=start_idx)
+
+        print(last_pos, graph.ndata['read_end'][walk[-1]])
+        print(len(walk))
+        print(start_idx)
+        all_walks.append(walk)
+
         correct_nodes = correct_nodes | set(walk)
-        correct_edges = correct_edges | get_correct_edges(graph, neighbors, walk)
-        if graph.ndata['read_end'][walk[-1]] > 0.99 * threshold:
+
+        pos_str_edges, neg_str_edges = get_correct_edges(graph, neighbors, edges, walk)
+        correct_edges = correct_edges | pos_str_edges
+        neg_str_correct_edges = neg_str_correct_edges | neg_str_edges
+        
+        last_pos = graph.ndata['read_end'][walk[-1]]
+        print(last_pos)
+        if last_pos > 0.99 * threshold:
             break
 
-    return correct_nodes, correct_edges
+    neg_str_correct_nodes = set([n^1 for n in correct_nodes])
 
-
+    return correct_nodes, correct_edges, neg_str_correct_nodes, neg_str_correct_edges, all_walks
 
 
 def dfs_gt_another(graph, neighbors, preds):
