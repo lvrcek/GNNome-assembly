@@ -196,24 +196,40 @@ def process_gt_graph(model, graph, neighbors, edges, criterion, optimizer, scale
 
     # use_amp = get_hyperparameters()['use_amp']
 
-    nodes_gt = torch.tensor([1 if i in nodes_gt else 0 for i in range(graph.num_nodes())], dtype=torch.float)
-    edges_gt = torch.tensor([1 if i in edges_gt else 0 for i in range(graph.num_edges())], dtype=torch.float)
+    nodes_gt = torch.tensor([1 if i in nodes_gt else 0 for i in range(graph.num_nodes())], dtype=torch.float).to(device)
+    edges_gt = torch.tensor([1 if i in edges_gt else 0 for i in range(graph.num_edges())], dtype=torch.float).to(device)
 
-    nodes_p, edges_p = model(graph, None)
-    node_criterion = nn.BCEWithLogitsLoss()
-    edge_criterion = nn.BCEWithLogitsLoss()
-    node_loss = node_criterion(nodes_p.squeeze(-1), nodes_gt)
-    edge_loss = edge_criterion(edges_p.squeeze(-1), edges_gt)
-    loss = node_loss + edge_loss
-    optimizer.zero_grad()
-    loss.backward()
-    optimizer.step()
-
-    node_accuracy = (torch.round(torch.sigmoid(nodes_p.squeeze(-1))) == nodes_gt).sum().item() / graph.num_nodes()
-    edge_accuracy = (torch.round(torch.sigmoid(edges_p.squeeze(-1))) == edges_gt).sum().item() / graph.num_edges()
-    accuracy = (node_accuracy + edge_accuracy) / 2
+    losses = []
+    accuracies = []
     
-    return [loss], [accuracy]
+    batch_size = 10
+    num_batches = graph.num_nodes() // batch_size
+    # num_batches = 1
+    for batch in range(num_batches-1):
+        nodes_p, edges_p = model(graph, None)
+        node_criterion = nn.BCEWithLogitsLoss()
+        edge_criterion = nn.BCEWithLogitsLoss()
+        start_end = slice(batch*batch_size, (batch+1)*batch_size)
+        # node_loss = node_criterion(nodes_p.squeeze(-1), nodes_gt)
+        edge_loss = edge_criterion(edges_p.squeeze(-1)[start_end], edges_gt[start_end])
+        # loss = node_loss + edge_loss
+        loss = edge_loss
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        print(nodes_p)
+
+        node_accuracy = (torch.round(torch.sigmoid(nodes_p.squeeze(-1))) == nodes_gt).sum().item() / graph.num_nodes()
+        edge_accuracy = (torch.round(torch.sigmoid(edges_p.squeeze(-1))) == edges_gt).sum().item() / graph.num_edges()
+        # accuracy = (node_accuracy + edge_accuracy) / 2
+        accuracy = edge_accuracy
+        losses.append(loss.item())
+        accuracies.append(accuracy)
+        wandb.log({'train_loss': loss.item(), 'train_accuracy': accuracy})
+
+    exit()
+    
+    return losses, accuracies
 
 
 def process_reads(reads, device):
@@ -276,15 +292,15 @@ def train(args):
     overfit = num_graphs == 1
 
     # Initialize training specifications
-    model = models.NonAutoRegressive(dim_latent, num_gnn_layers).to(device)
+    model = models.NonAutoRegressive_gt_graph(dim_latent, num_gnn_layers).to(device)
     params = list(model.parameters())
     optimizer = optim.Adam(params, lr=learning_rate)
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=1, verbose=True)
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=100, verbose=True)
     model_path = os.path.abspath(f'pretrained/model_{out}.pt')
     criterion = nn.CrossEntropyLoss()
 
     # Initialize best model obtained during the training process
-    best_model = models.NonAutoRegressive(dim_latent, num_gnn_layers)
+    best_model = models.NonAutoRegressive_gt_graph(dim_latent, num_gnn_layers)
     best_model.load_state_dict(copy.deepcopy(model.state_dict()))
     best_model.to(device)
     best_model.eval()
@@ -323,8 +339,8 @@ def train(args):
     scaler = torch.cuda.amp.GradScaler()
 
     try:
-        with wandb.init(project="assembly-walk-icml", config=hyperparameters):
-            wandb.watch(model, criterion, log='all', log_freq=1)
+        with wandb.init(project="assembly-walk-nips", config=hyperparameters):
+            # wandb.watch(model, criterion, log='all', log_freq=1)
 
             patience = 0
             out_of_patience = False  # TODO: Remove, I probably don't need both patience and scheduler
@@ -357,7 +373,7 @@ def train(args):
                         nodes_gt, edges_gt = utils.get_correct_ne(idx, data_path)
 
                     utils.print_graph_info(idx, graph)
-                    loss_list, accuracy_list = process(model, graph, succ, reads, solution, edges, criterion, optimizer, scaler, epoch, norm_train, device=device)
+                    # loss_list, accuracy_list = process(model, graph, succ, reads, solution, edges, criterion, optimizer, scaler, epoch, norm_train, device=device)
                     loss_list, accuracy_list = process_gt_graph(model, graph, succ, edges, criterion, optimizer, scaler, epoch, norm_train, device, nodes_gt, edges_gt)
                     if loss_list is not None:
                         loss_per_graph.append(np.mean(loss_list))
@@ -371,10 +387,10 @@ def train(args):
                 loss_per_epoch_train.append(train_loss)
                 accuracy_per_epoch_train.append(train_acc)
 
-                try:
-                    wandb.log({'epoch': epoch, 'train_loss': train_loss, 'train_accuracy': train_acc}, step=epoch)
-                except Exception:
-                    pass
+                # try:
+                #     wandb.log({'epoch': epoch, 'train_loss': train_loss, 'train_accuracy': train_acc}, step=epoch)
+                # except Exception:
+                #     pass
 
                 elapsed = utils.timedelta_to_str(datetime.now() - time_start)
                 print(f'\nTraining in epoch {epoch} done. Elapsed time: {elapsed}')

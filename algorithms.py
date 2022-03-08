@@ -398,11 +398,11 @@ def dfs_gt_graph(graph, neighbors, edges):
     last_pos = -1
     strand = 1
     all_walks = []
+    correct_nodes, correct_edges = set(), set()
 
     while True:
         print('in')
         start_pos, start_idx = get_start(graph, strand, last_pos)
-        correct_nodes, correct_edges = set(), set()
         neg_str_correct_edges = set()
         walk = dfs(graph, neighbors, start=start_idx)
 
