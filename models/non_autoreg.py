@@ -102,7 +102,7 @@ class NonAutoRegressive_gt_graph(nn.Module):
         # self.node_encoder = NodeEncoder(1, dim_latent)
         self.edge_encoder = EdgeEncoder(2, dim_latent)
         self.layers = nn.ModuleList([GatedGCN_1d(dim_latent, dim_latent) for _ in range(num_gnn_layers)])
-        self.node_decoder = NodeDecoder(dim_latent, 1)
+        # self.node_decoder = NodeDecoder(dim_latent, 1)
         self.edge_decoder = EdgeDecoder(dim_latent, 1)
 
     def forward(self, graph, reads, norm=None):
@@ -128,6 +128,6 @@ class NonAutoRegressive_gt_graph(nn.Module):
         for conv in self.layers:
             h, e = conv(graph, h, e)
 
-        p_n = self.node_decoder(graph, h)
+        # p_n = self.node_decoder(graph, h)
         p_e = self.edge_decoder(graph, h, e, e)
-        return p_n, p_e
+        return p_e

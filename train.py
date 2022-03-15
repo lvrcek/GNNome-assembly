@@ -194,7 +194,7 @@ def process(model, graph, neighbors, reads, walks, edges, criterion, optimizer, 
 
 def process_gt_graph(model, graph, neighbors, edges, criterion, optimizer, scaler, epoch, norm, device, nodes_gt, edges_gt):
 
-    # use_amp = get_hyperparameters()['use_amp']
+    use_amp = get_hyperparameters()['use_amp']
 
     nodes_gt = torch.tensor([1 if i in nodes_gt else 0 for i in range(graph.num_nodes())], dtype=torch.float).to(device)
     edges_gt = torch.tensor([1 if i in edges_gt else 0 for i in range(graph.num_edges())], dtype=torch.float).to(device)
@@ -202,33 +202,84 @@ def process_gt_graph(model, graph, neighbors, edges, criterion, optimizer, scale
     losses = []
     accuracies = []
     
-    batch_size = 10
+    node_criterion = nn.BCEWithLogitsLoss()
+    edge_pos_weight = torch.tensor([1/25], device=device)
+    edge_criterion = nn.BCEWithLogitsLoss(pos_weight=None)
+
+    edges_p = model(graph, None)
+    # start_end = slice(batch*batch_size, (batch+1)*batch_size)
+    edge_loss = edge_criterion(edges_p.squeeze(-1), edges_gt)
+    loss = edge_loss
+    optimizer.zero_grad()
+    if use_amp:
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)
+        scaler.update()
+    else:
+        edge_loss.backward()
+        optimizer.step()
+
+    edges_predict = torch.round(torch.sigmoid(edges_p.squeeze(-1)))
+
+    TP = torch.sum(torch.logical_and(edges_predict==1, edges_gt==1)).item()
+    TN = torch.sum(torch.logical_and(edges_predict==0, edges_gt==0)).item()
+    FP = torch.sum(torch.logical_and(edges_predict==1, edges_gt==0)).item()
+    FN = torch.sum(torch.logical_and(edges_predict==0, edges_gt==1)).item()
+
+    recall = TP / (TP + FP)
+    precision = TP / (TP + FN)
+    f1 = TP / (TP + 0.5 * (FP + FN) )
+    # f1 = 2 * precision * recall / (precision + recall)
+
+    edge_accuracy = (edges_predict == edges_gt).sum().item() / graph.num_edges()
+
+    # accuracy = (node_accuracy + edge_accuracy) / 2
+    accuracy = edge_accuracy
+    losses.append(loss.item())
+    accuracies.append(accuracy)
+    wandb.log({'loss': loss.item(), 'accuracy': accuracy, 'precision': precision, 'recall': recall, 'f1': f1})
+    print(f'{TP=}, {TN=}, {FP=}, {FN=}')
+
+    return losses, accuracies
+
+
+def process_gt_graph_batched(model, graph, neighbors, edges, criterion, optimizer, scaler, epoch, norm, device, nodes_gt, edges_gt):
+
+    # use_amp = get_hyperparameters()['use_amp']
+
+    nodes_gt = torch.tensor([1 if i in nodes_gt else 0 for i in range(graph.num_nodes())], dtype=torch.float).to(device)
+    edges_gt = torch.tensor([1 if i in edges_gt else 0 for i in range(graph.num_edges())], dtype=torch.float).to(device)
+
+    losses = []
+    accuracies = []
+
+    node_criterion = nn.BCEWithLogitsLoss()
+    edge_pos_weight = torch.tensor([1/25], device=device)
+    edge_criterion = nn.BCEWithLogitsLoss(pos_weight=None)
+
+    batch_size = 128
     num_batches = graph.num_nodes() // batch_size
-    # num_batches = 1
     for batch in range(num_batches-1):
         nodes_p, edges_p = model(graph, None)
-        node_criterion = nn.BCEWithLogitsLoss()
-        edge_criterion = nn.BCEWithLogitsLoss()
         start_end = slice(batch*batch_size, (batch+1)*batch_size)
         # node_loss = node_criterion(nodes_p.squeeze(-1), nodes_gt)
-        edge_loss = edge_criterion(edges_p.squeeze(-1)[start_end], edges_gt[start_end])
+        edge_loss = edge_criterion(edges_p.squeeze(-1), edges_gt)
         # loss = node_loss + edge_loss
         loss = edge_loss
         optimizer.zero_grad()
-        loss.backward()
+        edge_loss.backward()
         optimizer.step()
-        print(nodes_p)
+        # print(nodes_p)
 
-        node_accuracy = (torch.round(torch.sigmoid(nodes_p.squeeze(-1))) == nodes_gt).sum().item() / graph.num_nodes()
+        # node_accuracy = (torch.round(torch.sigmoid(nodes_p.squeeze(-1))) == nodes_gt).sum().item() / graph.num_nodes()
         edge_accuracy = (torch.round(torch.sigmoid(edges_p.squeeze(-1))) == edges_gt).sum().item() / graph.num_edges()
+
         # accuracy = (node_accuracy + edge_accuracy) / 2
         accuracy = edge_accuracy
         losses.append(loss.item())
         accuracies.append(accuracy)
-        wandb.log({'train_loss': loss.item(), 'train_accuracy': accuracy})
+        # wandb.log({'train_loss': loss.item(), 'train_accuracy': accuracy})
 
-    exit()
-    
     return losses, accuracies
 
 
@@ -295,7 +346,7 @@ def train(args):
     model = models.NonAutoRegressive_gt_graph(dim_latent, num_gnn_layers).to(device)
     params = list(model.parameters())
     optimizer = optim.Adam(params, lr=learning_rate)
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=100, verbose=True)
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.9, patience=10, verbose=True)
     model_path = os.path.abspath(f'pretrained/model_{out}.pt')
     criterion = nn.CrossEntropyLoss()
 
@@ -498,6 +549,8 @@ def train(args):
                 wandb.save("model.onnx")
             except Exception:
                 print("W&B Error: Did not save the model.onnx")
+
+            # TODO: Why are you not loading the model anymore, wtf
 
             # --- Testing ---
             if not overfit and False:  # No testing needed now
