@@ -293,6 +293,58 @@ def process_reads(reads, device):
     return processed_reads
 
 
+
+def train_new(args):
+    hyperparameters = get_hyperparameters()
+    seed = hyperparameters['seed']
+    num_epochs = hyperparameters['num_epochs']
+    num_gnn_layers = hyperparameters['num_gnn_layers']
+    dim_latent = hyperparameters['dim_latent']
+    batch_size = hyperparameters['batch_size']
+    patience_limit = hyperparameters['patience_limit']
+    learning_rate = hyperparameters['lr']
+    device = hyperparameters['device']
+    use_reads = hyperparameters['use_reads']
+    use_amp = hyperparameters['use_amp']
+
+    time_start = datetime.now()
+    timestamp = time_start.strftime('%Y-%b-%d-%H-%M-%S')
+    data_path = os.path.abspath(args.data)
+    out = args.out if args.out is not None else timestamp
+    is_eval = args.eval
+    is_split = args.split
+
+    utils.set_seed(seed)
+    
+    sampler = dgl.dataloading.MultiLayerFullNeighborSampler(num_gnn_layers)
+    
+    dataset = graph_dataset.AssemblyGraphDataset(data_path)
+
+    model = models.TestModel()
+
+    for data in dataset:
+        idx, g = data
+        dataloader = dgl.dataloading.EdgeDataLoader(
+            g, torch.arange(g.num_edges()), sampler,
+            batch_size=batch_size,
+            shufle=True,
+            drop_last=False,
+            num_workers=0)
+        for input_nodes, output_nodes, blocks in dataloader:
+            blocks = [b.to(device) for b in blocks]
+            input_features = blocks[0].srcdata['features']
+            output_labels = blocks[-1].dstdata['label']
+            output_predictions = model(blocks, input_features)
+            loss = compute_loss(output_labels, output_predictions)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+        # Sad tu ide dataloader po grafu za edgeve valjda
+            # Tu onda radim predikcije i racunam loss
+            # accuracy i sve te ostale metrike
+
+
+
 def train(args):
     """Training loop.
     

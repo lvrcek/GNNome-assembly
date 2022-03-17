@@ -1,10 +1,55 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+
+import dgl
 
 import layers
 from layers import *
 from hyperparameters import get_hyperparameters
 from layers.node_decoder import NodeDecoder
+
+
+
+class TwoLayerGCN(nn.Module):
+    def __init__(self, dim_latent, num_gnn_layers):
+        super().__init__()
+        self.convs = nn.ModuleList([dgl.nn.GraphConv(dim_latent, dim_latent) for _ in range(num_gnn_layers)])
+
+    def forward(self, blocks, x):
+        for i in range(len(self.convs)):
+            x = F.relu(self.convs[i](blocks[i], x))
+        return x
+
+class ScorePredict(nn.Module):
+    def __init__(self, num_classes, in_features):
+        super().__init__()
+        self.W = nn.Linear(3 * in_features, num_classes)
+
+    def apply_edges(self, edges):
+        data = torch.cat((edges.src['x'], edges.dst['x'], edges.data['e']), dim=1)
+        return {'score': self.W(data)}
+
+    def forward(self, edge_subgraph, x, e):
+        with edge_subgraph.local_scope():
+            edge_subgraph.ndata['x'] = x
+            edge_subgraph.edata['e'] = e
+            edge_subgraph.apply_edges(self.apply_edges)
+            return edge_subgraph.edata['score']
+
+class Model(nn.Module):
+    def __init__(self, in_features, hidden_features, num_layers, num_classes):
+        super().__init__()
+        self.gcn = TwoLayerGCN(hidden_features, num_layers)
+        self.predictor = ScorePredict(num_classes, hidden_features)
+        self.node_encoder = nn.Linear(hidden_features, hidden_features)
+        self.edge_encoder = nn.Linear(hidden_features, hidden_features)
+
+    def forward(self, edge_subgraph, blocks, x, e):
+        x = self.node_encoder(x)
+        e = self.edge_encoder(e)
+        x = self.gcn(blocks, x)
+        return self.predictor(edge_subgraph, x, e)
 
 
 class NonAutoRegressive(nn.Module):
