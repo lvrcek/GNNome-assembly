@@ -322,26 +322,32 @@ def train_new(args):
 
     model = models.TestModel()
 
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    criterion = torch.nn.BCEWithLogitsLoss()
+
     for data in dataset:
         idx, g = data
+        g = dgl.add_self_loops(g)
+        
+
         dataloader = dgl.dataloading.EdgeDataLoader(
             g, torch.arange(g.num_edges()), sampler,
             batch_size=batch_size,
             shufle=True,
             drop_last=False,
             num_workers=0)
-        for input_nodes, output_nodes, blocks in dataloader:
+
+        for input_nodes, edge_subgraph, blocks in dataloader:
             blocks = [b.to(device) for b in blocks]
-            input_features = blocks[0].srcdata['features']
-            output_labels = blocks[-1].dstdata['label']
-            output_predictions = model(blocks, input_features)
-            loss = compute_loss(output_labels, output_predictions)
+            x = blocks[0].srcdata['x']
+            e = edge_subgraph.edata['e']
+            edge_labels = edge_subgraph.edata['y']
+            edge_predictions = model(edge_subgraph, blocks, x, e)
+
+            loss = criterion(edge_predictions.squeeze(), edge_labels)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-        # Sad tu ide dataloader po grafu za edgeve valjda
-            # Tu onda radim predikcije i racunam loss
-            # accuracy i sve te ostale metrike
 
 
 
