@@ -6,7 +6,7 @@ import dgl
 from dgl.data import DGLDataset
 
 import graph_parser
-from preprocess import preprocess_graph
+from utils import preprocess_graph
 
 class AssemblyGraphDataset(DGLDataset):
     """
