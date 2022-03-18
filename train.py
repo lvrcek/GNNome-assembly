@@ -294,12 +294,6 @@ def process_reads(reads, device):
     return processed_reads
 
 
-
-# def process_graph(g):
-#     g.ndata['x'] = torch.ones(g.num_nodes(), node_features)
-#     g.edata['e'] = torch.cat((g.edata['overlap_length'], g.edata['overlap_similarity']), dim=1)
-#     pass
-
 def train_new(args):
     hyperparameters = get_hyperparameters()
     seed = hyperparameters['seed']
@@ -366,27 +360,14 @@ def train_new(args):
         for data in ds_train:
             model.train()
             idx, g = data
-            g = dgl.add_self_loop(g)
-        
+       
+            train_ids = torch.arange(g.num_edges()).int().to(device)
             dl = dgl.dataloading.EdgeDataLoader(
-                g, torch.arange(g.num_edges()), sampler,
+                g, graph_ids, sampler,
                 batch_size=batch_size,
                 shuffle=True,
                 drop_last=False,
                 num_workers=0)
-
-            # TODO:
-            # Remove this later, features should be determined in preprocessing,
-            # Not in every training epoch
-            g.ndata['x'] = torch.ones(g.num_nodes(), node_features)
-
-            # First I need to normalize length and similarity, though
-            # This should also be done in preprocessing
-            g.edata['e'] = torch.cat((g.edata['overlap_length'].unsqueeze(-1), g.edata['overlap_similarity'].unsqueeze(-1)), dim=1)
-
-            # This should also be done in preprocessing
-            nodes_gt, edges_gt = utils. get_correct_ne(idx, data_path)
-            g.edata['y'] = torch.tensor([1 if i in edges_gt else 0 for i in range(g.num_edges())], dtype=torch.float)
 
             step_loss, step_acc = [], []
 
@@ -414,7 +395,10 @@ def train_new(args):
                 TN = torch.sum(torch.logical_and(edges_predict==0, edge_labels==0)).item()
                 FP = torch.sum(torch.logical_and(edges_predict==1, edge_labels==0)).item()
                 FN = torch.sum(torch.logical_and(edges_predict==0, edge_labels==1)).item()
-                recall = TP / (TP + FP)
+                try:
+                    recall = TP / (TP + FP)
+                except ZeroDivisionError:
+                    recall = 0
                 precision = TP / (TP + FN)
                 f1 = TP / (TP + 0.5 * (FP + FN) )
                 accuracy = (TP + TN) / edges_predict.shape[0]
@@ -457,17 +441,14 @@ def train_new(args):
                 for data in ds_valid:
                     idx, g = data
                     g = dgl.add_self_loop(g)
+                    graph_ids = torch.arange(g.num_edges()).int().to(device)
+
                     dl = dgl.dataloading.EdgeDataLoader(
-                        g, torch.arange(g.num_edges()), sampler,
+                        g, graph_ids, sampler,
                         batch_size=batch_size,
                         shuffle=False,
                         drop_last=False,
                         num_workers=0)
-
-                    g.ndata['x'] = torch.ones(g.num_nodes(), node_features)
-                    g.edata['e'] = torch.cat((g.edata['overlap_length'].unsqueeze(-1), g.edata['overlap_similarity'].unsqueeze(-1)), dim=1)
-                    nodes_gt, edges_gt = utils. get_correct_ne(idx, data_path)
-                    g.edata['y'] = torch.tensor([1 if i in edges_gt else 0 for i in range(g.num_edges())], dtype=torch.float)
 
                     step_loss, step_acc = [], []
 

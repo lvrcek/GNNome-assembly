@@ -11,7 +11,7 @@ def get_hyperparameters():
         'num_gnn_layers': 3,
         'batch_size': 1024,
         'patience_limit': 10,
-        'decay_factor': 0.9
+        'decay_factor': 0.9,
         'device': 'cpu', # 'cuda:7' if torch.cuda.is_available() else 'cpu',
         'lr': 1e-3,
         'walk_length': 10,

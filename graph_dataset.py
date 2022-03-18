@@ -57,12 +57,12 @@ class AssemblyGraphDataset(DGLDataset):
         self.raven_path = os.path.abspath('vendor/raven_filter/build/bin/raven')
         super().__init__(name='assembly_graphs', raw_dir=raw_dir, save_dir=save_dir)
 
-        graph_list = []
+        self.graph_list = []
         for file in sorted(os.listdir(self.save_dir)):
             idx = int(file[:-4])
-            graph = dgl.load_graph(os.path.join(self.save_dir, file))[0][0]
-            graph = process_graph(graph, self.root, idx)
-            graph_list.append(graph)
+            graph = dgl.load_graphs(os.path.join(self.save_dir, file))[0][0]
+            graph = preprocess_graph(graph, self.root, idx)
+            self.graph_list.append(graph)
 
     def has_cache(self):
         """Check if the raw data is already processed and stored."""
@@ -74,7 +74,7 @@ class AssemblyGraphDataset(DGLDataset):
 
     def __getitem__(self, idx):
         # (graph,), _ = dgl.load_graphs(os.path.join(self.save_dir, str(idx) + '.dgl'))
-        graph = graph_list[idx]
+        graph = self.graph_list[idx]
         return idx, graph
 
     def process(self):
