@@ -436,6 +436,21 @@ def from_csv(graph_path, reads_path):
     graph_dgl = dgl.from_networkx(graph_nx,
                                   node_attrs=['read_length', 'read_idx', 'read_strand', 'read_start', 'read_end', 'read_trim_start', 'read_trim_end'], 
                                   edge_attrs=['prefix_length', 'overlap_similarity', 'overlap_length'])
+    
+    graph_dgl = graph_dgl.int()
+    
+    graph_dgl.ndata['read_length'] = graph_dgl.ndata['read_length'].int()
+    graph_dgl.ndata['read_idx'] = graph_dgl.ndata['read_idx'].int()
+    graph_dgl.ndata['read_strand'] = graph_dgl.ndata['read_strand'].int()
+    graph_dgl.ndata['read_start'] = graph_dgl.ndata['read_start'].int()
+    graph_dgl.ndata['read_end'] = graph_dgl.ndata['read_end'].int()
+    graph_dgl.ndata['read_trim_start'] = graph_dgl.ndata['read_trim_start'].int()
+    graph_dgl.ndata['read_trim_end'] = graph_dgl.ndata['read_trim_end'].int()
+
+    graph_dgl.edata['prefix_length'] = graph_dgl.edata['prefix_length'].int()
+    graph_dgl.edata['overlap_length'] = graph_dgl.edata['overlap_length'].int()
+    # graph_dgl.edata['overlap_similarity'] = graph_dgl.edata['overlap_similarity'].float()
+    
     predecessors = get_predecessors(graph_dgl)
     successors = get_neighbors(graph_dgl)
     edges = get_edges(graph_dgl)
