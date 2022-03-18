@@ -154,6 +154,7 @@ def train_new(args):
         model = models.BlockModel(node_features, edge_features, hidden_features, num_gnn_layers)
         best_model = models.BlockModel(node_features, edge_features, hidden_features, num_gnn_layers)
 
+    model_path = os.path.abspath(f'pretrained/model_{out}.pt')
     best_model.load_state_dict(copy.deepcopy(model.state_dict()))
     best_model.eval()
 
@@ -166,7 +167,7 @@ def train_new(args):
     print(f'Loading data done. Elapsed time: {elapsed}')
 
     loss_per_epoch_train, loss_per_epoch_valid = [], []
-    accuracy_per_epoch_train, accuracy_per_epoch_valid = [], []
+    acc_per_epoch_train, acc_per_epoch_valid = [], []
 
     try:
         for epoch in range(num_epochs):
@@ -178,8 +179,10 @@ def train_new(args):
                 idx, g = data
 
                 if batch_size == -1:
+                    x = g.ndata['x'].to(device)
+                    e = g.edata['e'].to(device)
                     edge_predictions = model(g, x, e).squeeze(-1)
-                    edge_labels = g.edata['y']
+                    edge_labels = g.edata['y'].to(device)
                     loss = criterion(edge_predictions, edge_labels)
                     optimizer.zero_grad()
                     loss.backward()
