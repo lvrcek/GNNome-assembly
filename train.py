@@ -173,18 +173,22 @@ def train_new(args):
 
             loss_per_graph, acc_per_graph = [], []
 
-            if batch_size == -1:
-                edge_predictions = model(g, x, e).squeeze(-1)
-                edge_labels = g.edata['y']
-                loss = criterion(edge_predictions, edge_labels)
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
-            else:
-                for data in ds_train:
-                    model.train()
-                    idx, g = data
-            
+            for data in ds_train:
+                model.train()
+                idx, g = data
+
+                if batch_size == -1:
+                    edge_predictions = model(g, x, e).squeeze(-1)
+                    edge_labels = g.edata['y']
+                    loss = criterion(edge_predictions, edge_labels)
+                    optimizer.zero_grad()
+                    loss.backward()
+                    optimizer.step()
+
+                    step_loss = [loss.item()]
+                    step_acc = [0.0]
+
+                else:
                     graph_ids = torch.arange(g.num_edges()).int().to(device)
                     dl = dgl.dataloading.EdgeDataLoader(
                         g, graph_ids, sampler,
@@ -232,14 +236,14 @@ def train_new(args):
                         step_loss.append(loss.item())
                         step_acc.append(accuracy)
 
-                    loss_per_graph.append(np.mean(step_loss))
-                    acc_per_graph.append(np.mean(step_acc))
+                loss_per_graph.append(np.mean(step_loss))
+                acc_per_graph.append(np.mean(step_acc))
 
-                    elapsed = utils.timedelta_to_str(datetime.now() - time_start)
-                    # print(f'\nTRAINING: Epoch = {epoch}, Graph = {idx}')
-                    # print(f'Loss: {train_loss:.4f},\tAccuracy: {train_acc:.4f}', end='')
-                    # print(f'Precision: {precision:.4f},\tRecall: {recall:.4f},\tF1: {f1:.4f}')
-                    # print(f'Elapsed time: {elapsed}\n')
+                elapsed = utils.timedelta_to_str(datetime.now() - time_start)
+                # print(f'\nTRAINING: Epoch = {epoch}, Graph = {idx}')
+                # print(f'Loss: {train_loss:.4f},\tAccuracy: {train_acc:.4f}', end='')
+                # print(f'Precision: {precision:.4f},\tRecall: {recall:.4f},\tF1: {f1:.4f}')
+                # print(f'Elapsed time: {elapsed}\n')
 
             train_loss = np.mean(loss_per_graph)
             train_acc = np.mean(acc_per_graph)
@@ -254,7 +258,7 @@ def train_new(args):
                 if len(loss_per_epoch_train) > 1 and loss_per_epoch_train[-1] < min(loss_per_epoch_train[:-1]):
                     best_model.load_state_dict(copy.deepcopy(model.state_dict()))
                     torch.save(best_model.state_dict(), model_path)
-                # Check what's going on here
+                # TODO: Check what's going on here
                 save_checkpoint(epoch, model, optimizer, loss_per_epoch_train[-1], 0.0, out)
                 # scheduler.step(train_loss)
 
