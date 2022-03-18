@@ -294,6 +294,11 @@ def process_reads(reads, device):
 
 
 
+def process_graph(g):
+    g.ndata['x'] = torch.ones(g.num_nodes(), node_features)
+    g.edata['e'] = torch.cat((g.edata['overlap_length'], g.edata['overlap_similarity']), dim=1)
+    pass
+
 def train_new(args):
     hyperparameters = get_hyperparameters()
     seed = hyperparameters['seed']
@@ -302,7 +307,7 @@ def train_new(args):
     dim_latent = hyperparameters['dim_latent']
     batch_size = hyperparameters['batch_size']
     patience_limit = hyperparameters['patience_limit']
-    learning_rate = hyperparameters['lr']
+    lr = hyperparameters['lr']
     device = hyperparameters['device']
     use_reads = hyperparameters['use_reads']
     use_amp = hyperparameters['use_amp']
@@ -318,37 +323,100 @@ def train_new(args):
     
     sampler = dgl.dataloading.MultiLayerFullNeighborSampler(num_gnn_layers)
     
-    dataset = graph_dataset.AssemblyGraphDataset(data_path)
+    if is_split:
+        ds_train = graph_dataset.AssemblyGraphDataset(os.path.join(data_path, 'train'))
+        ds_valid = graph_dataset.AssemblyGraphDataset(os.path.join(data_path, 'valid'))
+        num_graphs = len(ds_train) + len(ds_valid)
+    else:
+        ds = AssemblyGraphDataset(data_path)
+        # TODO: Only a temporary stupid fix, have to decide later how to make it proper
+        ds_train = ds
+        num_graphs = len(ds)
 
-    model = models.TestModel()
+    overfit = num_graphs == 1
 
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     criterion = torch.nn.BCEWithLogitsLoss()
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.9, patience=10, verbose=True)
+    scaler = torch.cuda.amp.GradScaler()
 
-    for data in dataset:
-        idx, g = data
-        g = dgl.add_self_loops(g)
+    node_features = 1
+    edge_features = 2
+    hidden_features = dim_latent
+    model = models.Model(node_features, edge_features, hidden_features, num_gnn_layers)
+
+    best_model = models.Model(node_features, edge_features, hidden_features, num_gnn_layers)
+    best_model.load_state_dict(copy.deepcopy(model.state_dict()))
+    best_mode.eval()
+
+    # Don't need normalization here, do that in preprocessing
+
+    elapsed = utils.timedelta_to_str(datetime.now() - time_start)
+    print(f'Loading data done. Elapsed time: {elapsed}')
+
+
+    for epoch in range(num_epochs):
+
+        loss_per_graph, acc_per_graph = [], []
+        for data in ds_train:
+            model.train()
+            idx, g = data
+            g = dgl.add_self_loops(g)
         
+            dl = dgl.dataloading.EdgeDataLoader(
+                g, torch.arange(g.num_edges()), sampler,
+                batch_size=batch_size,
+                shufle=True,
+                drop_last=False,
+                num_workers=0)
 
-        dataloader = dgl.dataloading.EdgeDataLoader(
-            g, torch.arange(g.num_edges()), sampler,
-            batch_size=batch_size,
-            shufle=True,
-            drop_last=False,
-            num_workers=0)
+            # TODO:
+            # Remove this later, features should be determined in preprocessing,
+            # Not in every training epoch
+            g.ndata['x'] = torch.ones(g.num_nodes(), node_features)
 
-        for input_nodes, edge_subgraph, blocks in dataloader:
-            blocks = [b.to(device) for b in blocks]
-            x = blocks[0].srcdata['x']
-            e = edge_subgraph.edata['e']
-            edge_labels = edge_subgraph.edata['y']
-            edge_predictions = model(edge_subgraph, blocks, x, e)
+            # First I need to normalize length and similarity, though
+            # This should also be done in preprocessing
+            g.edata['e'] = torch.cat((g.edata['overlap_length'], g.edata['overlap_similarity']), dim=1)
 
-            loss = criterion(edge_predictions.squeeze(), edge_labels)
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+            # This should also be done in preprocessing
+            nodes_gt, edges_gt = utils. get_correct_ne(idx, data_path)
+            g.edata['y'] = torch.tensor([1 if i in edges_gt else 0 for i in range(graph.num_edges())], dtype=torch.float)
 
+            step_loss, step_acc = [], []
+
+            for input_nodes, edge_subgraph, blocks in tqdm(dl):
+                blocks = [b.to(device) for b in blocks]
+                edge_subgraph = edge_subgraph.to(device)
+                x = blocks[0].srcdata['x']
+                # For GNN edge feautre update, I need edge data from block[0]
+                e = edge_subgraph.edata['e'].to(device)
+                edge_labels = edge_subgraph.edata['y'].to(device)
+                edge_predictions = model(edge_subgraph, blocks, x, e)
+
+                loss = criterion(edge_predictions.squeeze(), edge_labels)
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+
+                correct = (edge_labels == torch.round(torch.sigmoid(edge_predictions))).sum().item()
+                accuracy = correct / edge_labels.shape[0]
+                step_loss.append(loss.item())
+                step_acc.append(accuracy)
+
+            loss_per_graph.append(np.mean(step_loss))
+            acc_per_graph.append(np.mean(step_acc))
+
+            elapsed = utils.timedelta_to_str(datetime.now() - time_start)
+            print(f'\nTraining: epoch = {epoch}, graph = {idx}')
+            print(f'Train loss: {train_loss:.4f},\tTrain accuracy: {train_acc:.4f}')
+            print(f'Elapsed time: {elapsed}\n')
+
+
+        if not overfit:
+            with torch.no_grad():
+                model.eval()
+                ...
 
 
 def train(args):
