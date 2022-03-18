@@ -107,7 +107,7 @@ def process_reads(reads, device):
     return processed_reads
 
 
-def train_new(args):
+def train(args):
     hyperparameters = get_hyperparameters()
     seed = hyperparameters['seed']
     num_epochs = hyperparameters['num_epochs']
@@ -189,7 +189,10 @@ def train_new(args):
                     optimizer.step()
 
                     step_loss = [loss.item()]
-                    step_acc = [0.0]
+                    TP, TN, FP, FN = utils.calculate_tfpn(edge_predictions, edge_labels)
+                    print(f'{TP=}, {TN=}, {FP=}, {FN=}')
+                    acc, precision, recall, f1 =  utils.calculate_metrics(TP, TN, FP, FN)
+                    step_acc = [acc]
 
                 else:
                     graph_ids = torch.arange(g.num_edges()).int().to(device)
@@ -209,35 +212,18 @@ def train_new(args):
                         # For GNN edge feautre update, I need edge data from block[0]
                         e = edge_subgraph.edata['e'].to(device)
                         edge_labels = edge_subgraph.edata['y'].to(device)
-                        edge_predictions = model(edge_subgraph, blocks, x, e)
-
-                        edge_predictions = edge_predictions.squeeze(-1)
-                        print(edge_predictions.shape)
-                        print(edge_labels.shape)
+                        edge_predictions = model(edge_subgraph, blocks, x, e).squeeze(-1)
                         loss = criterion(edge_predictions, edge_labels)
                         optimizer.zero_grad()
                         loss.backward()
                         optimizer.step()
 
-
-                        # TODO: Put all this into a separate function
-                        edges_predict = torch.round(torch.sigmoid(edge_predictions))
-                        TP = torch.sum(torch.logical_and(edges_predict==1, edge_labels==1)).item()
-                        TN = torch.sum(torch.logical_and(edges_predict==0, edge_labels==0)).item()
-                        FP = torch.sum(torch.logical_and(edges_predict==1, edge_labels==0)).item()
-                        FN = torch.sum(torch.logical_and(edges_predict==0, edge_labels==1)).item()
-                        try:
-                            recall = TP / (TP + FP)
-                        except ZeroDivisionError:
-                            recall = 0
-                        precision = TP / (TP + FN)
-                        f1 = TP / (TP + 0.5 * (FP + FN) )
-                        accuracy = (TP + TN) / edges_predict.shape[0]
-
+                        TP, TN, FP, FN = utils.calculate_tfpn(edge_predictions, edge_labels)
                         print(f'{TP=}, {TN=}, {FP=}, {FN=}')
+                        acc, precision, recall, f1 =  utils.calculate_metrics(TP, TN, FP, FN)
 
                         step_loss.append(loss.item())
-                        step_acc.append(accuracy)
+                        step_acc.append(acc)
 
                 loss_per_graph.append(np.mean(step_loss))
                 acc_per_graph.append(np.mean(step_acc))
@@ -293,25 +279,16 @@ def train_new(args):
                             edge_predictions = model(edge_subgraph, blocks, x, e)
 
                             edge_predictions = edge_predictions.squeeze(-1)
-                            print(edge_predictions.shape)
-                            print(edge_labels.shape)
+
                             loss = criterion(edge_predictions, edge_labels)
 
-                            # TODO: Put all this into a separate function
-                            edges_predict = torch.round(torch.sigmoid(edge_predictions))
-                            TP = torch.sum(torch.logical_and(edges_predict==1, edge_labels==1)).item()
-                            TN = torch.sum(torch.logical_and(edges_predict==0, edge_labels==0)).item()
-                            FP = torch.sum(torch.logical_and(edges_predict==1, edge_labels==0)).item()
-                            FN = torch.sum(torch.logical_and(edges_predict==0, edge_labels==1)).item()
-                            recall = TP / (TP + FP)
-                            precision = TP / (TP + FN)
-                            f1 = TP / (TP + 0.5 * (FP + FN) )
-                            accuracy = (TP + TN) / edges_predict.shape[0]
 
+                            TP, TN, FP, FN = utils.calculate_tfpn(edge_predictions, edge_labels)
                             print(f'{TP=}, {TN=}, {FP=}, {FN=}')
+                            acc, precision, recall, f1 =  utils.calculate_metrics(TP, TN, FP, FN)
 
                             step_loss.append(loss.item())
-                            step_acc.append(accuracy)
+                            step_acc.append(acc)
                         
                         loss_per_graph.append(np.mean(step_loss))
                         acc_per_graph.append(np.mean(step_acc))
@@ -319,7 +296,7 @@ def train_new(args):
                     valid_loss = np.mean(loss_per_graph)
                     valid_acc = np.mean(accuracy_per_graph)
                     loss_per_epoch_valid.append(valid_loss)
-                    accuracy_per_epoch_valid.append(valid_acc)
+                    acc_per_epoch_valid.append(valid_acc)
 
                     elapsed = utils.timedelta_to_str(datetime.now() - time_start)
                     print(f'\nValidation in epoch {epoch} done. Elapsed time: {elapsed}\n')
@@ -344,4 +321,4 @@ if __name__ == '__main__':
     parser.add_argument('--eval', action='store_true')
     parser.add_argument('--split', action='store_true', default=False, help='Is the dataset already split into train/valid/test')
     args = parser.parse_args()
-    train_new(args)
+    train(args)
