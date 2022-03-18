@@ -20,6 +20,7 @@ from hyperparameters import get_hyperparameters
 import models
 import utils
 
+import dgl
 
 def get_dataloaders(ds, batch_size, is_eval, ratio):
     """Load the dataset and initialize dataloaders.
@@ -335,19 +336,20 @@ def train_new(args):
 
     overfit = num_graphs == 1
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    node_features = 1
+    edge_features = 2
+    hidden_features = dim_latent
+
+    model = models.Model(node_features, edge_features, hidden_features, num_gnn_layers)
+
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     criterion = torch.nn.BCEWithLogitsLoss()
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.9, patience=10, verbose=True)
     scaler = torch.cuda.amp.GradScaler()
 
-    node_features = 1
-    edge_features = 2
-    hidden_features = dim_latent
-    model = models.Model(node_features, edge_features, hidden_features, num_gnn_layers)
-
     best_model = models.Model(node_features, edge_features, hidden_features, num_gnn_layers)
     best_model.load_state_dict(copy.deepcopy(model.state_dict()))
-    best_mode.eval()
+    best_model.eval()
 
     # Don't need normalization here, do that in preprocessing
 
@@ -361,12 +363,12 @@ def train_new(args):
         for data in ds_train:
             model.train()
             idx, g = data
-            g = dgl.add_self_loops(g)
+            g = dgl.add_self_loop(g)
         
             dl = dgl.dataloading.EdgeDataLoader(
                 g, torch.arange(g.num_edges()), sampler,
                 batch_size=batch_size,
-                shufle=True,
+                shuffle=True,
                 drop_last=False,
                 num_workers=0)
 
@@ -377,11 +379,11 @@ def train_new(args):
 
             # First I need to normalize length and similarity, though
             # This should also be done in preprocessing
-            g.edata['e'] = torch.cat((g.edata['overlap_length'], g.edata['overlap_similarity']), dim=1)
+            g.edata['e'] = torch.cat((g.edata['overlap_length'].unsqueeze(-1), g.edata['overlap_similarity'].unsqueeze(-1)), dim=1)
 
             # This should also be done in preprocessing
             nodes_gt, edges_gt = utils. get_correct_ne(idx, data_path)
-            g.edata['y'] = torch.tensor([1 if i in edges_gt else 0 for i in range(graph.num_edges())], dtype=torch.float)
+            g.edata['y'] = torch.tensor([1 if i in edges_gt else 0 for i in range(g.num_edges())], dtype=torch.float)
 
             step_loss, step_acc = [], []
 
@@ -394,7 +396,10 @@ def train_new(args):
                 edge_labels = edge_subgraph.edata['y'].to(device)
                 edge_predictions = model(edge_subgraph, blocks, x, e)
 
-                loss = criterion(edge_predictions.squeeze(), edge_labels)
+                edge_predictions = edge_predictions.squeeze(-1)
+                print(edge_predictions.shape)
+                print(edge_labels.shape)
+                loss = criterion(edge_predictions, edge_labels)
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
@@ -726,4 +731,4 @@ if __name__ == '__main__':
     parser.add_argument('--eval', action='store_true')
     parser.add_argument('--split', action='store_true', default=False, help='Is the dataset already split into train/valid/test')
     args = parser.parse_args()
-    train(args)
+    train_new(args)

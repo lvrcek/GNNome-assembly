@@ -28,7 +28,7 @@ class GCN(nn.Module):
 class ScorePredictor(nn.Module):
     def __init__(self, in_features):
         super().__init__()
-        self.W = nn.Linear(3 * in_features, num_classes)
+        self.W = nn.Linear(3 * in_features, 1)
 
     def apply_edges(self, edges):
         data = torch.cat((edges.src['x'], edges.dst['x'], edges.data['e']), dim=1)
