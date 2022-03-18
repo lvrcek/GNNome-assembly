@@ -130,7 +130,7 @@ def preprocess_graph(g, data_path, idx):
     g.edata['e'] = torch.cat((ol_len.unsqueeze(-1), ol_sim.unsqueeze(-1)), dim=1)
 
     try:
-        nodes_gt, edges_gt = utils.get_correct_ne(idx, data_path)
+        nodes_gt, edges_gt = get_correct_ne(idx, data_path)
         g.edata['y'] = torch.tensor([1 if i in edges_gt else 0 for i in range(g.num_edges())], dtype=torch.float)
     except FileNotFoundError:
         print("Solutions not generated")

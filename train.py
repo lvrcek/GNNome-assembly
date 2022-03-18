@@ -114,7 +114,7 @@ def train_new(args):
     num_gnn_layers = hyperparameters['num_gnn_layers']
     hidden_features = hyperparameters['dim_latent']
     batch_size = hyperparameters['batch_size']
-    patience_limit = hyperparameters['patience_limit']
+    patience = hyperparameters['patience']
     lr = hyperparameters['lr']
     device = hyperparameters['device']
     use_reads = hyperparameters['use_reads']
@@ -122,7 +122,7 @@ def train_new(args):
 
     node_features = hyperparameters['node_features']
     edge_features = hyperparameters['edge_features']
-    decay_factor = hyperparameters['decay_factor']
+    decay = hyperparameters['decay']
 
     time_start = datetime.now()
     timestamp = time_start.strftime('%Y-%b-%d-%H-%M-%S')
@@ -159,7 +159,7 @@ def train_new(args):
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     criterion = torch.nn.BCEWithLogitsLoss()
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=decay_factor, patience=patience_limit, verbose=True)
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=decay, patience=patience, verbose=True)
     scaler = torch.cuda.amp.GradScaler()
 
     elapsed = utils.timedelta_to_str(datetime.now() - time_start)
@@ -174,8 +174,8 @@ def train_new(args):
             loss_per_graph, acc_per_graph = [], []
 
             if batch_size == -1:
-                edge_predictions = model(graph, x, e).squeeze(-1)
-                edge_labels = graph.edata['y']
+                edge_predictions = model(g, x, e).squeeze(-1)
+                edge_labels = g.edata['y']
                 loss = criterion(edge_predictions, edge_labels)
                 optimizer.zero_grad()
                 loss.backward()
@@ -185,7 +185,7 @@ def train_new(args):
                     model.train()
                     idx, g = data
             
-                    train_ids = torch.arange(g.num_edges()).int().to(device)
+                    graph_ids = torch.arange(g.num_edges()).int().to(device)
                     dl = dgl.dataloading.EdgeDataLoader(
                         g, graph_ids, sampler,
                         batch_size=batch_size,
