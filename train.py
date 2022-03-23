@@ -197,7 +197,7 @@ def train(args):
                     step_acc = [acc]
 
                 else:
-                    graph_ids = torch.arange(g.num_edges()).int().to(device)
+                    graph_ids = torch.arange(g.num_edges()).int()
                     dl = dgl.dataloading.EdgeDataLoader(
                         g, graph_ids, sampler,
                         batch_size=batch_size,

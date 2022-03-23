@@ -10,11 +10,10 @@ def get_hyperparameters():
         'node_features': 1,
         'edge_features': 2,
         'num_gnn_layers': 8,
-        'batch_size': -1, # 1024,
+        'batch_size': 1024,
         'patience': 10,
         'decay': 0.9,
-        'device': 'cuda:7' if torch.cuda.is_available() else 'cpu',
-        
+        'device': 'cuda:1' if torch.cuda.is_available() else 'cpu',  
         'bias': False,
         'gnn_mode': 'builtin',
         'encode': 'none',
