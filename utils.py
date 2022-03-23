@@ -237,5 +237,5 @@ def calculate_metrics(TP, TN, FP, FN):
         f1 = TP / (TP + 0.5 * (FP + FN) )
     except ZeroDivisionError:
         f1 = 0
-    accuracy = (TP + TN) / edge_predictions.shape[0]
+    accuracy = (TP + TN) / (TP + TN + FP + FN)
     return accuracy, precision, recall, f1

@@ -154,6 +154,7 @@ def train(args):
         model = models.BlockModel(node_features, edge_features, hidden_features, num_gnn_layers)
         best_model = models.BlockModel(node_features, edge_features, hidden_features, num_gnn_layers)
 
+    model.to(device)
     model_path = os.path.abspath(f'pretrained/model_{out}.pt')
     best_model.load_state_dict(copy.deepcopy(model.state_dict()))
     best_model.eval()
@@ -179,6 +180,7 @@ def train(args):
                 idx, g = data
 
                 if batch_size == -1:
+                    g = g.to(device)
                     x = g.ndata['x'].to(device)
                     e = g.edata['e'].to(device)
                     edge_predictions = model(g, x, e).squeeze(-1)
