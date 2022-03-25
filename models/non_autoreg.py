@@ -3,10 +3,27 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 import dgl
+import dgl.function as fn
 
+
+class CustomGCNLayer(nn.Module):
+    def __init__(self, in_feats, out_feats):
+        super().__init__()
+        self.W = nn.Linear(in_feats * 2, out_feats)
+
+    def forward(self, block, h):
+        with block.local_scope():
+            h_src = h
+            h_dst = h[:block.number_of_dst_nodes()]
+            block.srcdata['h'] = h_src
+            block.dstdata['h'] = h_dst
+            block.update_all(fn.copy_u('h', 'm'), fn.mean('m', 'h_neigh'))
+
+            return self.W(torch.cat(
+                [block.dstdata['h'], block.dstdata['h_neigh']], dim=1))  # This cat is bullshit
+            
 
 class BlockGCN(nn.Module):
-
     def __init__(self, num_layers, hidden_features):
         super().__init__()
         self.convs = nn.ModuleList([
@@ -20,7 +37,6 @@ class BlockGCN(nn.Module):
 
 
 class GraphGCN(nn.Module):
-
     def __init__(self, num_layers, hidden_features):
         super().__init__()
         self.convs = nn.ModuleList([

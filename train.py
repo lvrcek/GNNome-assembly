@@ -12,6 +12,7 @@ import torch.optim as optim
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import random_split
 from torch.profiler import profile, record_function, ProfilerActivity
+import dgl
 from dgl.dataloading import GraphDataLoader
 import wandb
 
@@ -19,8 +20,6 @@ from graph_dataset import AssemblyGraphDataset
 from hyperparameters import get_hyperparameters
 import models
 import utils
-
-import dgl
 
 
 def save_checkpoint(epoch, model, optimizer, loss_train, loss_valid, out):
@@ -211,8 +210,9 @@ def train(args):
                         blocks = [b.to(device) for b in blocks]
                         edge_subgraph = edge_subgraph.to(device)
                         x = blocks[0].srcdata['x']
-                        # For GNN edge feautre update, I need edge data from block[0]
-                        e = edge_subgraph.edata['e'].to(device)
+                        # TODO: For GNN edge feature update, I need edge data from block[0]
+                        e = edge_subgraph.edata['e'].to(device)  # e = blocks[0].edata['e'].to(device)
+                        # TODO: What I said above, read your own comments moron
                         edge_labels = edge_subgraph.edata['y'].to(device)
                         edge_predictions = model(edge_subgraph, blocks, x, e).squeeze(-1)
                         loss = criterion(edge_predictions, edge_labels)
@@ -296,7 +296,7 @@ def train(args):
                         acc_per_graph.append(np.mean(step_acc))
                         
                     valid_loss = np.mean(loss_per_graph)
-                    valid_acc = np.mean(accuracy_per_graph)
+                    valid_acc = np.mean(acc_per_graph)
                     loss_per_epoch_valid.append(valid_loss)
                     acc_per_epoch_valid.append(valid_acc)
 
