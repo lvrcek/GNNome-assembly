@@ -170,102 +170,47 @@ def train(args):
     acc_per_epoch_train, acc_per_epoch_valid = [], []
 
     try:
-        for epoch in range(num_epochs):
+        with wandb.init(project="GeNNome-april", config=hyperparameters):
+            wandb.watch(model, criterion, log='all', log_freq=1000)
 
-            loss_per_graph, acc_per_graph = [], []
+            for epoch in range(num_epochs):
 
-            for data in ds_train:
-                model.train()
-                idx, g = data
+                loss_per_graph, acc_per_graph = [], []
 
-                if batch_size == -1:
-                    g = g.to(device)
-                    x = g.ndata['x'].to(device)
-                    e = g.edata['e'].to(device)
-                    edge_predictions = model(g, x, e).squeeze(-1)
-                    edge_labels = g.edata['y'].to(device)
-                    loss = criterion(edge_predictions, edge_labels)
-                    optimizer.zero_grad()
-                    loss.backward()
-                    optimizer.step()
+                for data in ds_train:
+                    model.train()
+                    idx, g = data
 
-                    step_loss = [loss.item()]
-                    TP, TN, FP, FN = utils.calculate_tfpn(edge_predictions, edge_labels)
-                    print(f'{TP=}, {TN=}, {FP=}, {FN=}')
-                    acc, precision, recall, f1 =  utils.calculate_metrics(TP, TN, FP, FN)
-                    step_acc = [acc]
-
-                else:
-                    graph_ids = torch.arange(g.num_edges()).int()
-                    dl = dgl.dataloading.EdgeDataLoader(
-                        g, graph_ids, sampler,
-                        batch_size=batch_size,
-                        shuffle=True,
-                        drop_last=False,
-                        num_workers=0)
-
-                    step_loss, step_acc = [], []
-
-                    for input_nodes, edge_subgraph, blocks in tqdm(dl):
-                        blocks = [b.to(device) for b in blocks]
-                        edge_subgraph = edge_subgraph.to(device)
-                        x = blocks[0].srcdata['x']
-                        # TODO: For GNN edge feature update, I need edge data from block[0]
-                        e = edge_subgraph.edata['e'].to(device)  # e = blocks[0].edata['e'].to(device)
-                        # TODO: What I said above, read your own comments moron
-                        edge_labels = edge_subgraph.edata['y'].to(device)
-                        edge_predictions = model(edge_subgraph, blocks, x, e).squeeze(-1)
+                    if batch_size == -1:
+                        g = g.to(device)
+                        x = g.ndata['x'].to(device)
+                        e = g.edata['e'].to(device)
+                        edge_predictions = model(g, x, e)
+                        edge_predictions = edge_predictions.squeeze(-1)
+                        edge_labels = g.edata['y'].to(device)
                         loss = criterion(edge_predictions, edge_labels)
                         optimizer.zero_grad()
                         loss.backward()
                         optimizer.step()
 
+                        step_loss = [loss.item()]
                         TP, TN, FP, FN = utils.calculate_tfpn(edge_predictions, edge_labels)
-                        print(f'{TP=}, {TN=}, {FP=}, {FN=}')
+                        print(f'\t{TP=}, {TN=}, {FP=}, {FN=}')
                         acc, precision, recall, f1 =  utils.calculate_metrics(TP, TN, FP, FN)
+                        step_acc = [acc]
 
-                        step_loss.append(loss.item())
-                        step_acc.append(acc)
+                        try:
+                            wandb.log({'train_loss': loss.item(), 'train_accuracy': acc, 'train_precision': precision, \
+                                           'train_recall': recall, 'train_f1': f1})
+                        except Exception:
+                            print(f'WandB exception occured!')
 
-                loss_per_graph.append(np.mean(step_loss))
-                acc_per_graph.append(np.mean(step_acc))
-
-                elapsed = utils.timedelta_to_str(datetime.now() - time_start)
-                # print(f'\nTRAINING: Epoch = {epoch}, Graph = {idx}')
-                # print(f'Loss: {train_loss:.4f},\tAccuracy: {train_acc:.4f}', end='')
-                # print(f'Precision: {precision:.4f},\tRecall: {recall:.4f},\tF1: {f1:.4f}')
-                # print(f'Elapsed time: {elapsed}\n')
-
-            train_loss = np.mean(loss_per_graph)
-            train_acc = np.mean(acc_per_graph)
-            loss_per_epoch_train.append(train_loss)
-            acc_per_epoch_train.append(train_acc)
-
-            elapsed = utils.timedelta_to_str(datetime.now() - time_start)
-            print(f'\nTraining in epoch {epoch} done. Elapsed time: {elapsed}')
-            print(f'Train loss mean: {train_loss:.4f},\tTrain accuracy mean: {train_acc:.4f}\n')
-
-            if overfit:
-                if len(loss_per_epoch_train) > 1 and loss_per_epoch_train[-1] < min(loss_per_epoch_train[:-1]):
-                    best_model.load_state_dict(copy.deepcopy(model.state_dict()))
-                    torch.save(best_model.state_dict(), model_path)
-                # TODO: Check what's going on here
-                save_checkpoint(epoch, model, optimizer, loss_per_epoch_train[-1], 0.0, out)
-                # scheduler.step(train_loss)
-
-            if not overfit:
-                with torch.no_grad():
-                    print('VALIDATION')
-                    model.eval()
-                    for data in ds_valid:
-                        idx, g = data
-                        g = dgl.add_self_loop(g)
-                        graph_ids = torch.arange(g.num_edges()).int().to(device)
-
+                    else:
+                        graph_ids = torch.arange(g.num_edges()).int()
                         dl = dgl.dataloading.EdgeDataLoader(
                             g, graph_ids, sampler,
                             batch_size=batch_size,
-                            shuffle=False,
+                            shuffle=True,
                             drop_last=False,
                             num_workers=0)
 
@@ -275,15 +220,16 @@ def train(args):
                             blocks = [b.to(device) for b in blocks]
                             edge_subgraph = edge_subgraph.to(device)
                             x = blocks[0].srcdata['x']
-                            # For GNN edge feautre update, I need edge data from block[0]
-                            e = edge_subgraph.edata['e'].to(device)
+                            # TODO: For GNN edge feature update, I need edge data from block[0]
+                            e = edge_subgraph.edata['e'].to(device)  # e = blocks[0].edata['e'].to(device)
+                            # TODO: What I said above, read your own comments moron
                             edge_labels = edge_subgraph.edata['y'].to(device)
                             edge_predictions = model(edge_subgraph, blocks, x, e)
-
                             edge_predictions = edge_predictions.squeeze(-1)
-
                             loss = criterion(edge_predictions, edge_labels)
-
+                            optimizer.zero_grad()
+                            loss.backward()
+                            optimizer.step()
 
                             TP, TN, FP, FN = utils.calculate_tfpn(edge_predictions, edge_labels)
                             print(f'{TP=}, {TN=}, {FP=}, {FN=}')
@@ -291,24 +237,121 @@ def train(args):
 
                             step_loss.append(loss.item())
                             step_acc.append(acc)
-                        
-                        loss_per_graph.append(np.mean(step_loss))
-                        acc_per_graph.append(np.mean(step_acc))
-                        
-                    valid_loss = np.mean(loss_per_graph)
-                    valid_acc = np.mean(acc_per_graph)
-                    loss_per_epoch_valid.append(valid_loss)
-                    acc_per_epoch_valid.append(valid_acc)
+
+                            try:
+                                wandb.log({'train_loss': loss.item(), 'train_accuracy': acc, 'train_precision': precision, \
+                                           'train_recall': recall, 'train_f1': f1})
+                            except Exception:
+                                print(f'WandB exception occured!')
+
+                    loss_per_graph.append(np.mean(step_loss))
+                    acc_per_graph.append(np.mean(step_acc))
 
                     elapsed = utils.timedelta_to_str(datetime.now() - time_start)
-                    print(f'\nValidation in epoch {epoch} done. Elapsed time: {elapsed}\n')
-                    print(f'Valid loss: {valid_loss},\tValid accuracy: {valid_acc}\n')
+                    # print(f'\nTRAINING: Epoch = {epoch}, Graph = {idx}')
+                    # print(f'Loss: {train_loss:.4f},\tAccuracy: {train_acc:.4f}', end='')
+                    # print(f'Precision: {precision:.4f},\tRecall: {recall:.4f},\tF1: {f1:.4f}')
+                    # print(f'Elapsed time: {elapsed}\n')
 
-                    if len(loss_per_epoch_valid) > 1 and loss_per_epoch_valid[-1] < min(loss_per_epoch_valid[:-1]):
+                train_loss = np.mean(loss_per_graph)
+                train_acc = np.mean(acc_per_graph)
+                loss_per_epoch_train.append(train_loss)
+                acc_per_epoch_train.append(train_acc)
+
+                elapsed = utils.timedelta_to_str(datetime.now() - time_start)
+                print(f'\nTraining in epoch {epoch} done. Elapsed time: {elapsed}')
+                print(f'Train loss mean: {train_loss:.4f},\tTrain accuracy mean: {train_acc:.4f}\n')
+
+                if overfit:
+                    if len(loss_per_epoch_train) > 1 and loss_per_epoch_train[-1] < min(loss_per_epoch_train[:-1]):
                         best_model.load_state_dict(copy.deepcopy(model.state_dict()))
                         torch.save(best_model.state_dict(), model_path)
-                    save_checkpoint(epoch, model, optimizer, loss_per_epoch_train[-1], loss_per_epoch_valid[-1], out)
-                    # scheduler.step(valid_loss)
+                    # TODO: Check what's going on here
+                    save_checkpoint(epoch, model, optimizer, loss_per_epoch_train[-1], 0.0, out)
+                    # scheduler.step(train_loss)
+
+                if not overfit:
+                    with torch.no_grad():
+                        print('VALIDATION')
+                        model.eval()
+                        for data in ds_valid:
+                            idx, g = data
+                            # TODO: Do I need to add self loops? Why yes or why not?
+                            # g = dgl.add_self_loop(g)
+                            
+                            if batch_size == -1:
+                                g = g.to(device)
+                                x = g.ndata['x'].to(device)
+                                e = g.edata['e'].to(device)
+                                edge_predictions = model(g, x, e)
+                                edge_predictions = edge_predictions.squeeze(-1)
+                                edge_labels = g.edata['y'].to(device)
+                                loss = criterion(edge_predictions, edge_labels)
+
+                                step_loss = [loss.item()]
+                                TP, TN, FP, FN = utils.calculate_tfpn(edge_predictions, edge_labels)
+                                print(f'\t{TP=}, {TN=}, {FP=}, {FN=}')
+                                acc, precision, recall, f1 =  utils.calculate_metrics(TP, TN, FP, FN)
+                                step_acc = [acc]
+
+                                try:
+                                    wandb.log({'valid_loss': loss.item(), 'valid_accuracy': acc, 'valid_precision': precision, \
+                                            'valid_recall': recall, 'valid_f1': f1})
+                                except Exception:
+                                    print(f'WandB exception occured!')
+
+                            else:
+                                graph_ids = torch.arange(g.num_edges()).int()
+                                dl = dgl.dataloading.EdgeDataLoader(
+                                    g, graph_ids, sampler,
+                                    batch_size=batch_size,
+                                    shuffle=False,
+                                    drop_last=False,
+                                    num_workers=0)
+
+                                step_loss, step_acc = [], []
+
+                                for input_nodes, edge_subgraph, blocks in tqdm(dl):
+                                    blocks = [b.to(device) for b in blocks]
+                                    edge_subgraph = edge_subgraph.to(device)
+                                    x = blocks[0].srcdata['x']
+                                    # For GNN edge feautre update, I need edge data from block[0]
+                                    e = edge_subgraph.edata['e'].to(device)
+                                    edge_labels = edge_subgraph.edata['y'].to(device)
+                                    edge_predictions = model(edge_subgraph, blocks, x, e)
+                                    edge_predictions = edge_predictions.squeeze(-1)
+                                    loss = criterion(edge_predictions, edge_labels)
+
+                                    TP, TN, FP, FN = utils.calculate_tfpn(edge_predictions, edge_labels)
+                                    print(f'{TP=}, {TN=}, {FP=}, {FN=}')
+                                    acc, precision, recall, f1 =  utils.calculate_metrics(TP, TN, FP, FN)
+
+                                    step_loss.append(loss.item())
+                                    step_acc.append(acc)
+
+                                    try:
+                                        wandb.log({'valid_loss': loss.item(), 'valid_accuracy': acc, 'valid_precision': precision, \
+                                                'valid_recall': recall, 'valid_f1': f1})
+                                    except Exception:
+                                        print(f'WandB exception occured!')
+                            
+                            loss_per_graph.append(np.mean(step_loss))
+                            acc_per_graph.append(np.mean(step_acc))
+                            
+                        valid_loss = np.mean(loss_per_graph)
+                        valid_acc = np.mean(acc_per_graph)
+                        loss_per_epoch_valid.append(valid_loss)
+                        acc_per_epoch_valid.append(valid_acc)
+
+                        elapsed = utils.timedelta_to_str(datetime.now() - time_start)
+                        print(f'\nValidation in epoch {epoch} done. Elapsed time: {elapsed}\n')
+                        print(f'Valid loss: {valid_loss},\tValid accuracy: {valid_acc}\n')
+
+                        if len(loss_per_epoch_valid) > 1 and loss_per_epoch_valid[-1] < min(loss_per_epoch_valid[:-1]):
+                            best_model.load_state_dict(copy.deepcopy(model.state_dict()))
+                            torch.save(best_model.state_dict(), model_path)
+                        save_checkpoint(epoch, model, optimizer, loss_per_epoch_train[-1], loss_per_epoch_valid[-1], out)
+                        # scheduler.step(valid_loss)
 
     except KeyboardInterrupt:
         # TODO: Implement this to do something, maybe evaluate on test set?
