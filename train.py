@@ -155,6 +155,7 @@ def train(args):
 
     model.to(device)
     model_path = os.path.abspath(f'pretrained/model_{out}.pt')
+    best_model.to(device)  # TODO: IF I really need to save on memory, maybe not do this
     best_model.load_state_dict(copy.deepcopy(model.state_dict()))
     best_model.eval()
 
@@ -177,6 +178,7 @@ def train(args):
 
                 loss_per_graph, acc_per_graph = [], []
 
+                print('TRAINING')
                 for data in ds_train:
                     model.train()
                     idx, g = data
@@ -198,6 +200,9 @@ def train(args):
                         print(f'\t{TP=}, {TN=}, {FP=}, {FN=}')
                         acc, precision, recall, f1 =  utils.calculate_metrics(TP, TN, FP, FN)
                         step_acc = [acc]
+
+                        fp_rate = FP / (FP + TN)
+                        print(f'FP-rate = {fp_rate}')
 
                         try:
                             wandb.log({'train_loss': loss.item(), 'train_accuracy': acc, 'train_precision': precision, \
@@ -228,12 +233,21 @@ def train(args):
                             edge_predictions = edge_predictions.squeeze(-1)
                             loss = criterion(edge_predictions, edge_labels)
                             optimizer.zero_grad()
-                            loss.backward()
-                            optimizer.step()
+
+                            if use_amp:
+                                scaler.scale(loss).backward()
+                                scaler.step(optimizer)
+                                scaler.update()
+                            else:
+                                loss.backward()
+                                optimizer.step()
 
                             TP, TN, FP, FN = utils.calculate_tfpn(edge_predictions, edge_labels)
                             print(f'{TP=}, {TN=}, {FP=}, {FN=}')
                             acc, precision, recall, f1 =  utils.calculate_metrics(TP, TN, FP, FN)
+
+                            fp_rate = FP / (FP + TN)
+                            print(f'FP-rate = {fp_rate}')
 
                             step_loss.append(loss.item())
                             step_acc.append(acc)
@@ -268,7 +282,7 @@ def train(args):
                         torch.save(best_model.state_dict(), model_path)
                     # TODO: Check what's going on here
                     save_checkpoint(epoch, model, optimizer, loss_per_epoch_train[-1], 0.0, out)
-                    # scheduler.step(train_loss)
+                    scheduler.step(train_loss)
 
                 if not overfit:
                     with torch.no_grad():
@@ -293,6 +307,9 @@ def train(args):
                                 print(f'\t{TP=}, {TN=}, {FP=}, {FN=}')
                                 acc, precision, recall, f1 =  utils.calculate_metrics(TP, TN, FP, FN)
                                 step_acc = [acc]
+
+                                fp_rate = FP / (FP + TN)
+                                print(f'FP-rate = {fp_rate}')
 
                                 try:
                                     wandb.log({'valid_loss': loss.item(), 'valid_accuracy': acc, 'valid_precision': precision, \
@@ -329,6 +346,9 @@ def train(args):
                                     step_loss.append(loss.item())
                                     step_acc.append(acc)
 
+                                    fp_rate = FP / (FP + TN)
+                                    print(f'FP-rate = {fp_rate}')
+
                                     try:
                                         wandb.log({'valid_loss': loss.item(), 'valid_accuracy': acc, 'valid_precision': precision, \
                                                 'valid_recall': recall, 'valid_f1': f1})
@@ -337,7 +357,7 @@ def train(args):
                             
                             loss_per_graph.append(np.mean(step_loss))
                             acc_per_graph.append(np.mean(step_acc))
-                            
+
                         valid_loss = np.mean(loss_per_graph)
                         valid_acc = np.mean(acc_per_graph)
                         loss_per_epoch_valid.append(valid_loss)
@@ -351,7 +371,7 @@ def train(args):
                             best_model.load_state_dict(copy.deepcopy(model.state_dict()))
                             torch.save(best_model.state_dict(), model_path)
                         save_checkpoint(epoch, model, optimizer, loss_per_epoch_train[-1], loss_per_epoch_valid[-1], out)
-                        # scheduler.step(valid_loss)
+                        scheduler.step(valid_loss)
 
     except KeyboardInterrupt:
         # TODO: Implement this to do something, maybe evaluate on test set?
