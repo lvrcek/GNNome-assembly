@@ -226,10 +226,11 @@ def train(args):
                             edge_subgraph = edge_subgraph.to(device)
                             x = blocks[0].srcdata['x']
                             # TODO: For GNN edge feature update, I need edge data from block[0]
-                            e = edge_subgraph.edata['e'].to(device)  # e = blocks[0].edata['e'].to(device)
+                            e_0 = blocks[0].edata['e'].to(device)
+                            e_subgraph = edge_subgraph.edata['e'].to(device)  # e = blocks[0].edata['e'].to(device)
                             # TODO: What I said above, read your own comments moron
                             edge_labels = edge_subgraph.edata['y'].to(device)
-                            edge_predictions = model(edge_subgraph, blocks, x, e)
+                            edge_predictions = model(edge_subgraph, blocks, x, e_0, e_subgraph)
                             edge_predictions = edge_predictions.squeeze(-1)
                             loss = criterion(edge_predictions, edge_labels)
                             optimizer.zero_grad()

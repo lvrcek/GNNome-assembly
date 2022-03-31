@@ -26,7 +26,21 @@ class ScorePredictor(nn.Module):
             graph.apply_edges(self.apply_edges)
             return graph.edata['score']
 
+class ScorePredictorNoEdge(nn.Module):
+    def __init__(self, in_features):
+        super().__init__()
+        self.W = nn.Linear(2 * in_features, 1)
 
+    def apply_edges(self, edges):
+        data = torch.cat((edges.src['x'], edges.dst['x']), dim=1)
+        return {'score': self.W(data)}
+
+    def forward(self, graph, x, e):
+        with graph.local_scope():
+            graph.ndata['x'] = x
+            graph.edata['e'] = e
+            graph.apply_edges(self.apply_edges)
+            return graph.edata['score']
 
 
 class CustomGCNLayer(nn.Module):
@@ -67,11 +81,12 @@ class BlockGatedGCN(nn.Module):
 
     def forward(self, blocks, h, e):
         for i in range(len(self.convs)):
+            e = e[:blocks[i].num_edges()]
             h, e = F.relu(self.convs[i](blocks[i], h, e))
+        return h, e
 
 
 class BlockModel(nn.Module):
-
     def __init__(self, node_features, edge_features, hidden_features, num_layers):
         super().__init__()
         self.node_encoder = nn.Linear(node_features, hidden_features)
@@ -80,11 +95,12 @@ class BlockModel(nn.Module):
         self.gcn =  BlockGatedGCN(num_layers, hidden_features)
         self.predictor = ScorePredictor(hidden_features)
 
-    def forward(self, graph, blocks, x, e):
-        x = self.node_encoder(x)
+    def forward(self, edge_subgraph, blocks, x, e, e_subgraph):
+        h = self.node_encoder(x)
         e = self.edge_encoder(e)
-        x = self.gcn(blocks, x)
-        scores = self.predictor(graph, x, e)
+        h, e = self.gcn(blocks, h, e)
+        # e = e[:edge_subgraph.num_nodes()]  # TODO: This will not work. It works for blocks, but not for edge_subgraph
+        scores = self.predictor(edge_subgraph, h, e)
         return scores
 
 
