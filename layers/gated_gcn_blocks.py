@@ -10,7 +10,7 @@ import dgl.function as fn
 from hyperparameters import get_hyperparameters
 
 
-class GatedGCN_1d(nn.Module):
+class GatedGCN_forwards(nn.Module):
     def __init__(self, in_channels, out_channels, dropout=0, batch_norm=True, residual=True):
         super().__init__()
         self.dropout = dropout
@@ -47,19 +47,25 @@ class GatedGCN_1d(nn.Module):
         block.edata['e'] = e
 
         # TODO: FFS this isn't easy
-        block.srcdata['A1h'] = self.A_1(h_src)
-        block.srcdata['A2h'] = self.A_2(h_src)
-        block.srcdata['A3h'] = self.A_3(h_src)
 
-        block.srcdata['B1h'] = self.B_1(h_src)
-        block.srcdata['B2h'] = self.B_2(h_src)
+        A1h = self.A_1(h)
+        A2h = self.A_1(h)
+        A3h = self.A_1(h)
+        B1h = self.A_1(h)
+        B2h = self.A_1(h)
 
-        block.dstdata['A1h'] = self.A_1(h_dst)
-        block.dstdata['A2h'] = self.A_2(h_dst)
-        block.dstdata['A3h'] = self.A_3(h_dst)
 
-        block.dstdata['B1h'] = self.B_1(h_dst)
-        block.dstdata['B2h'] = self.B_2(h_dst)
+        block.srcdata['A1h'] = A1h
+        block.srcdata['A2h'] = A2h
+        block.srcdata['A3h'] = A3h
+        block.srcdata['B1h'] = B1h
+        block.srcdata['B2h'] = B2h
+
+        block.dstdata['A1h'] = A1h[:block.num_dst_nodes()]
+        block.dstdata['A2h'] = A2h[:block.num_dst_nodes()]
+        block.dstdata['A3h'] = A3h[:block.num_dst_nodes()]
+        block.dstdata['B1h'] = B1h[:block.num_dst_nodes()]
+        block.dstdata['B2h'] = B2h[:block.num_dst_nodes()]
 
         block.edata['B3e'] = self.B_3(e)
 
@@ -79,7 +85,7 @@ class GatedGCN_1d(nn.Module):
         block.update_all(fn.copy_e('sigma_f', 'm_f'), fn.sum('m_f', 'sum_sigma_f'))
         block.dstdata['h_forward'] = block.dstdata['sum_sigma_h_f'] / (block.dstdata['sum_sigma_f'] + 1e-6)
 
-        h = block.ndata['A1h'] + block.ndata['h_forward']
+        h = block.dstdata['A1h'] + block.dstdata['h_forward']
 
         if self.batch_norm:
             h = self.bn_h(h)
@@ -88,13 +94,15 @@ class GatedGCN_1d(nn.Module):
 
         if self.residual:
             h = h + h_in
-            # reduce(iadd, [h, h_in])
 
         h = F.dropout(h, self.dropout, training=self.training)
-        # e = g.edata['e_ji']
+        e = block.edata['e_ji']
 
-        return h, e_in
+        return h, e
 
+
+
+# TODO: Deal with all these other models
 
 class GatedGCN_backwards(nn.Module):
     """
@@ -154,13 +162,13 @@ class GatedGCN_backwards(nn.Module):
         g.ndata['h'] = h
         g.edata['e'] = e
 
-        g.ndata['A1h'] = self.A_1(h) # .type(torch.float32)
-        g.ndata['A2h'] = self.A_2(h) # .type(torch.float32)
-        g.ndata['A3h'] = self.A_3(h) # .type(torch.float32)
+        g.ndata['A1h'] = self.A_1(h)
+        g.ndata['A2h'] = self.A_2(h)
+        g.ndata['A3h'] = self.A_3(h)
 
-        g.ndata['B1h'] = self.B_1(h) # .type(torch.float32)
-        g.ndata['B2h'] = self.B_2(h) # .type(torch.float32)
-        g.edata['B3e'] = self.B_3(e) # .type(torch.float32)
+        g.ndata['B1h'] = self.B_1(h)
+        g.ndata['B2h'] = self.B_2(h)
+        g.edata['B3e'] = self.B_3(e)
 
         g_reverse = dgl.reverse(g, copy_ndata=True, copy_edata=True)
 
