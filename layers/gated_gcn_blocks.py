@@ -93,7 +93,7 @@ class GatedGCN_forwards(nn.Module):
         h = F.relu(h)
 
         if self.residual:
-            h = h + h_in
+            h = h + h_in[:block.num_dst_nodes()]
 
         h = F.dropout(h, self.dropout, training=self.training)
         e = block.edata['e_ji']

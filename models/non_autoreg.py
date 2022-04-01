@@ -38,7 +38,7 @@ class ScorePredictorNoEdge(nn.Module):
     def forward(self, graph, x, e):
         with graph.local_scope():
             graph.ndata['x'] = x
-            graph.edata['e'] = e
+            # graph.edata['e'] = e
             graph.apply_edges(self.apply_edges)
             return graph.edata['score']
 
@@ -82,7 +82,9 @@ class BlockGatedGCN(nn.Module):
     def forward(self, blocks, h, e):
         for i in range(len(self.convs)):
             e = e[:blocks[i].num_edges()]
-            h, e = F.relu(self.convs[i](blocks[i], h, e))
+            h, e = self.convs[i](blocks[i], h, e)
+            h = F.relu(h)
+            e = F.relu(e)
         return h, e
 
 
@@ -93,7 +95,7 @@ class BlockModel(nn.Module):
         self.edge_encoder = nn.Linear(edge_features, hidden_features)
         self.gnn = BlockGCN(num_layers, hidden_features)
         self.gcn =  BlockGatedGCN(num_layers, hidden_features)
-        self.predictor = ScorePredictor(hidden_features)
+        self.predictor = ScorePredictorNoEdge(hidden_features)
 
     def forward(self, edge_subgraph, blocks, x, e, e_subgraph):
         h = self.node_encoder(x)
