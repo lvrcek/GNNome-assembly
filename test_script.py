@@ -118,6 +118,16 @@ def main_1():
     # print(blocks[2].edges())
     print('Done!')
 
+    idxx = [blocks[-1].edge_ids(0, 1), 2, 3, 4]
+    ids = [blocks[-1].edge_ids(src, dst) for src, dst in zip(*edge_subgraph.edges())]
+    print(idxx)
+    print(blocks[-1].edata['e'])
+    print(blocks[-1].edata['e'][ids])
+
+    print(edge_subgraph.edges())
+    print(edge_subgraph.edge_ids(0, 1))
+    print(edge_subgraph.edata['e'])
+
     model = Model(1, 4, 2, 1)
     out = model(edge_subgraph, blocks, x)
 
@@ -152,5 +162,5 @@ def main_2():
 
 
 if __name__ == '__main__':
-    main_2()
+    main_1()
 

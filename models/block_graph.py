@@ -25,17 +25,42 @@ class BlockGCNModel(nn.Module):
 
 
 class BlockGatedGCNModel(nn.Module):
+    """
+    This modes uses edge features updated with the stack of GatedGCNs.
+    """
     def __init__(self, node_features, edge_features, hidden_features, num_layers):
         super().__init__()
         self.node_encoder = layers.NodeEncoder(node_features, hidden_features)
         self.edge_encoder = layers.EdgeEncoder(edge_features, hidden_features)
         self.gnn =  layers.BlockGatedGCN(num_layers, hidden_features)
-        self.predictor = layers.ScorePredictorNoEdge(hidden_features)
+        self.predictor = layers.ScorePredictor(hidden_features)
 
     def forward(self, edge_subgraph, blocks, x, e, e_subgraph):
         h = self.node_encoder(x)
         e = self.edge_encoder(e)
         h, e = self.gnn(blocks, h, e)
-        # e = e[:edge_subgraph.num_nodes()]  # TODO: This will not work. It works for blocks, but not for edge_subgraph
-        scores = self.predictor(edge_subgraph, h)
+        ids = [blocks[-1].edge_ids(src, dst) for src, dst in zip(*edge_subgraph.edges())]  # Find the edges in the last block that you're gonna predict on
+        e = e[ids]  # Use feauters of those edges for predictions
+        scores = self.predictor(edge_subgraph, h, e)
         return scores
+
+
+class BlockGatedGCNModel_noEupdate(nn.Module):
+    """
+    This modes uses non-updated edge features (take the original edge_subgraph features and push them through the encoder).
+    """
+    def __init__(self, node_features, edge_features, hidden_features, num_layers):
+        super().__init__()
+        self.node_encoder = layers.NodeEncoder(node_features, hidden_features)
+        self.edge_encoder = layers.EdgeEncoder(edge_features, hidden_features)
+        self.gnn =  layers.BlockGatedGCN(num_layers, hidden_features)
+        self.predictor = layers.ScorePredictor(hidden_features)
+
+    def forward(self, edge_subgraph, blocks, x, e, e_subgraph):
+        h = self.node_encoder(x)
+        e = self.edge_encoder(e)
+        h, e = self.gnn(blocks, h, e)
+        e = self.edge_encoder(e_subgraph)
+        scores = self.predictor(edge_subgraph, h, e)
+        return scores
+
