@@ -10,8 +10,35 @@ import dgl.function as fn
 from hyperparameters import get_hyperparameters
 
 
-class GatedGCN_forwards(nn.Module):
+class GatedGCN_1d(nn.Module):
+    """
+    GatedGCN layer, idea based on 'Residual Gated Graph ConvNets'
+    paper by Xavier Bresson and Thomas Laurent, ICLR 2018.
+    https://arxiv.org/pdf/1711.07553v2.pdf
+
+    Attributes
+    ----------
+    dropout : bool
+        Flag indicating whether to use dropout
+    batch_norm : bool
+        Flag indicating whether to use batch normalization.
+    residual : bool
+        Flag indicating whether to use node information from
+        the previous iteration.
+    A_n : torch.nn.Linear
+        Linear layer used to update node representations
+    B_n : torch.nn.Linear
+        Linear layer used to update edge representations
+    bn_h : torch.nn.BatchNorm1d
+        Batch normalization layer used on node representations
+    bn_e : torch.nn.BatchNorm1d
+        Batch normalization layer used on edge representations
+    """
+
     def __init__(self, in_channels, out_channels, dropout=0, batch_norm=True, residual=True):
+        """
+
+        """
         super().__init__()
         self.dropout = dropout
         self.batch_norm = batch_norm
@@ -33,59 +60,123 @@ class GatedGCN_forwards(nn.Module):
         self.bn_h = nn.BatchNorm1d(out_channels)
         self.bn_e = nn.BatchNorm1d(out_channels)
 
-    def forward(self, block, h, e):
-        # with block.local_scope(): # TODO: Do I need this?
+    def message_forward(self, edges):
+        """Message function used on the original graph."""
+        A2h_j = edges.src['A2h']
+        e_ji = edges.src['B1h'] + edges.dst['B2h'] + edges.data['B3e']  # e_ji = B_1*h_j + B_2*h_i + B_3*e_ji
+
+        if self.batch_norm:
+            e_ji = self.bn_e(e_ji)
+
+        e_ji = F.relu(e_ji)
+
+        if self.residual:
+            e_ji = e_ji + edges.data['e']
+
+        return {'A2h_j': A2h_j, 'e_ji': e_ji}
+
+    def reduce_forward(self, nodes):
+        """Reduce function used on the original graph."""
+        A2h_j = nodes.mailbox['A2h_j']
+        e_ji = nodes.mailbox['e_ji']
+        sigma_ji = torch.sigmoid(e_ji)
+        h_forward = torch.sum(sigma_ji * A2h_j, dim=1) / (torch.sum(sigma_ji, dim=1) + 1e-6)
+        return {'h_forward': h_forward}
+
+    def message_backward(self, edges):
+        """Message function used on the reverse graph."""
+        A3h_k = edges.src['A3h']
+        e_ik = edges.dst['B1h'] + edges.src['B2h'] + edges.data['B3e']  # e_ik = B_1*h_i + B_2*h_k + B_3*e_ik
+
+        if self.batch_norm:
+            e_ik = self.bn_e(e_ik)
+
+        e_ik = F.relu(e_ik)
+
+        if self.residual:
+            e_ik = e_ik + edges.data['e']
+
+        return {'A3h_k': A3h_k, 'e_ik': e_ik}
+
+    def reduce_backward(self, nodes):
+        """Reduce function used on the reverse graph."""
+        A3h_k = nodes.mailbox['A3h_k']
+        e_ik = nodes.mailbox['e_ik']
+        sigma_ik = torch.sigmoid(e_ik)
+        h_backward = torch.sum(sigma_ik * A3h_k, dim=1) / (torch.sum(sigma_ik, dim=1) + 1e-6)
+        return {'h_backward': h_backward}
+
+    def forward(self, g, h, e):
+        """Return updated node representations."""
         h_in = h.clone()
         e_in = e.clone()
 
-        h_src = h
-        h_dst = h[:block.num_dst_nodes()]
-        block.srcdata['h'] = h_src
-        block.dstdata['h'] = h_dst
+        g.ndata['h'] = h
+        g.edata['e'] = e
 
-        # g.ndata['h'] = h
-        block.edata['e'] = e
+        g.ndata['A1h'] = self.A_1(h) # .type(torch.float32)
+        g.ndata['A2h'] = self.A_2(h) # .type(torch.float32)
+        g.ndata['A3h'] = self.A_3(h) # .type(torch.float32)
 
-        # TODO: FFS this isn't easy
+        g.ndata['B1h'] = self.B_1(h) # .type(torch.float32)
+        g.ndata['B2h'] = self.B_2(h) # .type(torch.float32)
+        g.edata['B3e'] = self.B_3(e) # .type(torch.float32)
 
-        A1h = self.A_1(h)
-        A2h = self.A_1(h)
-        A3h = self.A_1(h)
-        B1h = self.A_1(h)
-        B2h = self.A_1(h)
+        g_reverse = dgl.reverse(g, copy_ndata=True, copy_edata=True)
 
+        # Reference: https://github.com/graphdeeplearning/benchmarking-gnns/blob/master-dgl-0.6/layers/gated_gcn_layer.py
 
-        block.srcdata['A1h'] = A1h
-        block.srcdata['A2h'] = A2h
-        block.srcdata['A3h'] = A3h
-        block.srcdata['B1h'] = B1h
-        block.srcdata['B2h'] = B2h
+        mode = get_hyperparameters()['gnn_mode']
 
-        block.dstdata['A1h'] = A1h[:block.num_dst_nodes()]
-        block.dstdata['A2h'] = A2h[:block.num_dst_nodes()]
-        block.dstdata['A3h'] = A3h[:block.num_dst_nodes()]
-        block.dstdata['B1h'] = B1h[:block.num_dst_nodes()]
-        block.dstdata['B2h'] = B2h[:block.num_dst_nodes()]
+        if mode == 'builtin':
+            # Option 1) Forward pass with DGL builtin functions
+            g.apply_edges(fn.u_add_v('B1h', 'B2h', 'B12h'))
+            e_ji = g.edata['B12h'] + g.edata['B3e']
+            if self.batch_norm:
+                e_ji = self.bn_e(e_ji)
+            e_ji = F.relu(e_ji)
+            if self.residual:
+                # Attempt 1 - .to() is expensive operation
+                # device = e_ji.device
+                # tmp = e_ji.half().to('cpu') + e_in.half().to('cpu')
+                # e_ji = tmp.float().to(device)
 
-        block.edata['B3e'] = self.B_3(e)
+                # Atetmpt 0 - the basic way to do it
+                e_ji = e_ji + e_in
 
-        # TODO: Reversing a block graph is not supported !!!!!!!!
-        # g_reverse = dgl.reverse(g, copy_ndata=True, copy_edata=True)
+                # Attempt 2 - try to reduce memory
+                # reduce(iadd, [e_ji, e_in])
 
-        block.apply_edges(fn.u_add_v('B1h', 'B2h', 'B12h'))
-        e_ji = block.edata['B12h'] + block.edata['B3e']
-        if self.batch_norm:
-            e_ji = self.bn_e(e_ji)
-        e_ji = F.relu(e_ji)
-        if self.residual:
-            e_ji = e_ji + e_in
-        block.edata['e_ji'] = e_ji
-        block.edata['sigma_f'] = torch.sigmoid(block.edata['e_ji'])
-        block.update_all(fn.u_mul_e('A2h', 'sigma_f', 'm_f'), fn.sum('m_f', 'sum_sigma_h_f'))
-        block.update_all(fn.copy_e('sigma_f', 'm_f'), fn.sum('m_f', 'sum_sigma_f'))
-        block.dstdata['h_forward'] = block.dstdata['sum_sigma_h_f'] / (block.dstdata['sum_sigma_f'] + 1e-6)
+            g.edata['e_ji'] = e_ji
+            g.edata['sigma_f'] = torch.sigmoid(g.edata['e_ji'])
+            g.update_all(fn.u_mul_e('A2h', 'sigma_f', 'm_f'), fn.sum('m_f', 'sum_sigma_h_f'))
+            g.update_all(fn.copy_e('sigma_f', 'm_f'), fn.sum('m_f', 'sum_sigma_f'))
+            g.ndata['h_forward'] = g.ndata['sum_sigma_h_f'] / (g.ndata['sum_sigma_f'] + 1e-6)
+        else:
+            # Option 2) Forward pass with user-defined functions
+            g.update_all(self.message_forward, self.reduce_forward)
 
-        h = block.dstdata['A1h'] + block.dstdata['h_forward']
+        if mode == 'builtin':
+            # Option 1) Backward pass with DGL builtin functions
+            g_reverse.apply_edges(fn.u_add_v('B2h', 'B1h', 'B21h'))
+            e_ik = g_reverse.edata['B21h'] + g_reverse.edata['B3e']
+            if self.batch_norm:
+                e_ik = self.bn_e(e_ik)
+            e_ik = F.relu(e_ik)
+            if self.residual:
+                e_ik = e_ik + e_in
+                # Attempt 2 - try to reduce memory
+                # reduce(iadd, [e_ik, e_in])
+            g_reverse.edata['e_ik'] = e_ik
+            g_reverse.edata['sigma_b'] = torch.sigmoid(g_reverse.edata['e_ik'])
+            g_reverse.update_all(fn.u_mul_e('A3h', 'sigma_b', 'm_b'), fn.sum('m_b', 'sum_sigma_h_b'))
+            g_reverse.update_all(fn.copy_e('sigma_b', 'm_b'), fn.sum('m_b', 'sum_sigma_b'))
+            g_reverse.ndata['h_backward'] = g_reverse.ndata['sum_sigma_h_b'] / (g_reverse.ndata['sum_sigma_b'] + 1e-6)
+        else:
+            # Option 2) Backward pass with user-defined functions
+            g_reverse.update_all(self.message_backward, self.reduce_backward)
+
+        h = g.ndata['A1h'] + g.ndata['h_forward'] + g_reverse.ndata['h_backward']
 
         if self.batch_norm:
             h = self.bn_h(h)
@@ -93,16 +184,14 @@ class GatedGCN_forwards(nn.Module):
         h = F.relu(h)
 
         if self.residual:
-            h = h + h_in[:block.num_dst_nodes()]
+            h = h + h_in
+            # reduce(iadd, [h, h_in])
 
         h = F.dropout(h, self.dropout, training=self.training)
-        e = block.edata['e_ji']
+        # e = g.edata['e_ji']
 
-        return h, e
+        return h, e_in
 
-
-
-# TODO: Deal with all these other models
 
 class GatedGCN_backwards(nn.Module):
     """
@@ -162,13 +251,13 @@ class GatedGCN_backwards(nn.Module):
         g.ndata['h'] = h
         g.edata['e'] = e
 
-        g.ndata['A1h'] = self.A_1(h)
-        g.ndata['A2h'] = self.A_2(h)
-        g.ndata['A3h'] = self.A_3(h)
+        g.ndata['A1h'] = self.A_1(h) # .type(torch.float32)
+        g.ndata['A2h'] = self.A_2(h) # .type(torch.float32)
+        g.ndata['A3h'] = self.A_3(h) # .type(torch.float32)
 
-        g.ndata['B1h'] = self.B_1(h)
-        g.ndata['B2h'] = self.B_2(h)
-        g.edata['B3e'] = self.B_3(e)
+        g.ndata['B1h'] = self.B_1(h) # .type(torch.float32)
+        g.ndata['B2h'] = self.B_2(h) # .type(torch.float32)
+        g.edata['B3e'] = self.B_3(e) # .type(torch.float32)
 
         g_reverse = dgl.reverse(g, copy_ndata=True, copy_edata=True)
 

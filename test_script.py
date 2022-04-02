@@ -107,6 +107,13 @@ if __name__ == '__main__':
     blocks[0].apply_edges(fn.u_add_v('ones', 'zeros', 'added'))
     print(blocks[0].edata['added'])
 
+    print(blocks[0].edges())
+    print(blocks[1].edges())
+    # for i in range(4):
+    #     assert (blocks[i+1].edges()[0] == blocks[i].edges()[0][:blocks[i+1].num_edges()]).all() 
+    # print(blocks[2].edges())
+    print('Done!')
+
     model = Model(1, 4, 2, 1)
     out = model(edge_subgraph, blocks, x)
 
