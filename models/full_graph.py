@@ -35,6 +35,6 @@ class GraphGatedGCNModel(nn.Module):
     def forward(self, graph, x, e):
         x = self.node_encoder(x)
         e = self.edge_encoder(e)
-        x = self.gnn(graph, x)
+        x, e = self.gnn(graph, x, e)
         scores = self.predictor(graph, x, e)
         return scores

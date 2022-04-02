@@ -18,7 +18,7 @@ class BlockGCNModel(nn.Module):
 
     def forward(self, edge_subgraph, blocks, x, e, e_subgraph):
         h = self.node_encoder(x)
-        e = self.edge_encoder(e)
+        e_subgraph = self.edge_encoder(e_subgraph)
         h = self.gnn(blocks, h)
         scores = self.predictor(edge_subgraph, h, e_subgraph)
         return scores

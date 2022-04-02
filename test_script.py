@@ -7,6 +7,9 @@ import torch.nn.functional as F
 import dgl.nn as dglnn
 import dgl.function as fn
 
+import graph_dataset
+import models
+
 
 class CustomGCN(nn.Module):
     def __init__(self, in_f, out_f):
@@ -69,7 +72,8 @@ class Model(nn.Module):
         print(x.shape)
         return self.predictor(edge_subgraph, x)
 
-if __name__ == '__main__':
+
+def main_1():
     g = dgl.load_graphs(f'data/train_12-01-22/chr19/processed/0.dgl')[0][0]
     ids = torch.arange(g.num_edges())
     sampler = dgl.dataloading.MultiLayerFullNeighborSampler(2)
@@ -116,4 +120,37 @@ if __name__ == '__main__':
 
     model = Model(1, 4, 2, 1)
     out = model(edge_subgraph, blocks, x)
+
+
+def main_2():
+    ds = graph_dataset.AssemblyGraphDataset('data/train_12-01-22/chr19')
+    model = models.BlockGatedGCNModel(1, 2, 4, 4)
+    idx, g = ds[0]
+
+    device = 'cpu'
+    sampler = dgl.dataloading.MultiLayerFullNeighborSampler(4)
+    graph_ids = torch.arange(g.num_edges()).int()
+    dl = dgl.dataloading.EdgeDataLoader(g, graph_ids, sampler, batch_size=1024, shuffle=True)
+    it = iter(dl)
+
+
+    input_nodes, edge_subgraph, blocks = next(it)
+    blocks = [b.to(device) for b in blocks]
+    edge_subgraph = edge_subgraph.to(device)
+    x = blocks[0].srcdata['x']
+    # TODO: For GNN edge feature update, I need edge data from block[0]
+    e_0 = blocks[0].edata['e'].to(device)
+    e_subgraph = edge_subgraph.edata['e'].to(device)  # e = blocks[0].edata['e'].to(device)
+    # TODO: What I said above, read your own comments moron
+    edge_labels = edge_subgraph.edata['y'].to(device)
+    edge_predictions = model(edge_subgraph, blocks, x, e_0, e_subgraph)
+    #                         edge_predictions = edge_predictions.squeeze(-1)
+    #                         loss = criterion(edge_predictions, edge_labels)
+    #                         optimizer.zero_grad()
+
+
+
+
+if __name__ == '__main__':
+    main_2()
 

@@ -147,11 +147,11 @@ def train(args):
     overfit = num_graphs == 1
 
     if batch_size == -1:
-        model = models.GraphModel(node_features, edge_features, hidden_features, num_gnn_layers)
-        best_model = models.GraphModel(node_features, edge_features, hidden_features, num_gnn_layers)
+        model = models.GraphGCNModel(node_features, edge_features, hidden_features, num_gnn_layers)
+        best_model = models.GraphGCNModel(node_features, edge_features, hidden_features, num_gnn_layers)
     else:
-        model = models.BlockModel(node_features, edge_features, hidden_features, num_gnn_layers)
-        best_model = models.BlockModel(node_features, edge_features, hidden_features, num_gnn_layers)
+        model = models.BlockGatedGCNModel(node_features, edge_features, hidden_features, num_gnn_layers)
+        best_model = models.BlockGatedGCNModel(node_features, edge_features, hidden_features, num_gnn_layers)
 
     model.to(device)
     model_path = os.path.abspath(f'pretrained/model_{out}.pt')
