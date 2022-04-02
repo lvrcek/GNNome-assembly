@@ -1,6 +1,6 @@
-from .sequence_encoder import SequenceEncoder, SequenceEncoder_noCNN
-from .edge_encoder import EdgeEncoder
-from .edge_decoder import EdgeDecoder
-from .gated_gcn import GatedGCN_1d, GatedGCN_2d, GatedGCN_backwards
-from .node_encoder import NodeEncoder
 from .gated_gcn_blocks import *
+from .gated_gcn_full import *
+from .processor import *
+from .score_predictor import *
+from .node_encoder import *
+from .edge_encoder import *

@@ -5,8 +5,8 @@ import torch.nn.functional as F
 import dgl
 import dgl.function as fn
 
-from layers import *
-import layers
+from layers_old import *
+import layers_old
 
 
 
@@ -76,7 +76,7 @@ class BlockGatedGCN(nn.Module):
     def __init__(self, num_layers, hidden_f):
         super().__init__()
         self.convs = nn.ModuleList([
-            layers.gated_gcn_blocks.GatedGCN_forwards(hidden_f, hidden_f) for _ in range(num_layers)
+            layers_old.gated_gcn_blocks.GatedGCN_forwards(hidden_f, hidden_f) for _ in range(num_layers)
         ])
 
     def forward(self, blocks, h, e):

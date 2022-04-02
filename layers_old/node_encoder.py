@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 
 
@@ -24,5 +25,5 @@ class NodeEncoder(nn.Module):
         self.linear = nn.Linear(in_channels, out_channels, bias=bias)
 
     def forward(self, x):
-        """Return the encoded node attributes."""
+        """Return the encoded edge attributes."""
         return self.linear(x)
