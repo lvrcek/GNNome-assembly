@@ -1,8 +1,10 @@
 import argparse
 import os
 import pickle
+import random
 
 import torch
+import torch.nn.functional as F
 
 from graph_dataset import AssemblyGraphDataset
 from hyperparameters import get_hyperparameters
@@ -11,7 +13,95 @@ import algorithms
 from utils import load_graph_data
 
 
-def predict(model, graph, pred, neighbors, reads, edges):
+def predict_new(model, graph, edges):
+    edge_logits = model(graph, None)  # TODO: Problem, my block model doesn't work on full graph!
+    # Can I maybe load batch-model parameters into full graph? It should be possible Just asssume so for now
+    edge_logits= edge_logits.squeeze(-1)
+    edge_p = F.sigmoid(edge_logits)
+    walks = decode_new(graph, edge_p)
+    return walks
+    # or (later) translate walks into sequences
+    # what with the sequences? Store into FASTA ofc
+
+
+def decode_new(graph, edges_p, neighbors, predecessors, edges):
+    # Choose starting node for the first time
+    walks = []
+    visited = set()
+    # ----- Modify this later ------
+    all_nodes = {n.item() for n in graph.nodes()}
+    correct_nodes = {n for n in range(graph.num_nodes) if graph.ndata['y'] == 1}
+    potential_nodes = correct_nodes
+    # ------------------------------
+    while True:
+        potential_nodes = potential_nodes - visited
+        start = get_random_start(potential_nodes)
+        if start is None:
+            break
+        visited.add(start)
+        visited.add(start ^ 1)
+        walk_f, visited_f = walk_forwards(graph, start, edges_p, neighbors, edges, visited)
+        walk_b, visited_b = walk_backwards(graph, start, edges_p, predecessors, edges, visited)
+        walk = walk_b[:-1] + [start] + walk_f[1:]
+        visited = visited | visited_f | visited_b
+        walks.append(walk)
+    return walks
+    
+
+def get_random_start(potential_nodes, nodes_p=None):
+    # potential_nodes = {n.item() for n in graph.nodes()}
+    potential_nodes = potential_nodes
+    start = random.sample(potential_nodes, 1)
+    # start = max(potential_nodes_p)
+    return start
+
+
+def walk_forwards(start, edges_p, neighbors, edges, visited):
+    current = start
+    walk = []
+    while True:
+        if current in visited and walk:
+            break
+        walk.append(current)
+        visited.add(current)
+        visited.add(current ^ 1)
+        if len(current[neighbors]) == 0:
+            break 
+        if len(neighbors[current]) == 1:
+            current = neighbors[current][0]
+            continue
+        neighbor_edges = [edges[current, n] for n in neighbors[current] if n not in visited]
+        neighbor_p = edges_p[neighbor_edges]
+        _, index = torch.topk(neighbor_p, k=1, dim=0)
+        choice = neighbors[current][index]
+        current = choice
+    return walk, visited
+
+
+def walk_backwards(start, edges_p, predecessors, edges, visited):
+    current = start
+    walk = []
+    while True:
+        if current in visited and walk:
+            break
+        walk.append(current)
+        visited.add(current)
+        visited.add(current ^ 1)
+        if len(current[predecessors]) == 0:
+            break 
+        if len(predecessors[current]) == 1:
+            current = predecessors[current][0]
+            continue
+        neighbor_edges = [edges[n, current] for n in predecessors[current] if n not in visited]
+        neighbor_p = edges_p[neighbor_edges]
+        _, index = torch.topk(neighbor_p, k=1, dim=0)
+        choice = predecessors[current][index]
+        current = choice
+    walk = reversed(walk)
+    return walk, visited
+
+
+def predict_old(model, graph, pred, neighbors, reads, edges):
     starts = [k for k,v in pred.items() if len(v)==0 and graph.ndata['read_strand'][k]==1]
     
     components = algorithms.get_components(graph, neighbors, pred)
@@ -25,7 +115,7 @@ def predict(model, graph, pred, neighbors, reads, edges):
         try:
             start_nodes = [node for node in component if len(pred[node]) == 0 and graph.ndata['read_strand'][node] == 1]
             start = min(start_nodes, key=lambda x: graph.ndata['read_start'][x])  # TODO: Wait a sec, 'read_start' shouldn't be used!!
-            walk = decode(neighbors, edges, start, logits)
+            walk = decode_old(neighbors, edges, start, logits)
             walks.append(walk)
         except ValueError:
             # Negative strand
@@ -47,7 +137,7 @@ def predict(model, graph, pred, neighbors, reads, edges):
     return final
 
 
-def decode(neighbors, edges, start, logits):
+def decode_old(neighbors, edges, start, logits):
     current = start
     visited = set()
     walk = []
@@ -158,9 +248,12 @@ def inference(model_path=None, data_path=None):
     num_gnn_layers = hyperparameters['num_gnn_layers']
     use_reads = hyperparameters['use_reads']
 
-    if model_path is None:
-        model_path = 'pretrained/model_32d_8l.pt'  # Best performing model
-    model = models.NonAutoRegressive(dim_latent, num_gnn_layers).to(device)
+    node_dim = hyperparameters['node_features']
+    edge_dim = hyperparameters['edge_dim']
+
+    # if model_path is None:
+    #     model_path = 'pretrained/model_32d_8l.pt'  # Best performing model
+    model = models.BlockGatedGCNModel(node_dim, edge_dim, dim_latent, num_gnn_layers).to(device)
     model.load_state_dict(torch.load(model_path, map_location=torch.device(device)))
     model.eval()
 
@@ -183,7 +276,7 @@ def inference(model_path=None, data_path=None):
             reads = None
         edges = info_all['edges'][idx]
 
-        walks = predict(model, graph, pred, succ, reads, edges)
+        walks = predict_new(model, graph, pred, succ, reads, edges)
 
         inference_path = os.path.join(data_path, 'inference')
         if not os.path.isdir(inference_path):
