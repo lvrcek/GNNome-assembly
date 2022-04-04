@@ -188,9 +188,9 @@ class GatedGCN_1d(nn.Module):
             # reduce(iadd, [h, h_in])
 
         h = F.dropout(h, self.dropout, training=self.training)
-        # e = g.edata['e_ji']
+        e = g.edata['e_ji']
 
-        return h, e_in
+        return h, e
 
 
 class GatedGCN_backwards(nn.Module):

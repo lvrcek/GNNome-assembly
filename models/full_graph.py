@@ -27,8 +27,8 @@ class GraphGCNModel(nn.Module):
 class GraphGatedGCNModel(nn.Module):
     def __init__(self, node_features, edge_features, hidden_features, num_layers):
         super().__init__()
-        self.node_encoder = nn.Linear(node_features, hidden_features)
-        self.edge_encoder = nn.Linear(edge_features, hidden_features)
+        self.node_encoder = layers.NodeEncoder(node_features, hidden_features)
+        self.edge_encoder = layers.EdgeEncoder(edge_features, hidden_features)
         self.gnn = layers.GraphGatedGCN(num_layers, hidden_features)
         self.predictor = layers.ScorePredictor(hidden_features)
 
