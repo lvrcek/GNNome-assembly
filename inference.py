@@ -13,12 +13,12 @@ import algorithms
 from utils import load_graph_data
 
 
-def predict_new(model, graph, edges):
+def predict_new(model, graph, succs, preds, edges):
     edge_logits = model(graph, None)  # TODO: Problem, my block model doesn't work on full graph!
     # Can I maybe load batch-model parameters into full graph? It should be possible Just asssume so for now
     edge_logits= edge_logits.squeeze(-1)
     edge_p = F.sigmoid(edge_logits)
-    walks = decode_new(graph, edge_p)
+    walks = decode_new(graph, edge_p, succs, preds, edges)
     return walks
     # or (later) translate walks into sequences
     # what with the sequences? Store into FASTA ofc
@@ -30,7 +30,7 @@ def decode_new(graph, edges_p, neighbors, predecessors, edges):
     visited = set()
     # ----- Modify this later ------
     all_nodes = {n.item() for n in graph.nodes()}
-    correct_nodes = {n for n in range(graph.num_nodes) if graph.ndata['y'] == 1}
+    correct_nodes = {n for n in range(graph.num_nodes()) if graph.ndata['y'][n] == 1}
     potential_nodes = correct_nodes
     # ------------------------------
     while True:
@@ -40,8 +40,8 @@ def decode_new(graph, edges_p, neighbors, predecessors, edges):
             break
         visited.add(start)
         visited.add(start ^ 1)
-        walk_f, visited_f = walk_forwards(graph, start, edges_p, neighbors, edges, visited)
-        walk_b, visited_b = walk_backwards(graph, start, edges_p, predecessors, edges, visited)
+        walk_f, visited_f = walk_forwards(start, edges_p, neighbors, edges, visited)
+        walk_b, visited_b = walk_backwards(start, edges_p, predecessors, edges, visited)
         walk = walk_b[:-1] + [start] + walk_f[1:]
         visited = visited | visited_f | visited_b
         walks.append(walk)
@@ -51,7 +51,7 @@ def decode_new(graph, edges_p, neighbors, predecessors, edges):
 def get_random_start(potential_nodes, nodes_p=None):
     # potential_nodes = {n.item() for n in graph.nodes()}
     potential_nodes = potential_nodes
-    start = random.sample(potential_nodes, 1)
+    start = random.sample(potential_nodes, 1)[0]
     # start = max(potential_nodes_p)
     return start
 
@@ -65,7 +65,7 @@ def walk_forwards(start, edges_p, neighbors, edges, visited):
         walk.append(current)
         visited.add(current)
         visited.add(current ^ 1)
-        if len(current[neighbors]) == 0:
+        if len(neighbors[current]) == 0:
             break 
         if len(neighbors[current]) == 1:
             current = neighbors[current][0]
@@ -87,7 +87,7 @@ def walk_backwards(start, edges_p, predecessors, edges, visited):
         walk.append(current)
         visited.add(current)
         visited.add(current ^ 1)
-        if len(current[predecessors]) == 0:
+        if len(predecessors[current]) == 0:
             break 
         if len(predecessors[current]) == 1:
             current = predecessors[current][0]
