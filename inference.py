@@ -47,11 +47,14 @@ def decode_new(graph, edges_p, neighbors, predecessors, edges):
         walk = walk_b[:-1] + [start] + walk_f[1:]
         visited = visited | visited_f | visited_b
         walks.append(walk)
+    walks = sorted(walks, key=lambda x: len(x))
     return walks
     
 
 def get_random_start(potential_nodes, nodes_p=None):
     # potential_nodes = {n.item() for n in graph.nodes()}
+    if len(potential_nodes) < 10:
+        return None
     potential_nodes = potential_nodes
     start = random.sample(potential_nodes, 1)[0]
     # start = max(potential_nodes_p)
