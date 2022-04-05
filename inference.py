@@ -97,7 +97,7 @@ def walk_backwards(start, edges_p, predecessors, edges, visited):
         _, index = torch.topk(neighbor_p, k=1, dim=0)
         choice = predecessors[current][index]
         current = choice
-    walk = reversed(walk)
+    walk = list(reversed(walk))
     return walk, visited
 
 
