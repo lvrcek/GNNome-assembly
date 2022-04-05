@@ -13,8 +13,10 @@ import algorithms
 from utils import load_graph_data
 
 
-def predict_new(model, graph, succs, preds, edges):
-    edge_logits = model(graph, None)  # TODO: Problem, my block model doesn't work on full graph!
+def predict_new(model, graph, succs, preds, edges, device):
+    x = graph.ndata['x'].to(device)
+    e = graph.edata['e'].to(device)
+    edge_logits = model(graph, x, e)  # TODO: Problem, my block model doesn't work on full graph!
     # Can I maybe load batch-model parameters into full graph? It should be possible Just asssume so for now
     edge_logits= edge_logits.squeeze(-1)
     edge_p = F.sigmoid(edge_logits)
@@ -71,6 +73,8 @@ def walk_forwards(start, edges_p, neighbors, edges, visited):
             current = neighbors[current][0]
             continue
         neighbor_edges = [edges[current, n] for n in neighbors[current] if n not in visited]
+        if not neighbor_edges:
+            break
         neighbor_p = edges_p[neighbor_edges]
         _, index = torch.topk(neighbor_p, k=1, dim=0)
         choice = neighbors[current][index]
@@ -93,6 +97,8 @@ def walk_backwards(start, edges_p, predecessors, edges, visited):
             current = predecessors[current][0]
             continue
         neighbor_edges = [edges[n, current] for n in predecessors[current] if n not in visited]
+        if not neighbor_edges:
+            break
         neighbor_p = edges_p[neighbor_edges]
         _, index = torch.topk(neighbor_p, k=1, dim=0)
         choice = predecessors[current][index]
@@ -276,7 +282,7 @@ def inference(model_path=None, data_path=None):
             reads = None
         edges = info_all['edges'][idx]
 
-        walks = predict_new(model, graph, pred, succ, reads, edges)
+        walks = predict_new(model, graph, pred, succ, reads, edges, device)
 
         inference_path = os.path.join(data_path, 'inference')
         if not os.path.isdir(inference_path):
