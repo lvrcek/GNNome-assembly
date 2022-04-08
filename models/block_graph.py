@@ -39,7 +39,7 @@ class BlockGatedGCNModel(nn.Module):
         h = self.node_encoder(x)
         e = self.edge_encoder(e)
         h, e = self.gnn(blocks, h, e)
-        ids = [blocks[-1].edge_ids(src, dst) for src, dst in zip(*edge_subgraph.edges())]  # Find the edges in the last block that you're gonna predict on
+        ids = [blocks[-1].edge_ids(src, dst).long() for src, dst in zip(*edge_subgraph.edges())]  # Find the edges in the last block that you're gonna predict on
         e = e[ids]  # Use feauters of those edges for predictions
         scores = self.predictor(edge_subgraph, h, e)
         return scores

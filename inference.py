@@ -2,9 +2,11 @@ import argparse
 import os
 import pickle
 import random
+from tqdm import tqdm 
 
 import torch
 import torch.nn.functional as F
+import dgl
 
 from graph_dataset import AssemblyGraphDataset
 from hyperparameters import get_hyperparameters
@@ -248,6 +250,50 @@ def analyze(graph, gnn_paths, greedy_paths, out, ref_length):
         txt_output(f,f'N50:\t{n50_greedy}')
         ng50_greedy = calculate_NG50(greedy_contig_lengths, ref_length)
         txt_output(f,f'NG50:\t{ng50_greedy}')
+
+
+
+def test_walk(data_path, model_path,  device):
+    hyperparameters = get_hyperparameters()
+    # device = hyperparameters['device']
+    dim_latent = hyperparameters['dim_latent']
+    num_gnn_layers = hyperparameters['num_gnn_layers']
+    # use_reads = hyperparameters['use_reads']
+
+    # node_dim = hyperparameters['node_features']
+    # edge_dim = hyperparameters['edge_dim']
+
+    # if model_path is None:
+    #     model_path = 'pretrained/model_32d_8l.pt'  # Best performing model
+    model = models.BlockGatedGCNModel(1, 2, 128, 4).to(device)
+    model.load_state_dict(torch.load(model_path, map_location=torch.device(device)))
+    model.eval()
+
+    ds = AssemblyGraphDataset(data_path)
+
+    # info_all = load_graph_data(len(ds), data_path, False)
+
+    idx, g = ds[0]
+    sampler = dgl.dataloading.MultiLayerFullNeighborSampler(4)
+    graph_ids = torch.arange(g.num_edges()).int()
+    dl = dgl.dataloading.EdgeDataLoader(g, graph_ids, sampler, batch_size=4096, shuffle=False, drop_last=False)
+    logits = torch.tensor([]).to(device)
+    with torch.no_grad():
+        for input_nodes, edge_subgraph, blocks in tqdm(dl):
+            blocks = [b.to(device) for b in blocks]
+            edge_subgraph = edge_subgraph.to(device)
+            x = blocks[0].srcdata['x']
+            e_0 = blocks[0].edata['e']
+            e_subgraph = edge_subgraph.edata['e']
+            # print(x.squeeze(-1))
+            print(e_0)
+            print(e_subgraph)
+            p = model(edge_subgraph, blocks, x, e_0, e_subgraph).squeeze(-1)
+            print(p)
+            print(p.sum())
+            # logits = torch.cat((logits, p), dim=0)
+    return logits
+
 
 
 def inference(model_path=None, data_path=None):
