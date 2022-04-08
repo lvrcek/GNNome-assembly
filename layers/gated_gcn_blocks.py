@@ -20,15 +20,13 @@ class GatedGCN_forwards(nn.Module):
         if in_channels != out_channels:
             self.residual = False
 
-        dtype=torch.float32
-
-        self.A_1 = nn.Linear(in_channels, out_channels, dtype=dtype)
-        self.A_2 = nn.Linear(in_channels, out_channels, dtype=dtype)
-        self.A_3 = nn.Linear(in_channels, out_channels, dtype=dtype)
+        self.A_1 = nn.Linear(in_channels, out_channels)
+        self.A_2 = nn.Linear(in_channels, out_channels)
+        self.A_3 = nn.Linear(in_channels, out_channels)
         
-        self.B_1 = nn.Linear(in_channels, out_channels, dtype=dtype)
-        self.B_2 = nn.Linear(in_channels, out_channels, dtype=dtype)
-        self.B_3 = nn.Linear(in_channels, out_channels, dtype=dtype)
+        self.B_1 = nn.Linear(in_channels, out_channels)
+        self.B_2 = nn.Linear(in_channels, out_channels)
+        self.B_3 = nn.Linear(in_channels, out_channels)
 
         self.bn_h = nn.BatchNorm1d(out_channels)
         self.bn_e = nn.BatchNorm1d(out_channels)
@@ -46,24 +44,22 @@ class GatedGCN_forwards(nn.Module):
         # g.ndata['h'] = h
         block.edata['e'] = e
 
-        # TODO: FFS this isn't easy
-
         A1h = self.A_1(h)
-        A2h = self.A_1(h)
-        A3h = self.A_1(h)
-        B1h = self.A_1(h)
-        B2h = self.A_1(h)
+        A2h = self.A_2(h)
+        # A3h = self.A_3(h)
+        B1h = self.B_1(h)
+        B2h = self.B_2(h)
 
 
         block.srcdata['A1h'] = A1h
         block.srcdata['A2h'] = A2h
-        block.srcdata['A3h'] = A3h
+        # block.srcdata['A3h'] = A3h
         block.srcdata['B1h'] = B1h
         block.srcdata['B2h'] = B2h
 
         block.dstdata['A1h'] = A1h[:block.num_dst_nodes()]
         block.dstdata['A2h'] = A2h[:block.num_dst_nodes()]
-        block.dstdata['A3h'] = A3h[:block.num_dst_nodes()]
+        # block.dstdata['A3h'] = A3h[:block.num_dst_nodes()]
         block.dstdata['B1h'] = B1h[:block.num_dst_nodes()]
         block.dstdata['B2h'] = B2h[:block.num_dst_nodes()]
 
