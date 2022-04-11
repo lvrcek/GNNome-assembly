@@ -49,10 +49,10 @@ class BlockGCN(nn.Module):
 
 
 class BlockGatedGCN(nn.Module):
-    def __init__(self, num_layers, hidden_features):
+    def __init__(self, num_layers, hidden_features, batch_norm=True):
         super().__init__()
         self.convs = nn.ModuleList([
-            layers.GatedGCN_forwards(hidden_features, hidden_features) for _ in range(num_layers)
+            layers.GatedGCN_forwards(hidden_features, hidden_features, batch_norm=batch_norm) for _ in range(num_layers)
         ])
 
     def forward(self, blocks, h, e):

@@ -119,6 +119,8 @@ def train(args):
     use_reads = hyperparameters['use_reads']
     use_amp = hyperparameters['use_amp']
 
+    batch_norm = hyperparameters['batch_norm']
+
     node_features = hyperparameters['node_features']
     edge_features = hyperparameters['edge_features']
     decay = hyperparameters['decay']
@@ -150,8 +152,8 @@ def train(args):
         model = models.GraphGCNModel(node_features, edge_features, hidden_features, num_gnn_layers)
         best_model = models.GraphGCNModel(node_features, edge_features, hidden_features, num_gnn_layers)
     else:
-        model = models.BlockGatedGCNModel(node_features, edge_features, hidden_features, num_gnn_layers)
-        best_model = models.BlockGatedGCNModel(node_features, edge_features, hidden_features, num_gnn_layers)
+        model = models.BlockGatedGCNModel(node_features, edge_features, hidden_features, num_gnn_layers, batch_norm=batch_norm)
+        best_model = models.BlockGatedGCNModel(node_features, edge_features, hidden_features, num_gnn_layers, batch_norm=batch_norm)
 
     model.to(device)
     model_path = os.path.abspath(f'pretrained/model_{out}.pt')
@@ -232,6 +234,8 @@ def train(args):
                             edge_labels = edge_subgraph.edata['y'].to(device)
                             edge_predictions = model(edge_subgraph, blocks, x, e_0, e_subgraph)
                             edge_predictions = edge_predictions.squeeze(-1)
+                            # print(edge_predictions)
+                            print(f'Logits min/max:', edge_predictions.min().item(), edge_predictions.max().item())
                             loss = criterion(edge_predictions, edge_labels)
                             optimizer.zero_grad()
 
@@ -255,7 +259,7 @@ def train(args):
 
                             try:
                                 wandb.log({'train_loss': loss.item(), 'train_accuracy': acc, 'train_precision': precision, \
-                                           'train_recall': recall, 'train_f1': f1})
+                                        'train_recall': recall, 'train_f1': f1, 'fp-rate': fp_rate})
                             except Exception:
                                 print(f'WandB exception occured!')
 

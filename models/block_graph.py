@@ -28,11 +28,11 @@ class BlockGatedGCNModel(nn.Module):
     """
     This modes uses edge features updated with the stack of GatedGCNs.
     """
-    def __init__(self, node_features, edge_features, hidden_features, num_layers):
+    def __init__(self, node_features, edge_features, hidden_features, num_layers, batch_norm=True):
         super().__init__()
         self.node_encoder = layers.NodeEncoder(node_features, hidden_features)
         self.edge_encoder = layers.EdgeEncoder(edge_features, hidden_features)
-        self.gnn =  layers.BlockGatedGCN(num_layers, hidden_features)
+        self.gnn =  layers.BlockGatedGCN(num_layers, hidden_features, batch_norm)
         self.predictor = layers.ScorePredictor(hidden_features)
 
     def forward(self, edge_subgraph, blocks, x, e, e_subgraph):

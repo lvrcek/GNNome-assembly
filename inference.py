@@ -267,7 +267,7 @@ def test_walk(data_path, model_path,  device):
     #     model_path = 'pretrained/model_32d_8l.pt'  # Best performing model
     model = models.BlockGatedGCNModel(1, 2, 128, 4).to(device)
     model.load_state_dict(torch.load(model_path, map_location=torch.device(device)))
-    model.eval()
+    # model.eval()
 
     ds = AssemblyGraphDataset(data_path)
 
@@ -276,7 +276,7 @@ def test_walk(data_path, model_path,  device):
     idx, g = ds[0]
     sampler = dgl.dataloading.MultiLayerFullNeighborSampler(4)
     graph_ids = torch.arange(g.num_edges()).int()
-    dl = dgl.dataloading.EdgeDataLoader(g, graph_ids, sampler, batch_size=4096, shuffle=False, drop_last=False)
+    dl = dgl.dataloading.EdgeDataLoader(g, graph_ids, sampler, batch_size=4096*10, shuffle=False, drop_last=False)
     logits = torch.tensor([]).to(device)
     with torch.no_grad():
         for input_nodes, edge_subgraph, blocks in tqdm(dl):
@@ -286,12 +286,12 @@ def test_walk(data_path, model_path,  device):
             e_0 = blocks[0].edata['e']
             e_subgraph = edge_subgraph.edata['e']
             # print(x.squeeze(-1))
-            print(e_0)
-            print(e_subgraph)
+            # print(e_0)
+            # print(e_subgraph)
             p = model(edge_subgraph, blocks, x, e_0, e_subgraph).squeeze(-1)
-            print(p)
-            print(p.sum())
-            # logits = torch.cat((logits, p), dim=0)
+            # print(p)
+            # print(p.sum())
+            logits = torch.cat((logits, p), dim=0)
     return logits
 
 

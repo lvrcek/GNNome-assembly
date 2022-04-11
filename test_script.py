@@ -154,13 +154,57 @@ def main_2():
     # TODO: What I said above, read your own comments moron
     edge_labels = edge_subgraph.edata['y'].to(device)
     edge_predictions = model(edge_subgraph, blocks, x, e_0, e_subgraph)
-    #                         edge_predictions = edge_predictions.squeeze(-1)
-    #                         loss = criterion(edge_predictions, edge_labels)
-    #                         optimizer.zero_grad()
 
+
+def main_3():
+    g = dgl.load_graphs(f'data/train_12-01-22/chr19/processed/0.dgl')[0][0]
+    sampler = dgl.dataloading.MultiLayerFullNeighborSampler(2)
+
+    g.ndata['x'] = torch.ones(g.num_nodes(), 1)
+    ol_len = g.edata['overlap_length'].float()
+    ol_sim = g.edata['overlap_similarity']
+    ol_len = (ol_len - ol_len.mean()) / ol_len.std()
+    ol_sim = (ol_sim - ol_sim.mean()) / ol_sim.std()
+    g.edata['e'] = torch.cat((ol_len.unsqueeze(-1), ol_sim.unsqueeze(-1)), dim=1)
+
+    bg = dgl.graph((torch.cat((g.edges()[0], g.edges()[1])), torch.cat((g.edges()[1], g.edges()[0]))))
+    bg.ndata['x'] = g.ndata['x'].clone()
+    bg.edata['e'] = torch.cat((g.edata['e'], g.edata['e']))
+
+    assert g.num_nodes() == bg.num_nodes()
+    assert (bg.edges()[0] == torch.cat((g.edges()[0], g.edges()[1]))).all()
+    assert (bg.edges()[1] == torch.cat((g.edges()[1], g.edges()[0]))).all()
+    assert (bg.edata['e'] == torch.cat((g.edata['e'], g.edata['e']))).all()
+
+    ids = torch.arange(bg.num_edges())
+    dl = dgl.dataloading.EdgeDataLoader(bg, ids, sampler, shuffle=True)
+    it = iter(dl)
+
+    input_nodes, edge_subgraph, blocks = next(it)
+    print(input_nodes)
+    print(edge_subgraph)
+    print(blocks)
+    print(blocks[0].edges())
+    print(blocks[-1].srcnodes())
+    print(blocks[-1].dstnodes())
+    print(blocks[-1].edges()[0])
+    print(blocks[-1].edges()[1])
+    return
+    x = blocks[0].srcdata['x']
+
+    print(blocks)
+    print(blocks[0].srcdata[dgl.NID])
+    blocks[0].srcdata['ones'] = torch.ones((blocks[0].number_of_src_nodes(), 1))
+    print(blocks[0].srcdata['ones'])
+    print('ones' in blocks[0].dstdata.keys())
+    blocks[0].update_all(message_func=fn.copy_u('x', 'm'), reduce_func=fn.mean('m', 'hh'))
+    print('hh' in blocks[0].dstdata.keys())
+    print('hh' in blocks[0].srcdata.keys())
+    print('m' in blocks[0].edata.keys())
+    print('m' in blocks[0].srcdata.keys())
 
 
 
 if __name__ == '__main__':
-    main_1()
+    main_3()
 

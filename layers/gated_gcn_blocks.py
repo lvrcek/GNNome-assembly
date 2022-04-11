@@ -22,7 +22,7 @@ class GatedGCN_forwards(nn.Module):
 
         self.A_1 = nn.Linear(in_channels, out_channels)
         self.A_2 = nn.Linear(in_channels, out_channels)
-        # self.A_3 = nn.Linear(in_channels, out_channels)
+        self.A_3 = nn.Linear(in_channels, out_channels)
         
         self.B_1 = nn.Linear(in_channels, out_channels)
         self.B_2 = nn.Linear(in_channels, out_channels)
