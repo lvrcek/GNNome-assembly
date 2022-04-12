@@ -229,8 +229,8 @@ def train(args):
                             x = blocks[0].srcdata['x']
                             # TODO: For GNN edge feature update, I need edge data from block[0]
                             e_0 = blocks[0].edata['e'].to(device)
-                            e_subgraph = edge_subgraph.edata['e'].to(device)  # e = blocks[0].edata['e'].to(device)
-                            # TODO: What I said above, read your own comments moron
+                            e_subgraph = edge_subgraph.edata['e'].to(device)
+                            # TODO: What I said above, read your own comments
                             edge_labels = edge_subgraph.edata['y'].to(device)
                             edge_predictions = model(edge_subgraph, blocks, x, e_0, e_subgraph)
                             edge_predictions = edge_predictions.squeeze(-1)
@@ -295,9 +295,6 @@ def train(args):
                         model.eval()
                         for data in ds_valid:
                             idx, g = data
-                            # TODO: Do I need to add self loops? Why yes or why not?
-                            # g = dgl.add_self_loop(g)
-                            
                             if batch_size == -1:
                                 g = g.to(device)
                                 x = g.ndata['x'].to(device)

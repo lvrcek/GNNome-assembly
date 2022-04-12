@@ -18,8 +18,9 @@ from utils import load_graph_data
 def predict_new(model, graph, succs, preds, edges, device):
     x = graph.ndata['x'].to(device)
     e = graph.edata['e'].to(device)
-    edge_logits = model(graph, x, e)  # TODO: Problem, my block model doesn't work on full graph!
-    # Can I maybe load batch-model parameters into full graph? It should be possible Just asssume so for now
+    edge_logits = model(graph, x, e)
+    # TODO: Problem, my block model doesn't work on full graphs!
+    # TODO: I can still iterate over the batches and append the predictions
     edge_logits= edge_logits.squeeze(-1)
     edge_p = F.sigmoid(edge_logits)
     walks = decode_new(graph, edge_p, succs, preds, edges)
