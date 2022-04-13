@@ -28,8 +28,17 @@ class GatedGCN_forwards(nn.Module):
         self.B_2 = nn.Linear(in_channels, out_channels)
         self.B_3 = nn.Linear(in_channels, out_channels)
 
+        # Batch Normalization
         self.bn_h = nn.BatchNorm1d(out_channels)
         self.bn_e = nn.BatchNorm1d(out_channels)
+
+        # Layer Normalization
+        # self.bn_h = nn.LayerNorm(out_channels)
+        # self.bn_e = nn.LayerNorm(out_channels)
+
+        # Instance Normalization - doesn't work with 2D data
+        # self.bn_h = nn.InstanceNorm1d(out_channels)
+        # self.bn_e = nn.InstanceNorm1d(out_channels)
 
     def forward(self, block, h, e):
         # with block.local_scope(): # TODO: Do I need this?
