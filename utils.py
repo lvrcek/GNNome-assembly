@@ -10,6 +10,8 @@ import torch
 import numpy as np
 import dgl
 
+from scipy import sparse as sp # PE
+
 
 def draw_loss_plots(train_loss, valid_loss, out):
     """Draw and save plot of train and validation loss over epochs.
