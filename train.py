@@ -148,12 +148,17 @@ def train(args):
 
     overfit = num_graphs == 1
 
+    #overfit = False # DEBUG !!!!!!!!!!!!!
+    #ds_valid = ds_train # DEBUG !!!!!!!!!!!!!
+
     if batch_size == -1:
         model = models.GraphGCNModel(node_features, edge_features, hidden_features, num_gnn_layers)
         best_model = models.GraphGCNModel(node_features, edge_features, hidden_features, num_gnn_layers)
     else:
-        model = models.BlockGatedGCNModel(node_features, edge_features, hidden_features, num_gnn_layers, batch_norm=batch_norm)
-        best_model = models.BlockGatedGCNModel(node_features, edge_features, hidden_features, num_gnn_layers, batch_norm=batch_norm)
+        #model = models.BlockGatedGCNModel(node_features, edge_features, hidden_features, num_gnn_layers, batch_norm=batch_norm)
+        #best_model = models.BlockGatedGCNModel(node_features, edge_features, hidden_features, num_gnn_layers, batch_norm=batch_norm)
+        model = models.GraphGatedGCNModel(node_features, edge_features, hidden_features, num_gnn_layers) # GatedGCN 
+        best_model = models.GraphGatedGCNModel(node_features, edge_features, hidden_features, num_gnn_layers) # GatedGCN 
 
     model.to(device)
     model_path = os.path.abspath(f'pretrained/model_{out}.pt')
@@ -178,14 +183,17 @@ def train(args):
 
             for epoch in range(num_epochs):
 
-                loss_per_graph, acc_per_graph = [], []
+                train_loss_all_graphs, train_fp_rate_all_graphs, train_fn_rate_all_graphs = [], [], []
+                train_acc_all_graphs, train_precision_all_graphs, train_recall_all_graphs, train_f1_all_graphs = [], [], [], []
 
                 print('TRAINING')
                 for data in ds_train:
                     model.train()
                     idx, g = data
 
-                    if batch_size == -1:
+                    if batch_size == -1: # train with full graph 
+                                         # XB : This part of the code must be updated !
+
                         g = g.to(device)
                         x = g.ndata['x'].to(device)
                         e = g.edata['e'].to(device)
@@ -212,90 +220,117 @@ def train(args):
                         except Exception:
                             print(f'WandB exception occured!')
 
-                    else:
-                        graph_ids = torch.arange(g.num_edges()).int()
-                        dl = dgl.dataloading.EdgeDataLoader(
-                            g, graph_ids, sampler,
-                            batch_size=batch_size,
-                            shuffle=True,
-                            drop_last=False,
-                            num_workers=0)
+                    else: # train with mini-batch
 
-                        step_loss, step_acc = [], []
+                        # remove Metis clusters to force new clusters
+                        try:
+                            os.remove('cluster_gcn.pkl')
+                        except:
+                            pass 
 
-                        for input_nodes, edge_subgraph, blocks in tqdm(dl):
-                            blocks = [b.to(device) for b in blocks]
-                            edge_subgraph = edge_subgraph.to(device)
-                            x = blocks[0].srcdata['x']
-                            # TODO: For GNN edge feature update, I need edge data from block[0]
-                            e_0 = blocks[0].edata['e'].to(device)
-                            e_subgraph = edge_subgraph.edata['e'].to(device)
-                            # TODO: What I said above, read your own comments
-                            edge_labels = edge_subgraph.edata['y'].to(device)
-                            edge_predictions = model(edge_subgraph, blocks, x, e_0, e_subgraph)
+                        # Run Metis
+                        num_parts = 1000 # TODO : make as input argument
+                        #batch_size = 20
+                        g = g.long()
+                        sampler = dgl.dataloading.ClusterGCNSampler(g, num_parts) 
+                        dataloader = dgl.dataloading.DataLoader(g, torch.arange(num_parts), sampler, batch_size=batch_size, shuffle=True, drop_last=False, num_workers=4) # XB
+                        #for subg in dataloader:
+                        #    print('mini-batch',subg)
+
+                        # For loop over all mini-batch in the graph
+                        running_loss, running_fp_rate, running_fn_rate = [], [], []
+                        running_acc, running_precision, running_recall, running_f1 = [], [], [], []
+                        for sub_g in dataloader:
+                            sub_g = sub_g.to(device)
+                            x = sub_g.ndata['x'].to(device)
+                            e = sub_g.edata['e'].to(device)
+                            #pe = sub_g.ndata['pe'].to(device)
+                            edge_predictions = model(sub_g, x, e) 
+                            #edge_predictions = model(sub_g, x, e, pe) 
                             edge_predictions = edge_predictions.squeeze(-1)
-                            # print(edge_predictions)
-                            print(f'Logits min/max:', edge_predictions.min().item(), edge_predictions.max().item())
+                            edge_labels = sub_g.edata['y'].to(device)
                             loss = criterion(edge_predictions, edge_labels)
                             optimizer.zero_grad()
-
-                            if use_amp:
-                                scaler.scale(loss).backward()
-                                scaler.step(optimizer)
-                                scaler.update()
-                            else:
-                                loss.backward()
-                                optimizer.step()
-
+                            loss.backward()
+                            optimizer.step()
+                            running_loss.append(loss.item())
                             TP, TN, FP, FN = utils.calculate_tfpn(edge_predictions, edge_labels)
-                            print(f'{TP=}, {TN=}, {FP=}, {FN=}')
                             acc, precision, recall, f1 =  utils.calculate_metrics(TP, TN, FP, FN)
-
                             fp_rate = FP / (FP + TN)
-                            print(f'FP-rate = {fp_rate}')
+                            fn_rate = FN / (FN + TP)
+                            running_fp_rate = [fp_rate]
+                            running_fn_rate = [fn_rate]
 
-                            step_loss.append(loss.item())
-                            step_acc.append(acc)
+                        # Average over all mini-batch in the graph
+                        train_loss = np.mean(running_loss)
+                        train_fp_rate = np.mean(running_fp_rate)
+                        train_fn_rate = np.mean(running_fn_rate)
+                        train_acc = np.mean(running_acc)
+                        train_precision = np.mean(running_precision)
+                        train_recall = np.mean(running_recall)
+                        train_f1 = np.mean(running_f1)
+                        lr_value = optimizer.param_groups[0]['lr']
 
-                            try:
-                                wandb.log({'train_loss': loss.item(), 'train_accuracy': acc, 'train_precision': precision, \
-                                        'train_recall': recall, 'train_f1': f1, 'fp-rate': fp_rate})
-                            except Exception:
-                                print(f'WandB exception occured!')
+                        elapsed = utils.timedelta_to_str(datetime.now() - time_start)
+                        print(f'\nTRAINING (one training graph): Epoch = {epoch}, Graph = {idx}')
+                        print(f'Loss: {train_loss:.4f}, fp_rate(GT=0): {train_fp_rate:.4f}, fn_rate(GT=1): {train_fn_rate:.4f}')
+                        print(f'lr_value: {lr_value:.6f}, elapsed time: {elapsed}\n')
 
-                    loss_per_graph.append(np.mean(step_loss))
-                    acc_per_graph.append(np.mean(step_acc))
+                    # Record after each epoch
+                    train_loss_all_graphs.append(train_loss)
+                    train_fp_rate_all_graphs.append(train_fp_rate)
+                    train_fn_rate_all_graphs.append(train_fn_rate)
+                    train_acc_all_graphs.append(train_acc)
+                    train_precision_all_graphs.append(train_precision)
+                    train_recall_all_graphs.append(train_recall)
+                    train_f1_all_graphs.append(train_f1)
 
-                    elapsed = utils.timedelta_to_str(datetime.now() - time_start)
-                    # print(f'\nTRAINING: Epoch = {epoch}, Graph = {idx}')
-                    # print(f'Loss: {train_loss:.4f},\tAccuracy: {train_acc:.4f}', end='')
-                    # print(f'Precision: {precision:.4f},\tRecall: {recall:.4f},\tF1: {f1:.4f}')
-                    # print(f'Elapsed time: {elapsed}\n')
+                # Average over all training graphs
+                train_loss_all_graphs = np.mean(train_loss_all_graphs)
+                train_fp_rate_all_graphs = np.mean(train_fp_rate_all_graphs)
+                train_fn_rate_all_graphs = np.mean(train_fn_rate_all_graphs)
+                train_acc_all_graphs = np.mean(train_acc_all_graphs)
+                train_precision_all_graphs = np.mean(train_precision_all_graphs)
+                train_recall_all_graphs = np.mean(train_recall_all_graphs)
+                train_f1_all_graphs = np.mean(train_f1_all_graphs)
+                lr_value = optimizer.param_groups[0]['lr']
 
-                train_loss = np.mean(loss_per_graph)
-                train_acc = np.mean(acc_per_graph)
-                loss_per_epoch_train.append(train_loss)
-                acc_per_epoch_train.append(train_acc)
+                loss_per_epoch_train.append(train_loss_all_graphs)
 
                 elapsed = utils.timedelta_to_str(datetime.now() - time_start)
-                print(f'\nTraining in epoch {epoch} done. Elapsed time: {elapsed}')
-                print(f'Train loss mean: {train_loss:.4f},\tTrain accuracy mean: {train_acc:.4f}\n')
+                print(f'\nTRAINING (all training graphs): Epoch = {epoch}')
+                print(f'Loss: {train_loss_all_graphs:.4f}, fp_rate(GT=0): {train_fp_rate_all_graphs:.4f}, fn_rate(GT=1): {train_fn_rate_all_graphs:.4f}')
+                print(f'lr_value: {lr_value:.6f}, elapsed time: {elapsed}\n')
 
-                if overfit:
+                try:
+                    wandb.log({'train_loss': train_loss_all_graphs, 'train_accuracy': train_acc_all_graphs, 'train_precision': train_precision_all_graphs, \
+                            'train_recall': train_recall_all_graphs, 'train_f1': train_f1_all_graphs, 'fp-rate': train_fp_rate_all_graphs, 'fn-rate': train_fn_rate_all_graphs, 'lr_value': lr_value})
+                except Exception:
+                    print(f'WandB exception occured!')
+
+                if overfit: # temp : one graph at the moment
                     if len(loss_per_epoch_train) > 1 and loss_per_epoch_train[-1] < min(loss_per_epoch_train[:-1]):
                         best_model.load_state_dict(copy.deepcopy(model.state_dict()))
                         torch.save(best_model.state_dict(), model_path)
                     # TODO: Check what's going on here
                     save_checkpoint(epoch, model, optimizer, loss_per_epoch_train[-1], 0.0, out)
-                    scheduler.step(train_loss)
+                    scheduler.step(train_loss_all_graphs)
 
                 if not overfit:
+
+                    val_loss_all_graphs, val_fp_rate_all_graphs, val_fn_rate_all_graphs = [], [], []
+                    val_acc_all_graphs, val_precision_all_graphs, val_recall_all_graphs, val_f1_all_graphs = [], [], [], []
+
                     with torch.no_grad():
-                        print('VALIDATION')
+                        print('===> VALIDATION')
+                        time_start_eval = datetime.now()
                         model.eval()
                         for data in ds_valid:
                             idx, g = data
-                            if batch_size == -1:
+
+                            if batch_size == -1: # full graph 
+                                                 # XB : This part of the code must be updated !
+
                                 g = g.to(device)
                                 x = g.ndata['x'].to(device)
                                 e = g.edata['e'].to(device)
@@ -319,61 +354,94 @@ def train(args):
                                 except Exception:
                                     print(f'WandB exception occured!')
 
-                            else:
-                                graph_ids = torch.arange(g.num_edges()).int()
-                                dl = dgl.dataloading.EdgeDataLoader(
-                                    g, graph_ids, sampler,
-                                    batch_size=batch_size,
-                                    shuffle=False,
-                                    drop_last=False,
-                                    num_workers=0)
+                            else: # mini-batch
 
-                                step_loss, step_acc = [], []
+                                # remove Metis clusters to force new clusters
+                                try:
+                                    os.remove('cluster_gcn.pkl')
+                                except:
+                                    pass 
 
-                                for input_nodes, edge_subgraph, blocks in tqdm(dl):
-                                    blocks = [b.to(device) for b in blocks]
-                                    edge_subgraph = edge_subgraph.to(device)
-                                    x = blocks[0].srcdata['x']
-                                    # For GNN edge feautre update, I need edge data from block[0]
-                                    e = edge_subgraph.edata['e'].to(device)
-                                    edge_labels = edge_subgraph.edata['y'].to(device)
-                                    edge_predictions = model(edge_subgraph, blocks, x, e)
+                                # Run Metis
+                                num_parts = 1000 # TODO : make as input argument
+                                #batch_size = 20
+                                g = g.long()
+                                sampler = dgl.dataloading.ClusterGCNSampler(g, num_parts) 
+                                dataloader = dgl.dataloading.DataLoader(g, torch.arange(num_parts), sampler, batch_size=batch_size, shuffle=True, drop_last=False, num_workers=4) # XB
+                                #for subg in dataloader:
+                                #    print('mini-batch',subg)
+
+                                # For loop over all mini-batch in the graph
+                                running_loss, running_fp_rate, running_fn_rate = [], [], []
+                                running_acc, running_precision, running_recall, running_f1 = [], [], [], []
+                                for sub_g in dataloader:
+                                    sub_g = sub_g.to(device)
+                                    x = sub_g.ndata['x'].to(device)
+                                    e = sub_g.edata['e'].to(device)
+                                    #pe = sub_g.ndata['pe'].to(device)
+                                    edge_predictions = model(sub_g, x, e) 
+                                    #edge_predictions = model(sub_g, x, e, pe) 
                                     edge_predictions = edge_predictions.squeeze(-1)
+                                    edge_labels = sub_g.edata['y'].to(device)
                                     loss = criterion(edge_predictions, edge_labels)
-
+                                    running_loss.append(loss.item())
                                     TP, TN, FP, FN = utils.calculate_tfpn(edge_predictions, edge_labels)
-                                    print(f'{TP=}, {TN=}, {FP=}, {FN=}')
                                     acc, precision, recall, f1 =  utils.calculate_metrics(TP, TN, FP, FN)
-
-                                    step_loss.append(loss.item())
-                                    step_acc.append(acc)
-
                                     fp_rate = FP / (FP + TN)
-                                    print(f'FP-rate = {fp_rate}')
+                                    fn_rate = FN / (FN + TP)
+                                    running_fp_rate = [fp_rate]
+                                    running_fn_rate = [fn_rate]
 
-                                    try:
-                                        wandb.log({'valid_loss': loss.item(), 'valid_accuracy': acc, 'valid_precision': precision, \
-                                                'valid_recall': recall, 'valid_f1': f1})
-                                    except Exception:
-                                        print(f'WandB exception occured!')
-                            
-                            loss_per_graph.append(np.mean(step_loss))
-                            acc_per_graph.append(np.mean(step_acc))
+                                # Average over all mini-batch in the graph
+                                val_loss = np.mean(running_loss)
+                                val_fp_rate = np.mean(running_fp_rate)
+                                val_fn_rate = np.mean(running_fn_rate)
+                                val_acc = np.mean(running_acc)
+                                val_precision = np.mean(running_precision)
+                                val_recall = np.mean(running_recall)
+                                val_f1 = np.mean(running_f1)
 
-                        valid_loss = np.mean(loss_per_graph)
-                        valid_acc = np.mean(acc_per_graph)
-                        loss_per_epoch_valid.append(valid_loss)
-                        acc_per_epoch_valid.append(valid_acc)
+                                elapsed = utils.timedelta_to_str(datetime.now() - time_start_eval)
+                                print(f'\n===> VALIDATION (one validation graph): Epoch = {epoch}, Graph = {idx}')
+                                print(f'Loss: {val_loss:.4f}, fp_rate(GT=0): {val_fp_rate:.4f}, fn_rate(GT=1): {val_fn_rate:.4f}')
+                                print(f'elapsed time: {elapsed}\n')
 
-                        elapsed = utils.timedelta_to_str(datetime.now() - time_start)
-                        print(f'\nValidation in epoch {epoch} done. Elapsed time: {elapsed}\n')
-                        print(f'Valid loss: {valid_loss},\tValid accuracy: {valid_acc}\n')
+                            # Record after each epoch
+                            val_loss_all_graphs.append(val_loss)
+                            val_fp_rate_all_graphs.append(val_fp_rate)
+                            val_fn_rate_all_graphs.append(val_fn_rate)
+                            val_acc_all_graphs.append(val_acc)
+                            val_precision_all_graphs.append(val_precision)
+                            val_recall_all_graphs.append(val_recall)
+                            val_f1_all_graphs.append(val_f1)
+
+                        # Average over all training graphs
+                        val_loss_all_graphs = np.mean(val_loss_all_graphs)
+                        val_fp_rate_all_graphs = np.mean(val_fp_rate_all_graphs)
+                        val_fn_rate_all_graphs = np.mean(val_fn_rate_all_graphs)
+                        val_acc_all_graphs = np.mean(val_acc_all_graphs)
+                        val_precision_all_graphs = np.mean(val_precision_all_graphs)
+                        val_recall_all_graphs = np.mean(val_recall_all_graphs)
+                        val_f1_all_graphs = np.mean(val_f1_all_graphs)
+
+                        loss_per_epoch_valid.append(val_loss_all_graphs)
+
+                        elapsed = utils.timedelta_to_str(datetime.now() - time_start_eval)
+                        print(f'===> VALIDATION (all validation graphs): Epoch = {epoch}')
+                        print(f'Loss: {val_loss_all_graphs:.4f}, fp_rate(GT=0): {val_fp_rate_all_graphs:.4f}, fn_rate(GT=1): {val_fn_rate_all_graphs:.4f}')
+                        print(f'elapsed time: {elapsed}\n')
+
+                        try:
+                            wandb.log({'val_loss': val_loss_all_graphs, 'val_accuracy': val_acc_all_graphs, 'val_precision': val_precision_all_graphs, \
+                                    'val_recall': val_recall_all_graphs, 'val_f1': val_f1_all_graphs, 'fp-rate': val_fp_rate_all_graphs, 'fn-rate': val_fn_rate_all_graphs})
+                        except Exception:
+                            print(f'WandB exception occured!')
 
                         if len(loss_per_epoch_valid) > 1 and loss_per_epoch_valid[-1] < min(loss_per_epoch_valid[:-1]):
                             best_model.load_state_dict(copy.deepcopy(model.state_dict()))
                             torch.save(best_model.state_dict(), model_path)
                         save_checkpoint(epoch, model, optimizer, loss_per_epoch_train[-1], loss_per_epoch_valid[-1], out)
-                        scheduler.step(valid_loss)
+                        scheduler.step(val_loss_all_graphs)
 
     except KeyboardInterrupt:
         # TODO: Implement this to do something, maybe evaluate on test set?
