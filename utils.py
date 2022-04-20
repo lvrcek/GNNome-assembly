@@ -10,7 +10,7 @@ import torch
 import numpy as np
 import dgl
 
-from scipy import sparse as sp # PE
+from scipy import sparse as sp 
 
 
 def draw_loss_plots(train_loss, valid_loss, out):
@@ -143,6 +143,27 @@ def preprocess_graph(g, data_path, idx):
 
     return g
 
+def add_positional_encoding(g, pe_dim):
+    """
+        Initializing positional encoding with k-RW-PE
+    """
+    
+    # Geometric diffusion features with Random Walk
+    A = g.adjacency_matrix(scipy_fmt="csr")
+    Dinv = sp.diags(dgl.backend.asnumpy(g.in_degrees()).clip(1) ** -1.0, dtype=float) # D^-1
+    RW = A * Dinv  
+    M = RW
+    
+    # Iterate
+    PE = [torch.from_numpy(M.diagonal()).float()]
+    M_power = M
+    for _ in range(pe_dim-1):
+        M_power = M_power * M
+        PE.append(torch.from_numpy(M_power.diagonal()).float())
+    PE = torch.stack(PE,dim=-1)
+    g.ndata['pe'] = PE  
+    
+    return g
 
 def timedelta_to_str(delta):
     hours, remainder = divmod(delta.seconds, 3600)

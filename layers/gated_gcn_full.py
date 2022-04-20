@@ -57,8 +57,10 @@ class GatedGCN_1d(nn.Module):
         self.B_2 = nn.Linear(in_channels, out_channels, dtype=dtype)
         self.B_3 = nn.Linear(in_channels, out_channels, dtype=dtype)
 
-        self.bn_h = nn.BatchNorm1d(out_channels)
-        self.bn_e = nn.BatchNorm1d(out_channels)
+        #self.bn_h = nn.BatchNorm1d(out_channels)
+        #self.bn_e = nn.BatchNorm1d(out_channels)
+        self.bn_h = nn.LayerNorm(out_channels) 
+        self.bn_e = nn.LayerNorm(out_channels) 
 
     def message_forward(self, edges):
         """Message function used on the original graph."""

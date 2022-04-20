@@ -6,7 +6,7 @@ import dgl
 from dgl.data import DGLDataset
 
 import graph_parser
-from utils import preprocess_graph
+from utils import preprocess_graph, add_positional_encoding
 
 class AssemblyGraphDataset(DGLDataset):
     """
@@ -62,6 +62,8 @@ class AssemblyGraphDataset(DGLDataset):
             idx = int(file[:-4])
             graph = dgl.load_graphs(os.path.join(self.save_dir, file))[0][0]
             graph = preprocess_graph(graph, self.root, idx)
+            nb_pe = 10 # TODO : make as input argument
+            graph = add_positional_encoding(graph, nb_pe) 
             self.graph_list.append(graph)
 
     def has_cache(self):

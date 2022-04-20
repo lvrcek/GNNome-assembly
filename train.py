@@ -149,7 +149,7 @@ def train(args):
     overfit = num_graphs == 1
 
     #overfit = False # DEBUG !!!!!!!!!!!!!
-    #ds_valid = ds_train # DEBUG !!!!!!!!!!!!!
+    ds_valid = ds_train # DEBUG !!!!!!!!!!!!!
 
     if batch_size == -1:
         model = models.GraphGCNModel(node_features, edge_features, hidden_features, num_gnn_layers)
@@ -244,9 +244,8 @@ def train(args):
                             sub_g = sub_g.to(device)
                             x = sub_g.ndata['x'].to(device)
                             e = sub_g.edata['e'].to(device)
-                            #pe = sub_g.ndata['pe'].to(device)
-                            edge_predictions = model(sub_g, x, e) 
-                            #edge_predictions = model(sub_g, x, e, pe) 
+                            pe = sub_g.ndata['pe'].to(device)
+                            edge_predictions = model(sub_g, x, e, pe) 
                             edge_predictions = edge_predictions.squeeze(-1)
                             edge_labels = sub_g.edata['y'].to(device)
                             loss = criterion(edge_predictions, edge_labels)
@@ -316,7 +315,8 @@ def train(args):
                     save_checkpoint(epoch, model, optimizer, loss_per_epoch_train[-1], 0.0, out)
                     scheduler.step(train_loss_all_graphs)
 
-                if not overfit:
+                #if not overfit:
+                if not epoch%10 and epoch>0: # DEBUG !!!!!!!!!!!!!
 
                     val_loss_all_graphs, val_fp_rate_all_graphs, val_fn_rate_all_graphs = [], [], []
                     val_acc_all_graphs, val_precision_all_graphs, val_recall_all_graphs, val_f1_all_graphs = [], [], [], []
@@ -378,9 +378,8 @@ def train(args):
                                     sub_g = sub_g.to(device)
                                     x = sub_g.ndata['x'].to(device)
                                     e = sub_g.edata['e'].to(device)
-                                    #pe = sub_g.ndata['pe'].to(device)
-                                    edge_predictions = model(sub_g, x, e) 
-                                    #edge_predictions = model(sub_g, x, e, pe) 
+                                    pe = sub_g.ndata['pe'].to(device)
+                                    edge_predictions = model(sub_g, x, e, pe) 
                                     edge_predictions = edge_predictions.squeeze(-1)
                                     edge_labels = sub_g.edata['y'].to(device)
                                     loss = criterion(edge_predictions, edge_labels)
