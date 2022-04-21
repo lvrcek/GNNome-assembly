@@ -31,7 +31,7 @@ class AssemblyGraphDataset(DGLDataset):
         Path to the raven assembler
     """
 
-    def __init__(self, root, specs=None):
+    def __init__(self, root, nb_pos_enc, specs=None):
         """
         Parameters
         ----------
@@ -62,8 +62,9 @@ class AssemblyGraphDataset(DGLDataset):
             idx = int(file[:-4])
             graph = dgl.load_graphs(os.path.join(self.save_dir, file))[0][0]
             graph = preprocess_graph(graph, self.root, idx)
-            nb_pe = 10 # TODO : make as input argument
-            graph = add_positional_encoding(graph, nb_pe) 
+            graph = add_positional_encoding(graph, nb_pos_enc) 
+            #graph, _ = dgl.khop_in_subgraph(graph, 390, k=20) # DEBUG !!!!
+            print('DGL graph info:',graph)
             self.graph_list.append(graph)
 
     def has_cache(self):
