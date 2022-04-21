@@ -149,12 +149,12 @@ def train(args):
         ds = AssemblyGraphDataset(data_path, nb_pos_enc)
         # TODO: Only a temporary stupid fix, have to decide later how to make it proper
         ds_train = ds 
+        ds_valid = ds_train # DEBUG !!!!!!!!!!!!!
         num_graphs = len(ds)
 
     overfit = num_graphs == 1
 
     #overfit = False # DEBUG !!!!!!!!!!!!!
-    ds_valid = ds_train # DEBUG !!!!!!!!!!!!!
     #batch_size_train = batch_size_eval = 1 # DEBUG !!!!!!!!!!!!!
 
     if batch_size_train <= 1: # train with full graph 
@@ -186,7 +186,7 @@ def train(args):
 
     if not os.path.exists(os.path.join('checkpoints')):
         os.makedirs(os.path.join('checkpoints'))
-        
+
     loss_per_epoch_train, loss_per_epoch_valid = [], []
     acc_per_epoch_train, acc_per_epoch_valid = [], []
 
