@@ -169,6 +169,8 @@ def train(args):
         best_model = models.GraphGatedGCNModel(node_features, edge_features, hidden_features, hidden_edge_features, num_gnn_layers, hidden_edge_scores, nb_pos_enc) # GatedGCN 
 
     model.to(device)
+    if not os.path.exists(os.path.join('pretrained')):
+        os.makedirs(os.path.join('pretrained'))
     model_path = os.path.abspath(f'pretrained/model_{out}.pt')
     best_model.to(device)  # TODO: IF I really need to save on memory, maybe not do this
     best_model.load_state_dict(copy.deepcopy(model.state_dict()))
@@ -182,6 +184,9 @@ def train(args):
     elapsed = utils.timedelta_to_str(datetime.now() - time_start)
     print(f'Loading data done. Elapsed time: {elapsed}')
 
+    if not os.path.exists(os.path.join('checkpoints')):
+        os.makedirs(os.path.join('checkpoints'))
+        
     loss_per_epoch_train, loss_per_epoch_valid = [], []
     acc_per_epoch_train, acc_per_epoch_valid = [], []
 
