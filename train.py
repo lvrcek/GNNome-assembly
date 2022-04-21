@@ -303,7 +303,7 @@ def train(args):
 
                 try:
                     wandb.log({'train_loss': train_loss_all_graphs, 'train_accuracy': train_acc_all_graphs, 'train_precision': train_precision_all_graphs, \
-                            'train_recall': train_recall_all_graphs, 'train_f1': train_f1_all_graphs, 'fp-rate': train_fp_rate_all_graphs, 'fn-rate': train_fn_rate_all_graphs, 'lr_value': lr_value})
+                            'train_recall': train_recall_all_graphs, 'train_f1': train_f1_all_graphs, 'train_fp-rate': train_fp_rate_all_graphs, 'train_fn-rate': train_fn_rate_all_graphs, 'lr_value': lr_value})
                 except Exception:
                     print(f'WandB exception occured!')
 
@@ -432,7 +432,7 @@ def train(args):
 
                         try:
                             wandb.log({'val_loss': val_loss_all_graphs, 'val_accuracy': val_acc_all_graphs, 'val_precision': val_precision_all_graphs, \
-                                    'val_recall': val_recall_all_graphs, 'val_f1': val_f1_all_graphs, 'fp-rate': val_fp_rate_all_graphs, 'fn-rate': val_fn_rate_all_graphs})
+                                    'val_recall': val_recall_all_graphs, 'val_f1': val_f1_all_graphs, 'val_fp-rate': val_fp_rate_all_graphs, 'val_fn-rate': val_fn_rate_all_graphs})
                         except Exception:
                             print(f'WandB exception occured!')
 
