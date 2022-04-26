@@ -1,3 +1,4 @@
+import argparse
 import gzip
 import os
 import subprocess
@@ -7,7 +8,7 @@ import requests
 from Bio import SeqIO
 
 import graph_dataset
-
+import train
 
 chr_lens = {
 'chr1': 248387328,
@@ -126,7 +127,7 @@ def download_reference():
 
 
 # 1. Simulate the sequences
-def simualate_reads(chr_dict):
+def simulate_reads(chr_dict):
     # Dict saying how much of simulated datasets for each chromosome do we need
     # E.g., {'chr1': 4, 'chr6': 2, 'chrX': 4}
 
@@ -200,12 +201,13 @@ def train_valid_split(train_dict, valid_dict):
     for chrN, n_need in valid_dict.items():
         # copy n_need datasets from chrN into train dict
         for i in range(n_need):
+            j = i + train_dict[chrN]
             chr_sim_path = os.path.join(sim_path, chrN)
-            subprocess.run(f'cp {chr_sim_path}/processed/{i}.dgl {valid_path}/processed/{n_have}.dgl', shell=True)
-            subprocess.run(f'cp {chr_sim_path}/info/{i}_succ.pkl {valid_path}/info/{n_have}_succ.pkl', shell=True)
-            subprocess.run(f'cp {chr_sim_path}/info/{i}_pred.pkl {valid_path}/info/{n_have}_pred.pkl', shell=True)
-            subprocess.run(f'cp {chr_sim_path}/info/{i}_edges.pkl {valid_path}/info/{n_have}_edges.pkl', shell=True)
-            subprocess.run(f'cp {chr_sim_path}/solutions/{i}_edges.pkl {valid_path}/solutions/{n_have}_edges.pkl', shell=True)
+            subprocess.run(f'cp {chr_sim_path}/processed/{j}.dgl {valid_path}/processed/{n_have}.dgl', shell=True)
+            subprocess.run(f'cp {chr_sim_path}/info/{j}_succ.pkl {valid_path}/info/{n_have}_succ.pkl', shell=True)
+            subprocess.run(f'cp {chr_sim_path}/info/{j}_pred.pkl {valid_path}/info/{n_have}_pred.pkl', shell=True)
+            subprocess.run(f'cp {chr_sim_path}/info/{j}_edges.pkl {valid_path}/info/{n_have}_edges.pkl', shell=True)
+            subprocess.run(f'cp {chr_sim_path}/solutions/{j}_edges.pkl {valid_path}/solutions/{n_have}_edges.pkl', shell=True)
             n_have += 1
 
 
@@ -226,8 +228,17 @@ def train_the_model():
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--data', type=str, default='data/train', help='Path to directory with training data')
+    parser.add_argument('--out', type=str, default=None, help='Output name for figures and models')
+    parser.add_argument('--eval', action='store_true')
+    parser.add_argument('--split', action='store_true', default=False, help='Is the dataset already split into train/valid/test')
+    args = parser.parse_args()
     # Either get all the arguments
     # Or just reads everything from some config file
     # E.g., train = {chr1: 1, chr4: 3, chr5: 5}
     # E.g., eval = {chr6: 2, chr5: 3}
-    pass
+    simulate_reads({'chr19': 5})
+    generate_graphs({'chr19': 5})
+    train_valid_split({'chr19': 3}, {'chr19': 2})
+    train.train(args)

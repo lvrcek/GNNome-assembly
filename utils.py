@@ -146,8 +146,8 @@ def preprocess_graph(g, data_path, idx):
         pos_str_nodes, pos_str_edges, neg_str_nodes, neg_str_edges, all_walks = algorithms.dfs_gt_graph(g, succs, edges)
         nodes_gt = pos_str_nodes | neg_str_nodes
         edges_gt = pos_str_edges | neg_str_edges
-        pickle.dump(nodes_gt, open(f'{data_path}/solutions/0_nodes.pkl', 'wb'))
-        pickle.dump(edges_gt, open(f'{data_path}/solutions/0_edges.pkl', 'wb'))
+        pickle.dump(nodes_gt, open(f'{data_path}/solutions/{idx}_nodes.pkl', 'wb'))
+        pickle.dump(edges_gt, open(f'{data_path}/solutions/{idx}_edges.pkl', 'wb'))
         # Generate them here?
         g.ndata['y'] = torch.tensor([1 if i in nodes_gt else 0 for i in range(g.num_nodes())], dtype=torch.float)
         g.edata['y'] = torch.tensor([1 if i in edges_gt else 0 for i in range(g.num_edges())], dtype=torch.float)
