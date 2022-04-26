@@ -1,4 +1,45 @@
 import os
+import subprocess
+
+import requests
+from Bio import SeqIO
+
+
+def create_chr_dirs(pth):
+    for i in range(1, 24):
+        if i == 23:
+            i = 'X'
+        subprocess.run(f'mkdir chr{i}', shell=True, cwd=pth)
+        subprocess.run(f'mkdir raw processed info tmp graphia solutions', shell=True, cwd=os.path.join(pth, f'chr{i}'))
+
+# -1. Set up the data file structure
+def file_structure_setup(data_path):
+    if 'references' not in os.listdir(data_path):
+        os.mkdir(os.path.join(data_path, 'references'))
+        subprocess.run(f'mkdir CHM13 chromosomes lengths', shell=True, cwd=os.mkdir(os.path.join(data_path, 'references')))
+    else:
+        ref_path = os.path.join(data_path, 'references')
+        if 'CHM13' not in os.listdir(ref_path):
+            os.mkdir(os.path.join(ref_path, 'CHM13'))
+        if 'chromosomes' not in os.listdir(ref_path):
+            os.mkdir(os.path.join(ref_path, 'chromosomes'))
+            
+    if 'simulated' not in os.listdir(data_path):
+        os.mkdir(os.path.join(data_path, 'simulated'))
+        create_chr_dirs(os.path.join(data_path, 'simulated'))
+    if 'real' not in os.listdir(data_path):
+        os.mkdir(os.path.join(data_path, 'real'))
+        create_chr_dirs(os.path.join(data_path, 'real'))
+
+    if 'train' not in os.listdir(data_path):
+        os.mkdir(os.path.join(data_path, 'train'))
+        subprocess.run(f'mkdir raw processed info tmp graphia solutions', shell=True, cwd=os.path.join(data_path, 'train'))
+    if 'valid' not in os.listdir(data_path):
+        os.mkdir(os.path.join(data_path, 'valid'))
+        subprocess.run(f'mkdir raw processed info tmp graphia solutions', shell=True, cwd=os.path.join(data_path, 'valid'))
+    if 'test' not in os.listdir(data_path):
+        os.mkdir(os.path.join(data_path, 'test'))
+        subprocess.run(f'mkdir raw processed info tmp graphia solutions', shell=True, cwd=os.path.join(data_path, 'test'))
 
 
 # 0. Download the CHM13 if necessary
@@ -6,12 +47,15 @@ def download_reference():
     ref_path = os.path.abspath('data/neurips/references/')
     chm_path = os.path.join(ref_path, 'CHM13')
     chr_path = os.path.join(ref_path, 'chromosomes')
+    chm13_url = 'https://s3-us-west-2.amazonaws.com/human-pangenomics/T2T/CHM13/assemblies/chm13.draft_v1.1.fasta.gz'
     if len(os.listdir(chm_path)) == 0:
         # Download the CHM13 reference
-        ...
+        response = requests.get(chm13_url)
     if len(os.listdir(chr_path)) == 0:
         # Parse the CHM13 into individual chromosomes
-        ...
+        chm_path = os.path.join(chm_path, 'chm13.draft_v1.1.fasta.gz')
+        for record in SeqIO.parse(chm_path, 'fasta'):
+            SeqIO.write(record, os.path.join(chr_path, f'{record.id}.fasta'), 'fasta')
 
 
 # 1. Simulate the sequences
