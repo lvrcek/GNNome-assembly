@@ -142,8 +142,8 @@ def train(args):
     sampler = dgl.dataloading.MultiLayerFullNeighborSampler(num_gnn_layers)
     
     if is_split:
-        ds_train = graph_dataset.AssemblyGraphDataset(os.path.join(data_path, 'train'), nb_pos_enc)
-        ds_valid = graph_dataset.AssemblyGraphDataset(os.path.join(data_path, 'valid'), nb_pos_enc)
+        ds_train = AssemblyGraphDataset(os.path.join(data_path, 'train'), nb_pos_enc)
+        ds_valid = AssemblyGraphDataset(os.path.join(data_path, 'valid'), nb_pos_enc)
         num_graphs = len(ds_train) + len(ds_valid)
     else:
         ds = AssemblyGraphDataset(data_path, nb_pos_enc)
@@ -191,7 +191,7 @@ def train(args):
     acc_per_epoch_train, acc_per_epoch_valid = [], []
 
     try:
-        with wandb.init(project="GeNNome-april", config=hyperparameters):
+        with wandb.init(project="GeNNome-neurips", config=hyperparameters):
             wandb.watch(model, criterion, log='all', log_freq=1000)
 
             for epoch in range(num_epochs):

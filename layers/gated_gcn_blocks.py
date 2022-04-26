@@ -29,8 +29,8 @@ class GatedGCN_forwards(nn.Module):
         self.B_3 = nn.Linear(in_channels, out_channels)
 
         # Batch Normalization
-        self.bn_h = nn.BatchNorm1d(out_channels)
-        self.bn_e = nn.BatchNorm1d(out_channels)
+        self.bn_h = nn.BatchNorm1d(out_channels, track_running_stats=False)
+        self.bn_e = nn.BatchNorm1d(out_channels, track_running_stats=False)
 
         # Layer Normalization
         # self.bn_h = nn.LayerNorm(out_channels)

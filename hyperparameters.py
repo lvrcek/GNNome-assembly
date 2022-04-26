@@ -19,7 +19,7 @@ def get_hyperparameters():
         'batch_size_eval': 20,
         'patience': 5,
         'decay': 0.95,
-        'device': 'cuda:0' if torch.cuda.is_available() else 'cpu',
+        'device': 'cuda:3' if torch.cuda.is_available() else 'cpu',
         'batch_norm': True,
         'use_amp': False,
         'bias': False,

@@ -12,6 +12,8 @@ import dgl
 
 from scipy import sparse as sp 
 
+import algorithms
+
 
 def draw_loss_plots(train_loss, valid_loss, out):
     """Draw and save plot of train and validation loss over epochs.
@@ -136,8 +138,19 @@ def preprocess_graph(g, data_path, idx):
         g.ndata['y'] = torch.tensor([1 if i in nodes_gt else 0 for i in range(g.num_nodes())], dtype=torch.float)
         g.edata['y'] = torch.tensor([1 if i in edges_gt else 0 for i in range(g.num_edges())], dtype=torch.float)
     except FileNotFoundError:
-        print("Solutions not generated")
+        # print("Solutions not generated")
+        # This should be done long before, probably in the graph_parser
+        # With Martin's code it will be done in the graph_parser
+        succs = pickle.load(open(f'{data_path}/info/{idx}_succ.pkl', 'rb'))
+        edges = pickle.load(open(f'{data_path}/info/{idx}_edges.pkl', 'rb'))
+        pos_str_nodes, pos_str_edges, neg_str_nodes, neg_str_edges, all_walks = algorithms.dfs_gt_graph(g, succs, edges)
+        nodes_gt = pos_str_nodes | neg_str_nodes
+        edges_gt = pos_str_edges | neg_str_edges
+        pickle.dump(nodes_gt, open(f'{data_path}/solutions/0_nodes.pkl', 'wb'))
+        pickle.dump(edges_gt, open(f'{data_path}/solutions/0_edges.pkl', 'wb'))
         # Generate them here?
+        g.ndata['y'] = torch.tensor([1 if i in nodes_gt else 0 for i in range(g.num_nodes())], dtype=torch.float)
+        g.edata['y'] = torch.tensor([1 if i in edges_gt else 0 for i in range(g.num_edges())], dtype=torch.float)
 
     g = dgl.add_self_loop(g)    
 
