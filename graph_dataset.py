@@ -31,7 +31,7 @@ class AssemblyGraphDataset(DGLDataset):
         Path to the raven assembler
     """
 
-    def __init__(self, root, nb_pos_enc, specs=None):
+    def __init__(self, root, nb_pos_enc=10, specs=None):
         """
         Parameters
         ----------
@@ -69,8 +69,8 @@ class AssemblyGraphDataset(DGLDataset):
 
     def has_cache(self):
         """Check if the raw data is already processed and stored."""
-        return len(os.listdir(self.save_dir)) > 0
-        # return len(os.listdir(self.save_dir)) == len(os.listdir(self.raw_dir))
+        # return len(os.listdir(self.save_dir)) > 0
+        return len(os.listdir(self.save_dir)) >= len(os.listdir(self.raw_dir))
 
     def __len__(self):
         return len(os.listdir(self.save_dir))
@@ -96,11 +96,18 @@ class AssemblyGraphDataset(DGLDataset):
             os.mkdir(graphia_dir)
 
         with open(f'{self.root}/dataset_log.txt', 'w') as f:
-            for cnt, fastq in enumerate(os.listdir(self.raw_dir)):
+            n_have = len(os.listdir(self.save_dir))
+            n_need = len(os.listdir(self.raw_dir))
+            n_diff = n_need - n_have
+            files = sorted(os.listdir(self.raw_dir))  # [0.fasta, 1.fasta, ...]
+            for cnt, idx in enumerate(range(n_have, n_need)):
+            # for cnt, fastq in enumerate(os.listdir(self.raw_dir)):
+                fastq = files[idx]  # have 4 [0-3] -> fastq = 4.fasta, 5.fasta, ...
                 print(cnt, fastq)
                 reads_path = os.path.abspath(os.path.join(self.raw_dir, fastq))
                 print(reads_path)
                 subprocess.run(f'{self.raven_path} --filter {filter} --weaken -t{threads} -p0 {reads_path} > {out}', shell=True, cwd=self.tmp_dir)
+                cnt = idx  # Just not to change original code too much yet. TODO: Fix later
                 for j in range(1, 2):
                     print(f'graph {j}')
                     # processed_path = os.path.join(self.save_dir, f'd{cnt}_g{j}.dgl')

@@ -227,7 +227,7 @@ def from_gfa(graph_path, reads_path):
     # ---------------------------------------------------------- READ THIS ----------------------------------------------------------------------------
     # I need both the GFA and the FASTQ because they hold different information.
     # GFA also serves as the "link" between different formats since it contains the read id taken from GFA.
-    # First all the reads are stored in a list, together with their info (description)--thi info contains read id, start, end, PRIOR TO TRIMMING!!!
+    # First all the reads are stored in a list, together with their info (description)--the info contains read id, start, end, PRIOR TO TRIMMING!!!
     # Then I parse the GFA file. From here I get the read ids (indices in FASTQ) and the sequences.
     # Why the sequences from here? Because they are already trimmed, so it's easier than to take them from FASTQ and trim them manually
     # With the read ids I can access the reads in the FASTQ file (or rather in a list obtained from parsing the file).
@@ -238,7 +238,10 @@ def from_gfa(graph_path, reads_path):
     read_sequences = deque()
     description_queue = deque()
     # TODO: Parsing of reads won't work for larger datasets nor gzipped files
-    reads_list = {read.id: read.description for read in SeqIO.parse(reads_path, 'fastq')}
+    if reads_path.endswith('fastq'):
+        reads_list = {read.id: read.description for read in SeqIO.parse(reads_path, 'fastq')}
+    else:
+        reads_list = {read.id: read.description for read in SeqIO.parse(reads_path, 'fasta')}
     with open(graph_path) as f:
         for line in f.readlines():
             line = line.strip().split()
@@ -246,11 +249,11 @@ def from_gfa(graph_path, reads_path):
                 tag, id, sequence, length, count = line
                 sequence = Seq(sequence)  # TODO: This sequence is already trimmed! Make sure that everything is matching
                 read_sequences.append(sequence)
-                read_sequences.append(sequence.reverse_complement())
+                # read_sequences.append(sequence.reverse_complement())
                 try:
                     description = reads_list[id]
                 except ValueError:
-                    description = '0 idx=0, strand=+, start=0, end=0'
+                    description = '0 strand=+, start=0, end=0'
                 description_queue.append(description)
             else:
                 break
@@ -325,11 +328,16 @@ def from_csv(graph_path, reads_path):
             if flag == 0:
                 # Here overlap is actually trimming info! trim_begin trim_end
                 description = description_queue.popleft()
-                id, idx, strand, start, end = description.split()
+                id, strand, start, end = description.split()
+                # except:
+                #     id, idx, strand, start, end = description.split()
 
                 # TODO: only for the current type of real reads, doesn't work with simulated
                 # TODO: E.g., if the oridinal id is SRR9087597.16, the idx will be 16
-                idx = int(re.findall(r'idx=[a-zA-Z]*\.{0,1}(\d+)', idx)[0])
+                # Variant 1
+                # idx = int(re.findall(r'idx=[a-zA-Z]*\.{0,1}(\d+)', id)[0])
+                # Variant 2
+                idx = int(id)
 
                 strand = 1 if strand[-2] == '+' else -1  # strand[-1] == ','
 
@@ -341,10 +349,11 @@ def from_csv(graph_path, reads_path):
 
                 trimming = overlap
                 if trimming == '-':
-                    if strand == 1:
-                        trim_start, trim_end = 0, end - start  # TODO: dafuq is this, why not just len(read)
-                    if strand == -1:
-                        trim_start, trim_end = 0, start - end
+                    trim_start, trim_end = 0, end - start
+                    # if strand == 1:
+                    #     trim_start, trim_end = 0, end - start  # TODO: dafuq is this, why not just len(read)
+                    # if strand == -1:
+                    #     trim_start, trim_end = 0, start - end
                 else:
                     trim_start, trim_end = trimming.split()
                     trim_start = int(trim_start)
@@ -357,56 +366,77 @@ def from_csv(graph_path, reads_path):
                 # If - strand: start > and (the read is from the opposite strand, so it kinda goes backwards)
                 # This is due to how the reads are sampled from the reference
 
-                end = start + trim_end * strand
-                start = start + trim_start * strand
+                # ----- 26/04/22 -----
+                # end = start + trim_end * strand
+                # start = start + trim_start * strand
+                end = start + trim_end
+                start = start + trim_start
 
-                if src_id not in read_length.keys():
-                    read_length[src_id] = src_len
-                    node_data[src_id] = read_sequences.popleft()
-                    read_idx[src_id] = idx
-                    read_strand[src_id] = strand
+                read_sequence = read_sequences.popleft()
+                node_data[src_id] = read_sequence
+                node_data[dst_id] = read_sequence.reverse_complement()
 
-                    # Strand - reads will remain backwards
-                    read_start[src_id] = start
-                    read_end[src_id] = end
+                read_length[src_id], read_length[dst_id] = src_len, dst_len
+                read_idx[src_id] = read_idx[dst_id] = idx
+                read_strand[src_id], read_strand[dst_id] = strand, -strand
+                read_start[src_id] = read_start[dst_id] = start
+                read_end[src_id] = read_end[dst_id] = end
+                read_trim_start[src_id] = read_trim_start[dst_id] = trim_start
+                read_trim_end[src_id] = read_trim_end[dst_id] = trim_end
 
-                    # if strand == 1:
-                    #     read_start[src_id] = start + trim_start
-                    #     read_end[src_id] = start + trim_end
-                    # else:
-                    #     read_start[src_id] = start + trim_end
-                    #     read_end[src_id] = start + trim_start
-                        
-                    graph_nx.add_node(src_id)
-                    graph_nx_und.add_node(src_id)
+                graph_nx.add_node(src_id)
+                graph_nx.add_node(dst_id)
+                graph_nx_und.add_node(src_id)
+                graph_nx_und.add_node(dst_id)
 
-                    read_trim_start[src_id] = trim_start
-                    read_trim_end[src_id] = trim_end
-
-                if dst_id not in read_length.keys():
-                    read_length[dst_id] = dst_len
-                    node_data[dst_id] = read_sequences.popleft()
-                    read_idx[dst_id] = idx
-                    read_strand[dst_id] = -strand
-                    # This is on purpose so that positive strand reads are 'forwards'
-                    # While negative strand reads become 'backwards' (start < end)
-
-                    # Virtual pairs of - strand reads will be flipped into forward orientation (start < end)
-                    read_start[dst_id] = end
-                    read_end[dst_id] = start
-
-                    # if read_strand[dst_id] == 1:
-                    #     read_start[dst_id] = start - trim_end  # end + delta = end + (start - end - trim_end) = start - trim_end
-                    #     read_end[dst_id] = start - trim_start  # start - trim_start
-                    # else:
-                    #     read_start[dst_id] = start - trim_start
-                    #     read_end = start - trim_end
-
-                    graph_nx.add_node(dst_id)
-                    graph_nx_und.add_node(dst_id)
-
-                    read_trim_start[dst_id] = trim_end
-                    read_trim_end[dst_id] = trim_start
+                # ------ 26/04/22 ------
+                # if src_id not in read_length.keys():
+                #     read_length[src_id] = src_len
+                #     node_data[src_id] = read_sequences.popleft()
+                #     read_idx[src_id] = idx
+                #     read_strand[src_id] = strand
+                # 
+                #     # Strand - reads will remain backwards
+                #     read_start[src_id] = start
+                #     read_end[src_id] = end
+                # 
+                #     # if strand == 1:
+                #     #     read_start[src_id] = start + trim_start
+                #     #     read_end[src_id] = start + trim_end
+                #     # else:
+                #     #     read_start[src_id] = start + trim_end
+                #     #     read_end[src_id] = start + trim_start
+                # 
+                #     graph_nx.add_node(src_id)
+                #     graph_nx_und.add_node(src_id)
+                # 
+                #     read_trim_start[src_id] = trim_start
+                #     read_trim_end[src_id] = trim_end
+                # 
+                # if dst_id not in read_length.keys():
+                #     read_length[dst_id] = dst_len
+                #     node_data[dst_id] = read_sequences.popleft()
+                #     read_idx[dst_id] = idx
+                #     read_strand[dst_id] = -strand
+                #     # This is on purpose so that positive strand reads are 'forwards'
+                #     # While negative strand reads become 'backwards' (start < end)
+                # 
+                #     # Virtual pairs of - strand reads will be flipped into forward orientation (start < end)
+                #     read_start[dst_id] = end
+                #     read_end[dst_id] = start
+                # 
+                #     # if read_strand[dst_id] == 1:
+                #     #     read_start[dst_id] = start - trim_end  # end + delta = end + (start - end - trim_end) = start - trim_end
+                #     #     read_end[dst_id] = start - trim_start  # start - trim_start
+                #     # else:
+                #     #     read_start[dst_id] = start - trim_start
+                #     #     read_end = start - trim_end
+                # 
+                #     graph_nx.add_node(dst_id)
+                #     graph_nx_und.add_node(dst_id)
+                # 
+                #     read_trim_start[dst_id] = trim_end
+                #     read_trim_end[dst_id] = trim_start
 
             else:
                 # Overlap info: id, length, weight, similarity
@@ -414,6 +444,7 @@ def from_csv(graph_path, reads_path):
                 try:
                     (edge_id, prefix_len), (weight, similarity) = map(int, overlap[:2]), map(float, overlap[2:])
                 except IndexError:
+                    print("Index ERROR occured!")
                     continue
                 except ValueError:
                     (edge_id, prefix_len), weight, similarity = map(int, overlap[:2]), float(overlap[2]), 0

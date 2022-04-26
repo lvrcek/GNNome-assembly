@@ -6,6 +6,7 @@ from tqdm import tqdm
 import requests
 from Bio import SeqIO
 
+import graph_dataset
 
 
 chr_lens = {
@@ -34,12 +35,34 @@ chr_lens = {
 'chrX': 154259566,
 }
 
+
+def change_description(file_path):
+    new_fasta = []
+    for record in SeqIO.parse(file_path, file_path[-5:]): # path[-5:] is fasta for fasta file, anf fastq for fastq file
+        des = record.description.split(",")
+        id = des[0][5:]
+        if des[1] == "forward":
+            strand = '+'
+        else:
+            strand = '-'
+        position = des[2][9:].split("-")
+        start = position[0]
+        end = position[1]
+        record.id = id
+        record.description = f'strand={strand}, start={start}, end={end}'
+        new_fasta.append(record)
+    SeqIO.write(new_fasta, file_path, "fasta")
+
+
 def create_chr_dirs(pth):
     for i in range(1, 24):
         if i == 23:
             i = 'X'
         subprocess.run(f'mkdir chr{i}', shell=True, cwd=pth)
         subprocess.run(f'mkdir raw processed info tmp graphia solutions', shell=True, cwd=os.path.join(pth, f'chr{i}'))
+
+
+
 
 # -1. Set up the data file structure
 def file_structure_setup(data_path):
@@ -106,6 +129,12 @@ def download_reference():
 def simualate_reads(chr_dict):
     # Dict saying how much of simulated datasets for each chromosome do we need
     # E.g., {'chr1': 4, 'chr6': 2, 'chrX': 4}
+
+    # TODO: This is like this temporarily, should be done upon setting up the poject repo
+    if 'seqrequester' not in os.listdir('vendor'):
+        subprocess.run(f'git clone https://github.com/marbl/seqrequester.git', shell=True, cwd='vendor')
+        subprocess.run(f'make', shell=True, cwd='vendor/seqrequester/src')
+
     ref_path = os.path.abspath('data/neurips/references/')
     chr_path = os.path.join(ref_path, 'chromosomes')
     len_path = os.path.join(ref_path, 'lengths')
@@ -125,7 +154,10 @@ def simualate_reads(chr_dict):
             for i in range(n_diff):
                 idx = n_have + i
                 chr_save_path = os.path.join(chr_raw_path, f'{idx}.fasta')
-                subprocess.run(f'./vendor/seqrequester/build/bin/seqrequester simulate -genome {chr_seq_path} -genomesize {chr_len} -coverage 32.4 -distribution {chr_dist_path} > {chr_save_path}', shell=True)
+                subprocess.run(f'./vendor/seqrequester/build/bin/seqrequester simulate -genome {chr_seq_path} ' \
+                               f'-genomesize {chr_len} -coverage 32.4 -distribution {chr_dist_path} > {chr_save_path}',
+                               shell=True)
+                change_description(chr_save_path)
 
 
 
@@ -137,12 +169,12 @@ def generate_graphs(chr_dict):
         chr_prc_path = os.path.join(chr_sim_path, 'processed')
         n_raw = len(os.listdir(chr_raw_path))
         n_prc = len(os.listdir(chr_prc_path))
-        if n_prc < n_raw:
-            n_diff = n_raw - n_prc
-            # Generate graphs for those reads that don't have them
-            # Probably something with Raven
-            # Then the graph_parser
-            ...
+        n_diff = n_raw - n_prc
+        graph_dataset.AssemblyGraphDataset(chr_sim_path)
+        # Generate graphs for those reads that don't have them
+        # Probably something with Raven
+        # Then the graph_parser
+        ...
 
 
 # 2.5 Train-valid-test split
