@@ -63,13 +63,21 @@ def create_chr_dirs(pth):
         subprocess.run(f'mkdir raw processed info tmp graphia solutions', shell=True, cwd=os.path.join(pth, f'chr{i}'))
 
 
+def merge_dicts(d1, d2):
+    keys = {*d1, *d2}
+    merged = {key: d1.get(key, 0) + d2.get(key, 0) for key in keys}
+    return merged
 
 
 # -1. Set up the data file structure
 def file_structure_setup(data_path):
+    print(f'SETUP::filesystem:: Create directories for storing data')
+    if not os.path.isdir(data_path):
+        os.makedirs(data_path)
     if 'references' not in os.listdir(data_path):
         os.mkdir(os.path.join(data_path, 'references'))
-        subprocess.run(f'mkdir CHM13 chromosomes lengths', shell=True, cwd=os.mkdir(os.path.join(data_path, 'references')))
+        subprocess.run(f'mkdir CHM13 chromosomes lengths', shell=True, cwd=os.path.join(data_path, 'references'))
+        subprocess.run(f'cp -r lengths {data_path}/references', shell=True)
     else:
         ref_path = os.path.join(data_path, 'references')
         if 'CHM13' not in os.listdir(ref_path):
@@ -106,6 +114,7 @@ def download_reference():
     if len(os.listdir(chm_path)) == 0:
         # Download the CHM13 reference
         # Code for tqdm from: https://stackoverflow.com/questions/37573483/progress-bar-while-download-file-over-http-with-requests
+        print(f'SETUP::download:: CHM13 not found! Downloading...')
         response = requests.get(chm13_url, stream=True)
         total_size_in_bytes= int(response.headers.get('content-length', 0))
         block_size = 1024 #1 Kibibyte
@@ -121,6 +130,7 @@ def download_reference():
 
     if len(os.listdir(chr_path)) == 0:
         # Parse the CHM13 into individual chromosomes
+        print(f'SETUP::download:: Split CHM13 per chromosome')
         with gzip.open(chm13_path, 'rt') as f:
             for record in SeqIO.parse(f, 'fasta'):
                 SeqIO.write(record, os.path.join(chr_path, f'{record.id}.fasta'), 'fasta')
@@ -132,7 +142,9 @@ def simulate_reads(chr_dict):
     # E.g., {'chr1': 4, 'chr6': 2, 'chrX': 4}
 
     # TODO: This is like this temporarily, should be done upon setting up the poject repo
+    print(f'SETUP::simulate')
     if 'seqrequester' not in os.listdir('vendor'):
+        print(f'SETUP::simulate:: Download seqrequester')
         subprocess.run(f'git clone https://github.com/marbl/seqrequester.git', shell=True, cwd='vendor')
         subprocess.run(f'make', shell=True, cwd='vendor/seqrequester/src')
 
@@ -147,6 +159,7 @@ def simulate_reads(chr_dict):
             continue
         else:
             n_diff = n_need - n_have
+            print(f'SETUP::simulate:: Simulate {n_diff} datasets for {chrN}')
             # Simulate reads for chrN n_diff times
             # Be careful how you name them
             chr_seq_path = os.path.join(chr_path, f'{chrN}.fasta')
@@ -164,6 +177,14 @@ def simulate_reads(chr_dict):
 
 # 2. Generate the graphs
 def generate_graphs(chr_dict):
+    print(f'SETUP::generate')
+
+    if 'raven' not in os.listdir('vendor'):
+        print(f'SETUP::generate:: Download Raven')
+        subprocess.run(f'git clone -b filter https://github.com/lvrcek/raven.git', shell=True, cwd='vendor')
+        subprocess.run(f'mkdir build', shell=True, cwd='vendor/raven')
+        subprocess.run(f'cmake -DCMAKE_BUILD_TYPE=Release .. && make', shell=True, cwd='vendor/raven/build')
+
     for chrN, n_need in chr_dict.items():
         chr_sim_path = os.path.abspath(f'data/neurips/simulated/{chrN}')
         chr_raw_path = os.path.join(chr_sim_path, 'raw')
@@ -171,16 +192,17 @@ def generate_graphs(chr_dict):
         n_raw = len(os.listdir(chr_raw_path))
         n_prc = len(os.listdir(chr_prc_path))
         n_diff = n_raw - n_prc
+        print(f'SETUPS::generate:: Generate {n_diff} graphs for {chrN}')
         graph_dataset.AssemblyGraphDataset(chr_sim_path)
         # Generate graphs for those reads that don't have them
         # Probably something with Raven
         # Then the graph_parser
-        ...
 
 
 # 2.5 Train-valid-test split
 def train_valid_split(train_dict, valid_dict):
     #Both are chromosome dicts specifying which data to use for training/validation
+    print(f'SETUP::split')
     sim_path = os.path.abspath('data/neurips/simulated/')
     train_path = os.path.abspath('data/neurips/train')
     valid_path = os.path.abspath('data/neurips/valid')
@@ -188,6 +210,7 @@ def train_valid_split(train_dict, valid_dict):
     n_have = 0
     for chrN, n_need in train_dict.items():
         # copy n_need datasets from chrN into train dict
+        print(f'SETUP::split:: Copying {n_need} graphs of {chrN} into {train_path}')
         for i in range(n_need):
             chr_sim_path = os.path.join(sim_path, chrN)
             subprocess.run(f'cp {chr_sim_path}/processed/{i}.dgl {train_path}/processed/{n_have}.dgl', shell=True)
@@ -200,6 +223,7 @@ def train_valid_split(train_dict, valid_dict):
     n_have = 0
     for chrN, n_need in valid_dict.items():
         # copy n_need datasets from chrN into train dict
+        print(f'SETUP::split:: Copying {n_need} graphs of {chrN} into {valid_path}')
         for i in range(n_need):
             j = i + train_dict[chrN]
             chr_sim_path = os.path.join(sim_path, chrN)
@@ -213,10 +237,9 @@ def train_valid_split(train_dict, valid_dict):
 
 
 # 3. Train the model
-# I have already prepared the datasets here
-# I just need to run the training with the correct arguments/parameters
-def train_the_model():
-    train()
+def train_the_model(args):
+    print(f'SETUP::train')
+    train.train(args)
 
 # 4. Inference - get the results
 
@@ -238,7 +261,16 @@ if __name__ == '__main__':
     # Or just reads everything from some config file
     # E.g., train = {chr1: 1, chr4: 3, chr5: 5}
     # E.g., eval = {chr6: 2, chr5: 3}
-    simulate_reads({'chr19': 5})
-    generate_graphs({'chr19': 5})
-    train_valid_split({'chr19': 3}, {'chr19': 2})
-    train.train(args)
+
+    train_dict = {'chr19': 3}
+    valid_dict = {'chr19': 2}
+    all_chr = merge_dicts(train_dict, valid_dict)
+
+    file_structure_setup('data/neurips')
+    download_reference()
+    simulate_reads(all_chr)
+    generate_graphs(all_chr)
+    train_valid_split(train_dict, valid_dict)
+    exit(1)
+    train_the_model(args)
+
