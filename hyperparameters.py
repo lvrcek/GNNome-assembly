@@ -17,6 +17,8 @@ def get_hyperparameters():
         'num_parts_metis_eval': 1000,
         'batch_size_train': 20,
         'batch_size_eval': 20,
+        'num_decoding_paths': 25,
+        'num_contigs': 10,
         'patience': 5,
         'decay': 0.95,
         'device': 'cuda:3' if torch.cuda.is_available() else 'cpu',

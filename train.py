@@ -21,6 +21,8 @@ from hyperparameters import get_hyperparameters
 import models
 import utils
 
+from algorithms import parallel_greedy_decoding
+import copy
 
 def save_checkpoint(epoch, model, optimizer, loss_train, loss_valid, out):
     checkpoint = {
@@ -125,6 +127,8 @@ def train(args):
     nb_pos_enc = hyperparameters['nb_pos_enc']
     num_parts_metis_train = hyperparameters['num_parts_metis_train']
     num_parts_metis_eval = hyperparameters['num_parts_metis_eval']
+    num_decoding_paths = hyperparameters['num_decoding_paths']
+    num_contigs = hyperparameters['num_contigs']
     patience = hyperparameters['patience']
     lr = hyperparameters['lr']
     device = hyperparameters['device']
@@ -184,7 +188,8 @@ def train(args):
     best_model.eval()
 
     print(f'\nNumber of network parameters: {view_model_param(model)}\n')
-    
+    print(f'Normalization type : Batch Normalization\n') if batch_norm else print(f'Normalization type : Layer Normalization\n')
+
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     criterion = torch.nn.BCEWithLogitsLoss()
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=decay, patience=patience, verbose=True)
@@ -464,6 +469,33 @@ def train(args):
                             torch.save(best_model.state_dict(), model_path)
                         save_checkpoint(epoch, model, optimizer, loss_per_epoch_train[-1], loss_per_epoch_valid[-1], out)
                         scheduler.step(val_loss_all_graphs)
+
+
+                # DECODING 
+                if not epoch%100 and epoch>0:
+                    print(f'\n=====>DECODING: Epoch = {epoch}')
+                    time_start_decoding = datetime.now()
+                    device_cpu = torch.device('cpu')
+                    model.train() # DEBUG !!!!!!!!!!!!!
+                    #model.eval() # DEBUG !!!!!!!!!!!!!
+                    for data in ds_train: # DEBUG !!!!!!!!!!!!!
+                    #for data in ds_valid: # DEBUG !!!!!!!!!!!!!
+                        idx, g = data
+                        g_decoding = copy.deepcopy(g)
+                        with torch.no_grad():
+                            model = model.to(device_cpu)
+                            g_decoding = g_decoding.to(device_cpu)
+                            x = g_decoding.ndata['x'].to(device_cpu)
+                            e = g_decoding.edata['e'].to(device_cpu)
+                            pe = g_decoding.ndata['pe'].to(device_cpu)
+                            edge_predictions = model(g_decoding, x, e, pe)
+                            g_decoding.edata['score'] = edge_predictions 
+                        g_decoding = g_decoding.int().to(device)
+                        all_contigs = parallel_greedy_decoding(g_decoding, num_decoding_paths, num_contigs, device)
+                        del g_decoding
+                        elapsed = utils.timedelta_to_str(datetime.now() - time_start_decoding)
+                        print(f'elapsed time (decoding): {elapsed}\n')
+                    model = model.to(device)
 
     except KeyboardInterrupt:
         # TODO: Implement this to do something, maybe evaluate on test set?
