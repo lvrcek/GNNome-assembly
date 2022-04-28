@@ -67,6 +67,7 @@ def parallel_greedy_decoding(original_g, nb_paths, num_contigs, device):
 
 
         all_contigs = []
+        all_contigs_len = []
 
         for idx_contig in range(num_contigs):
 
@@ -160,10 +161,11 @@ def parallel_greedy_decoding(original_g, nb_paths, num_contigs, device):
 
             # Append to all contigs
             all_contigs.append(selected_node_path) 
+            all_contigs_len.append(path_node_lengths[idx_max].item())
             print(f'idx of max path: {idx_max}, len of max path: {path_node_lengths[idx_max]}, tot overlaps of max path: {path_tot_overlaps[idx_max]}')
             print(f'idx_contig: {idx_contig}, len of selected contig: {path_node_lengths[idx_max]}\n')
             
-    return all_contigs
+    return all_contigs, all_contigs_len
 
 
 def greedy(graph, start, neighbors, preds, edges):

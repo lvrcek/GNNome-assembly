@@ -258,6 +258,7 @@ def train(args):
 
                         # Run Metis
                         g = g.long()
+                        num_parts_metis_train = torch.LongTensor(1).random_(1000-250,1000+250).item() # DEBUG!!!
                         sampler = dgl.dataloading.ClusterGCNSampler(g, num_parts_metis_train) 
                         dataloader = dgl.dataloading.DataLoader(g, torch.arange(num_parts_metis_train), sampler, batch_size=batch_size_train, shuffle=True, drop_last=False, num_workers=4) # XB
 
@@ -491,7 +492,8 @@ def train(args):
                             edge_predictions = model(g_decoding, x, e, pe)
                             g_decoding.edata['score'] = edge_predictions 
                         g_decoding = g_decoding.int().to(device)
-                        all_contigs = parallel_greedy_decoding(g_decoding, num_decoding_paths, num_contigs, device)
+                        all_contigs, all_contigs_len = parallel_greedy_decoding(g_decoding, num_decoding_paths, num_contigs, device)
+                        print(f'length of all contigs: {all_contigs_len}\n')
                         del g_decoding
                         elapsed = utils.timedelta_to_str(datetime.now() - time_start_decoding)
                         print(f'elapsed time (decoding): {elapsed}\n')
