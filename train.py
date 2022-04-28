@@ -106,6 +106,13 @@ def process_reads(reads, device):
     return processed_reads
 
 
+def view_model_param(model):
+    total_param = 0
+    for param in model.parameters():
+        total_param += np.prod(list(param.data.size()))
+    return total_param
+
+
 def train(args):
     hyperparameters = get_hyperparameters()
     seed = hyperparameters['seed']
@@ -160,13 +167,13 @@ def train(args):
     if batch_size_train <= 1: # train with full graph 
         #model = models.GraphGCNModel(node_features, edge_features, hidden_features, num_gnn_layers)
         #best_model = models.GraphGCNModel(node_features, edge_features, hidden_features, num_gnn_layers)
-        model = models.GraphGatedGCNModel(node_features, edge_features, hidden_features, hidden_edge_features, num_gnn_layers, hidden_edge_scores, nb_pos_enc) # GatedGCN 
-        best_model = models.GraphGatedGCNModel(node_features, edge_features, hidden_features, hidden_edge_features, num_gnn_layers, hidden_edge_scores, nb_pos_enc) # GatedGCN 
+        model = models.GraphGatedGCNModel(node_features, edge_features, hidden_features, hidden_edge_features, num_gnn_layers, hidden_edge_scores, batch_norm, nb_pos_enc) # GatedGCN 
+        best_model = models.GraphGatedGCNModel(node_features, edge_features, hidden_features, hidden_edge_features, num_gnn_layers, hidden_edge_scores, batch_norm, nb_pos_enc) # GatedGCN 
     else:
         #model = models.BlockGatedGCNModel(node_features, edge_features, hidden_features, num_gnn_layers, batch_norm=batch_norm)
         #best_model = models.BlockGatedGCNModel(node_features, edge_features, hidden_features, num_gnn_layers, batch_norm=batch_norm)
-        model = models.GraphGatedGCNModel(node_features, edge_features, hidden_features, hidden_edge_features, num_gnn_layers, hidden_edge_scores, nb_pos_enc) # GatedGCN 
-        best_model = models.GraphGatedGCNModel(node_features, edge_features, hidden_features, hidden_edge_features, num_gnn_layers, hidden_edge_scores, nb_pos_enc) # GatedGCN 
+        model = models.GraphGatedGCNModel(node_features, edge_features, hidden_features, hidden_edge_features, num_gnn_layers, hidden_edge_scores, batch_norm, nb_pos_enc) # GatedGCN 
+        best_model = models.GraphGatedGCNModel(node_features, edge_features, hidden_features, hidden_edge_features, num_gnn_layers, hidden_edge_scores, batch_norm, nb_pos_enc) # GatedGCN 
 
     model.to(device)
     if not os.path.exists(os.path.join('pretrained')):
@@ -176,6 +183,8 @@ def train(args):
     best_model.load_state_dict(copy.deepcopy(model.state_dict()))
     best_model.eval()
 
+    print(f'\nNumber of network parameters: {view_model_param(model)}\n')
+    
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     criterion = torch.nn.BCEWithLogitsLoss()
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=decay, patience=patience, verbose=True)
