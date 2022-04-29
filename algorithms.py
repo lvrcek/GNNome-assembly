@@ -32,11 +32,11 @@ def compute_tour_length(g, paths_nodes, device):
     nb_paths = paths_nodes.shape[0]
     nb_nodes = paths_nodes.shape[1]
     path_tot_overlaps = torch.zeros(nb_paths, device=device)
-    idx_src = paths_nodes[:,0]
-    for i in range(1,nb_nodes):
-        idx_dst = paths_nodes[:,i]
-        path_tot_overlaps += g.edges[idx_src, idx_dst].data['overlap_length']
-        idx_src = idx_dst
+    # idx_src = paths_nodes[:,0]
+    # for i in range(1,nb_nodes):
+    #     idx_dst = paths_nodes[:,i]
+    #     path_tot_overlaps += g.edges[idx_src, idx_dst].data['overlap_length']
+    #     idx_src = idx_dst
     path_node_lengths = torch.zeros(nb_paths, device=device).long()
     for k in range(nb_paths):
         path_nodes_unique = paths_nodes[k]
