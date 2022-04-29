@@ -146,6 +146,8 @@ def preprocess_graph(g, data_path, idx):
         pos_str_nodes, pos_str_edges, neg_str_nodes, neg_str_edges, all_walks = algorithms.dfs_gt_graph(g, succs, edges)
         nodes_gt = pos_str_nodes | neg_str_nodes
         edges_gt = pos_str_edges | neg_str_edges
+        if 'solutions' not in os.listdir(data_path):
+            os.mkdir(os.path.join(data_path, 'solutions'))
         pickle.dump(nodes_gt, open(f'{data_path}/solutions/{idx}_nodes.pkl', 'wb'))
         pickle.dump(edges_gt, open(f'{data_path}/solutions/{idx}_edges.pkl', 'wb'))
         # Generate them here?

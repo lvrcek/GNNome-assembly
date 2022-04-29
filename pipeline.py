@@ -193,7 +193,12 @@ def generate_graphs(chr_dict):
         n_prc = len(os.listdir(chr_prc_path))
         n_diff = n_raw - n_prc
         print(f'SETUPS::generate:: Generate {n_diff} graphs for {chrN}')
-        graph_dataset.AssemblyGraphDataset(chr_sim_path)
+        specs = {
+            'threads': 32,
+            'filter': 1.0,
+            'out': 'assembly.fasta'
+        }
+        graph_dataset.AssemblyGraphDataset(chr_sim_path, specs=specs)
         # Generate graphs for those reads that don't have them
         # Probably something with Raven
         # Then the graph_parser
@@ -262,8 +267,8 @@ if __name__ == '__main__':
     # E.g., train = {chr1: 1, chr4: 3, chr5: 5}
     # E.g., eval = {chr6: 2, chr5: 3}
 
-    train_dict = {'chr19': 3}
-    valid_dict = {'chr19': 2}
+    train_dict = {'chr19': 4}
+    valid_dict = {'chr19': 1}
     all_chr = merge_dicts(train_dict, valid_dict)
 
     file_structure_setup('data/neurips')
@@ -271,6 +276,5 @@ if __name__ == '__main__':
     simulate_reads(all_chr)
     generate_graphs(all_chr)
     train_valid_split(train_dict, valid_dict)
-    exit(1)
     train_the_model(args)
 

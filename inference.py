@@ -296,6 +296,24 @@ def test_walk(data_path, model_path,  device):
     return logits
 
 
+def walk_to_sequence(data_path, walks, graph, reads, edges):
+    contigs = []
+    for i, walk in enumerate(walks):
+        sequence = ''
+        for src, dst in zip(walk[:-1], walk[1:]):
+            edge_id = edges[(src, dst)]
+            prefix = graph.edata['prefix_length'][edge_id].item()
+            sequence += reads[src][:prefix]
+        sequence += reads[walk[-1]]
+        sequence = SeqIO.SeqRecord(sequence)
+        sequence.id = f'contig_{i+1}'
+        sequence.description = f'length={len(sequence)}'
+        contigs.append(sequence)
+    if 'assembly' not in os.listdir(data_path):
+        os.mkdir(os.path.join(data_path, 'assembly'))
+    assembly_path = os.path.join(data_path, 'assembly', 'assembly.fasta')
+    SeqIO.write(contigs, path, 'fasta')
+
 
 def inference(model_path=None, data_path=None):
     hyperparameters = get_hyperparameters()

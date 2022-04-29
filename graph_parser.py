@@ -328,7 +328,10 @@ def from_csv(graph_path, reads_path):
             if flag == 0:
                 # Here overlap is actually trimming info! trim_begin trim_end
                 description = description_queue.popleft()
-                id, strand, start, end = description.split()
+                try:
+                    id, strand, start, end = description.split()
+                except:
+                    id, idx, strand, start, end = description.split()
                 # except:
                 #     id, idx, strand, start, end = description.split()
 
