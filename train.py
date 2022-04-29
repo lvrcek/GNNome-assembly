@@ -486,7 +486,7 @@ def train(args):
                         with torch.no_grad():
                             model = model.to(device_cpu)
                             g_decoding = g_decoding.to(device_cpu)
-                            x = g_decoding.ndata['x'].to(device_cpu)
+                            x = g_decoding.ndata['x'].to(device_cpu) 
                             e = g_decoding.edata['e'].to(device_cpu)
                             pe = g_decoding.ndata['pe'].to(device_cpu)
                             edge_predictions = model(g_decoding, x, e, pe)
@@ -495,6 +495,8 @@ def train(args):
                         all_contigs, all_contigs_len = parallel_greedy_decoding(g_decoding, num_decoding_paths, num_contigs, device)
                         print(f'Epoch = {epoch}, lengths of all contigs: {all_contigs_len}\n')
                         del g_decoding
+                        torch.save([all_contigs, all_contigs_len], 'checkpoints/all_contigs.pt')
+                        #all_contigs, all_contigs_len = torch.load('checkpoints/all_contigs.pt')
                         elapsed = utils.timedelta_to_str(datetime.now() - time_start_decoding)
                         print(f'elapsed time (decoding): {elapsed}\n')
                     model = model.to(device)
