@@ -110,17 +110,23 @@ def parallel_greedy_decoding(original_g, nb_paths, num_contigs, device):
             idx_cur_nodes_g = map_subg_to_g[idx_cur_nodes_subg]
             paths_nodes_forward = [] # index in original graph 
             paths_nodes_forward.append(idx_cur_nodes_g) 
-            flag_dead_ends = 0
+            flag_dead_ends = flag_cycles = True
+            max_cycle_size = 30
             nb_steps = 0
-            while flag_dead_ends < nb_paths and nb_steps < n_sub_g//2: # positive or negative strand
-                nb_steps += 1
+            while flag_dead_ends and flag_cycles and nb_steps<n_sub_g//2: # positive or negative strand
                 idx_next_nodes_subg = dst_greedy_forward[idx_cur_nodes_subg] # index in sub-graph
                 idx_next_nodes_g = map_subg_to_g[idx_next_nodes_subg] # index in original graph
                 paths_nodes_forward.append(idx_next_nodes_g)
-                flag_dead_ends = (idx_cur_nodes_subg==idx_next_nodes_subg).long().sum()
+                flag_dead_ends = (idx_cur_nodes_subg==idx_next_nodes_subg).long().sum()<nb_paths
+                if not nb_steps%max_cycle_size:
+                    idx_cycle_anchor1 = idx_next_nodes_subg 
+                else:
+                    idx_cycle_anchor2 = idx_next_nodes_subg 
+                    flag_cycles = (idx_cycle_anchor1==idx_cycle_anchor2).long().sum()<nb_paths
                 idx_cur_nodes_subg = idx_next_nodes_subg
+                nb_steps += 1
             paths_nodes_forward = torch.stack(paths_nodes_forward,dim=1)
-            print(f'Forward paths - nb_steps: {nb_steps}, nb_nodes_sub_g: {n_sub_g}')
+            print(f'Forward paths - nb_steps: {nb_steps}, nb_nodes_sub_g: {n_sub_g}, find_cycles: {not flag_cycles}')
 
             # Backward paths
             sub_g.update_all(greedy_message_func, greedy_reduce_func) 
@@ -130,28 +136,35 @@ def parallel_greedy_decoding(original_g, nb_paths, num_contigs, device):
             idx_cur_nodes_g = map_subg_to_g[idx_cur_nodes_subg]
             paths_nodes_backward = [] # index in original graph
             paths_nodes_backward.append(idx_cur_nodes_g) 
-            flag_dead_ends = 0
+            flag_dead_ends = flag_cycles = True
+            max_cycle_size = 30
             nb_steps = 0
-            while flag_dead_ends < nb_paths and nb_steps < n_sub_g//2: # positive or negative strand
-                nb_steps += 1
+            while flag_dead_ends and flag_cycles and nb_steps<n_sub_g//2: # positive or negative strand
                 idx_next_nodes_subg = dst_greedy_backward[idx_cur_nodes_subg] # index in sub-graph    
                 idx_next_nodes_g = map_subg_to_g[idx_next_nodes_subg] # index in original graph
                 paths_nodes_backward.insert(0, idx_next_nodes_g)
-                flag_dead_ends = (idx_cur_nodes_subg==idx_next_nodes_subg).long().sum()
+                flag_dead_ends = (idx_cur_nodes_subg==idx_next_nodes_subg).long().sum()<nb_paths
+                if not nb_steps%max_cycle_size:
+                    idx_cycle_anchor1 = idx_next_nodes_subg 
+                else:
+                    idx_cycle_anchor2 = idx_next_nodes_subg 
+                    flag_cycles = (idx_cycle_anchor1==idx_cycle_anchor2).long().sum()<nb_paths
                 idx_cur_nodes_subg = idx_next_nodes_subg  
+                nb_steps += 1
             paths_nodes_backward = torch.stack(paths_nodes_backward,dim=1)
-            print(f'Backward paths - nb_steps: {nb_steps}, nb_nodes_sub_g: {n_sub_g}')
+            print(f'Backward paths - nb_steps: {nb_steps}, nb_nodes_sub_g: {n_sub_g}, find_cycles: {not flag_cycles}')
 
             # Concatenate forward and backward paths
             paths_nodes = torch.cat( (paths_nodes_backward, paths_nodes_forward), dim=1 )
 
             # compute total Length of overlaps
             path_tot_overlaps, path_node_lengths = compute_tour_length(original_g, paths_nodes, device)
-            print(f'path_tot_overlaps: {path_tot_overlaps}')
+            #print(f'path_tot_overlaps: {path_tot_overlaps}')
             print(f'path_node_lengths: {path_node_lengths}')
 
             # Select the path with max total length of overlaps
-            idx_max = torch.argmax(path_tot_overlaps)
+            #idx_max = torch.argmax(path_tot_overlaps)
+            idx_max = torch.argmax(path_node_lengths)
             selected_node_path = paths_nodes[idx_max]
 
             # Remove duplicate nodes at the beginning and the end of the sequence

@@ -473,7 +473,7 @@ def train(args):
 
 
                 # DECODING 
-                if not epoch%100 and epoch>0:
+                if (not epoch%100 or epoch+1==num_epochs) and epoch>0:
                     print(f'\n=====>DECODING: Epoch = {epoch}')
                     time_start_decoding = datetime.now()
                     device_cpu = torch.device('cpu')
@@ -493,7 +493,7 @@ def train(args):
                             g_decoding.edata['score'] = edge_predictions 
                         g_decoding = g_decoding.int().to(device)
                         all_contigs, all_contigs_len = parallel_greedy_decoding(g_decoding, num_decoding_paths, num_contigs, device)
-                        print(f'length of all contigs: {all_contigs_len}\n')
+                        print(f'Epoch = {epoch}, lengths of all contigs: {all_contigs_len}\n')
                         del g_decoding
                         elapsed = utils.timedelta_to_str(datetime.now() - time_start_decoding)
                         print(f'elapsed time (decoding): {elapsed}\n')
