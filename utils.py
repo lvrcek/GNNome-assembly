@@ -133,30 +133,31 @@ def preprocess_graph(g, data_path, idx):
     ol_sim = (ol_sim - ol_sim.mean()) / ol_sim.std()
     g.edata['e'] = torch.cat((ol_len.unsqueeze(-1), ol_sim.unsqueeze(-1)), dim=1)
 
+    # g = dgl.add_self_loop(g)
+    # return g
+
     try:
         nodes_gt, edges_gt = get_correct_ne(idx, data_path)
-        g.ndata['y'] = torch.tensor([1 if i in nodes_gt else 0 for i in range(g.num_nodes())], dtype=torch.float)
+        # g.ndata['y'] = torch.tensor([1 if i in nodes_gt else 0 for i in range(g.num_nodes())], dtype=torch.float)
         g.edata['y'] = torch.tensor([1 if i in edges_gt else 0 for i in range(g.num_edges())], dtype=torch.float)
     except FileNotFoundError:
         # print("Solutions not generated")
-        # This should be done long before, probably in the graph_parser
-        # With Martin's code it will be done in the graph_parser
         succs = pickle.load(open(f'{data_path}/info/{idx}_succ.pkl', 'rb'))
         edges = pickle.load(open(f'{data_path}/info/{idx}_edges.pkl', 'rb'))
-        pos_str_nodes, pos_str_edges, neg_str_nodes, neg_str_edges, all_walks = algorithms.dfs_gt_neurips_graph(g, succs, edges)
-        nodes_gt = pos_str_nodes | neg_str_nodes
+        pos_str_edges, neg_str_edges = algorithms.dfs_gt_neurips_graph(g, succs, edges)
+        # nodes_gt = pos_str_nodes | neg_str_nodes
         edges_gt = pos_str_edges | neg_str_edges
         if 'solutions' not in os.listdir(data_path):
             os.mkdir(os.path.join(data_path, 'solutions'))
-        pickle.dump(nodes_gt, open(f'{data_path}/solutions/{idx}_nodes.pkl', 'wb'))
+        # pickle.dump(nodes_gt, open(f'{data_path}/solutions/{idx}_nodes.pkl', 'wb'))
         pickle.dump(edges_gt, open(f'{data_path}/solutions/{idx}_edges.pkl', 'wb'))
         # Generate them here?
-        g.ndata['y'] = torch.tensor([1 if i in nodes_gt else 0 for i in range(g.num_nodes())], dtype=torch.float)
+        # g.ndata['y'] = torch.tensor([1 if i in nodes_gt else 0 for i in range(g.num_nodes())], dtype=torch.float)
         g.edata['y'] = torch.tensor([1 if i in edges_gt else 0 for i in range(g.num_edges())], dtype=torch.float)
 
-    g = dgl.add_self_loop(g)    
-
+    g.add_self_loop()
     return g
+
 
 def add_positional_encoding(g, pe_dim):
     """

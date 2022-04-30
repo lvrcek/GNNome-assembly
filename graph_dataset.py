@@ -109,19 +109,23 @@ class AssemblyGraphDataset(DGLDataset):
                 reads_path = os.path.abspath(os.path.join(self.raw_dir, fastq))
                 print(reads_path)
                 subprocess.run(f'{self.raven_path} --filter {filter} --weaken -t{threads} -p0 {reads_path} > {out}', shell=True, cwd=self.tmp_dir)
+                subprocess.run(f'mv graph_1.csv {idx}_graph_1.csv', shell=True, cwd=self.tmp_dir)
+                subprocess.run(f'mv graph_1.gfa {idx}_graph_1.gfa', shell=True, cwd=self.tmp_dir)
                 cnt = idx  # Just not to change original code too much yet. TODO: Fix later
                 for j in range(1, 2):
                     print(f'graph {j}')
                     # processed_path = os.path.join(self.save_dir, f'd{cnt}_g{j}.dgl')
                     processed_path = os.path.join(self.save_dir, f'{cnt}.dgl')
-                    graph, pred, succ, reads, edges = graph_parser.from_csv(os.path.join(self.tmp_dir, f'graph_{j}.csv'), reads_path)
+                    graph, pred, succ, reads, edges, labels = graph_parser.from_csv(os.path.join(self.tmp_dir, f'graph_{j}.csv'), reads_path)
                     dgl.save_graphs(processed_path, graph)
 
                     pickle.dump(pred, open(f'{self.info_dir}/{cnt}_pred.pkl', 'wb'))
                     pickle.dump(succ, open(f'{self.info_dir}/{cnt}_succ.pkl', 'wb'))
                     pickle.dump(reads, open(f'{self.info_dir}/{cnt}_reads.pkl', 'wb'))
                     pickle.dump(edges, open(f'{self.info_dir}/{cnt}_edges.pkl', 'wb'))
+                    pickle.dump(labels, open(f'{self.info_dir}/{cnt}_labels.pkl', 'wb'))
 
                     graphia_path = os.path.join(graphia_dir, f'{cnt}_graph.txt')
                     graph_parser.print_pairwise(graph, graphia_path)
                 f.write(f'{cnt} - {fastq}\n')
+

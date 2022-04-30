@@ -5,6 +5,8 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 import dgl
 import networkx as nx
+
+import algorithms
 # import matplotlib
 # matplotlib.interactive(True)
 # from matplotlib import pyplot as plt
@@ -485,4 +487,9 @@ def from_csv(graph_path, reads_path):
     for i, key in enumerate(sorted(node_data)):
         reads[i] = node_data[key]
 
-    return graph_dgl, predecessors, successors, reads, edges
+    gt_edges_pos, gt_edges_neg = algorithms.dfs_gt_neurips_graph(graph_dgl, successors, edges)
+    labels = gt_edges_pos | gt_edges_neg
+    graph_dgl.edata['y'] = torch.tensor([1 if i in labels else 0 for i in range(g.num_edges())], dtype=torch.float)
+
+    return graph_dgl, predecessors, successors, reads, edges, labels
+
