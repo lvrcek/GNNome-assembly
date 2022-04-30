@@ -289,12 +289,12 @@ def from_csv(graph_path, reads_path):
     graph_nx = nx.DiGraph()
     graph_nx_und = nx.Graph()
     read_length = {}  # Obtained from the CSV
-    node_data = {}
-    read_idx, read_strand, read_start, read_end = {}, {}, {}, {}  # Obtained from the FASTQ headers
+    node_data = {}  # Obtained from the GFA
+    read_idx, read_strand, read_start, read_end = {}, {}, {}, {}  # Obtained from the FASTA/Q headers
     edge_ids, prefix_length, overlap_similarity, overlap_length = {}, {}, {}, {}  # Obtained from the CSV
 
     # ---------------------------------------------------------------------------------------------------
-    # Here I get the sequences (and thei rcs) and the descriptions.
+    # Here I get the sequences (and their rcs) and the descriptions.
     # Descriptions contain read idx, strand, start, and read end info---obtained from the simulator.
     # This is crucial for the supervision signal and the ground-truth algorithms, that's why I need it.
     # ############## 0-based CSV node [] index == 0-based line ordinal number in GFA #################
@@ -340,7 +340,10 @@ def from_csv(graph_path, reads_path):
                 # Variant 1
                 # idx = int(re.findall(r'idx=[a-zA-Z]*\.{0,1}(\d+)', id)[0])
                 # Variant 2
-                idx = int(id)
+                try:
+                    idx = int(id)
+                except ValueError:
+                    idx = int(re.findall(r'[a-zA-Z0-9]*\.(\d+)', s)[0])
 
                 strand = 1 if strand[-2] == '+' else -1  # strand[-1] == ','
 
@@ -354,7 +357,7 @@ def from_csv(graph_path, reads_path):
                 if trimming == '-':
                     trim_start, trim_end = 0, end - start
                     # if strand == 1:
-                    #     trim_start, trim_end = 0, end - start  # TODO: dafuq is this, why not just len(read)
+                    #     trim_start, trim_end = 0, end - start
                     # if strand == -1:
                     #     trim_start, trim_end = 0, start - end
                 else:
@@ -389,8 +392,8 @@ def from_csv(graph_path, reads_path):
 
                 graph_nx.add_node(src_id)
                 graph_nx.add_node(dst_id)
-                graph_nx_und.add_node(src_id)
-                graph_nx_und.add_node(dst_id)
+                # graph_nx_und.add_node(src_id)
+                # graph_nx_und.add_node(dst_id)
 
                 # ------ 26/04/22 ------
                 # if src_id not in read_length.keys():
@@ -452,8 +455,8 @@ def from_csv(graph_path, reads_path):
                 except ValueError:
                     (edge_id, prefix_len), weight, similarity = map(int, overlap[:2]), float(overlap[2]), 0
                 graph_nx.add_edge(src_id, dst_id)
-                graph_nx_und.add_edge(src_id, dst_id)
-                if (src_id, dst_id) not in prefix_length.keys():
+                # graph_nx_und.add_edge(src_id, dst_id)
+                if (src_id, dst_id) not in prefix_length.keys():  # TODO: This will always be true, I think
                     edge_ids[(src_id, dst_id)] = edge_id
                     prefix_length[(src_id, dst_id)] = prefix_len
                     overlap_length[(src_id, dst_id)] = read_length[src_id] - prefix_len

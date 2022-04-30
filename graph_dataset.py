@@ -54,7 +54,7 @@ class AssemblyGraphDataset(DGLDataset):
         save_dir = os.path.join(self.root, 'processed')
         self.tmp_dir = os.path.join(self.root, 'tmp')
         self.info_dir = os.path.join(self.root, 'info')
-        self.raven_path = os.path.abspath('vendor/raven_filter/build/bin/raven')
+        self.raven_path = os.path.abspath('vendor/raven/build/bin/raven')
         super().__init__(name='assembly_graphs', raw_dir=raw_dir, save_dir=save_dir)
 
         self.graph_list = []
@@ -94,6 +94,8 @@ class AssemblyGraphDataset(DGLDataset):
         graphia_dir = os.path.join(self.root, 'graphia')
         if not os.path.isdir(graphia_dir):
             os.mkdir(graphia_dir)
+
+        print(f'====> FILTER = {filter}')
 
         with open(f'{self.root}/dataset_log.txt', 'w') as f:
             n_have = len(os.listdir(self.save_dir))

@@ -18,5 +18,5 @@ if __name__ == '__main__':
         'filter': args.filter,
         'out': args.out
     }
-    ds = graph_dataset.AssemblyGraphDataset(args.data, specs)
+    ds = graph_dataset.AssemblyGraphDataset(args.data, specs=specs)
     algorithms.get_solutions_for_all(args.data)

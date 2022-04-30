@@ -195,7 +195,7 @@ def generate_graphs(chr_dict):
         print(f'SETUPS::generate:: Generate {n_diff} graphs for {chrN}')
         specs = {
             'threads': 32,
-            'filter': 1.0,
+            'filter': 0.99,
             'out': 'assembly.fasta'
         }
         graph_dataset.AssemblyGraphDataset(chr_sim_path, specs=specs)
