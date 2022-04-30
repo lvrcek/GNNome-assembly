@@ -302,19 +302,19 @@ def get_components(graph, neighbors, preds):
 #     return dist, parent
 
 
-def dfs(graph, neighbors, start=None):
+def dfs(graph, neighbors, start=None, avoid={}):
     # TODO: Take only those with in-degree 0
     if start is None:
         min_value, idx = torch.topk(graph.ndata['read_start'], k=1, largest=False)
         start = idx.item()
 
-    threshold, _ = torch.topk(graph.ndata['read_start'][graph.ndata['read_strand']==1], k=1)
-    threshold = threshold.item()
+    # threshold, _ = torch.topk(graph.ndata['read_start'][graph.ndata['read_strand']==1], k=1)
+    # threshold = threshold.item()
 
     stack = deque()
     stack.append(start)
 
-    visited = [False for i in range(graph.num_nodes())]
+    visited = [True if i in avoid else False for i in range(graph.num_nodes())]
 
     path = {start: None}
     max_node = start
@@ -326,8 +326,8 @@ def dfs(graph, neighbors, start=None):
             if visited[current]:
                 continue
             
-            if graph.ndata['read_end'][current] == threshold:
-                break
+            # if graph.ndata['read_end'][current] == threshold:
+            #     break
 
             if graph.ndata['read_end'][current] > max_value:
                 max_value = graph.ndata['read_end'][current]
@@ -373,7 +373,8 @@ def dfs(graph, neighbors, start=None):
             walk.append(current)
             current = path[current]
         walk.reverse()
-        return walk
+        visited = {i for i in range(graph.num_nodes()) if visited[i]}
+        return walk, visited
 
 
 def get_start(graph, strand=1, last=-1):
@@ -384,24 +385,24 @@ def get_start(graph, strand=1, last=-1):
 
 
 def get_correct_edges(graph, neighbors, edges, walk):
-    correct_edges = set()
-    neg_str_correct_edges = set()
+    pos_str_edges = set()
+    neg_str_edges = set()
     for i, src in enumerate(walk[:-1]):
         for dst in walk[i+1:]:
             if dst in neighbors[src] and graph.ndata['read_start'][dst] < graph.ndata['read_end'][src]:
                 try:
-                    correct_edges.add(edges[(src, dst)])
+                    pos_str_edges.add(edges[(src, dst)])
                 except KeyError:
                     print('Edge not found in the edge dictionary')
                     raise
                 try:
-                    neg_str_correct_edges.add(edges[dst^1, src^1])
+                    neg_str_edges.add(edges[dst^1, src^1])
                 except KeyError:
                     print('Negative strand edge not found in the edge dictionary')
                     raise
             else:
                 break
-    return correct_edges, neg_str_correct_edges
+    return pos_str_edges, neg_str_edges
 
 
 def dfs_gt_graph(graph, neighbors, edges):
@@ -415,7 +416,7 @@ def dfs_gt_graph(graph, neighbors, edges):
         print('in')
         start_pos, start_idx = get_start(graph, strand, last_pos)
         neg_str_correct_edges = set()
-        walk = dfs(graph, neighbors, start=start_idx)
+        walk, _ = dfs(graph, neighbors, start=start_idx)
 
         print(last_pos, graph.ndata['read_end'][walk[-1]])
         print(len(walk))
@@ -436,6 +437,48 @@ def dfs_gt_graph(graph, neighbors, edges):
     neg_str_correct_nodes = set([n^1 for n in correct_nodes])
 
     return correct_nodes, correct_edges, neg_str_correct_nodes, neg_str_correct_edges, all_walks
+
+
+def dfs_gt_neurips_graph(graph, neighbors, edges):
+    all_nodes = {i for i in range(graph.num_nodes()) if graph.ndata['read_strand'][i] == 1}
+    last_node = max(all_nodes, key=lambda x: graph.ndata['read_end'][x])
+
+    largest_visited = -1
+    all_walks = []
+    pos_correct_edges, neg_correct_edges = set(), set()
+    all_visited = set()
+
+    while all_nodes:
+        start = min(all_nodes, key=lambda x: graph.ndata['read_start'][x])
+        walk, visited = dfs(graph, neighbors, start, avoid=all_visited)
+        if graph.ndata['read_end'][walk[-1]] < largest_visited or len(walk) == 1:
+            all_nodes = all_nodes - visited
+            all_visited = all_visited | visited
+            # print(f'\nDiscard component')
+            # print(f'Start = {graph.ndata["read_start"][walk[0]]}\t Node = {walk[0]}')
+            # print(f'End   = {graph.ndata["read_end"][walk[-1]]}\t Node = {walk[-1]}')
+            # print(f'Walk length = {len(walk)}')
+            continue
+        else:
+            largest_visited = graph.ndata['read_end'][walk[-1]]
+            all_walks.append(walk)
+
+        # print(f'\nInclude component')
+        # print(f'Start = {graph.ndata["read_start"][walk[0]]}\t Node = {walk[0]}')
+        # print(f'End   = {graph.ndata["read_end"][walk[-1]]}\t Node = {walk[-1]}')
+        # print(f'Walk length = {len(walk)}')
+
+        pos_str_edges, neg_str_edges = get_correct_edges(graph, neighbors, edges, walk)
+        pos_correct_edges = pos_correct_edges | pos_str_edges
+        neg_correct_edges = neg_correct_edges | neg_str_edges
+
+        if largest_visited == graph.ndata['read_end'][last_node]:
+            break
+        all_nodes = all_nodes - visited
+        all_visited = all_visited | visited
+
+    return pos_correct_edges, neg_correct_edges
+
 
 
 def dfs_gt_another(graph, neighbors, preds):

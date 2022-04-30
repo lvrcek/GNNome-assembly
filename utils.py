@@ -143,7 +143,7 @@ def preprocess_graph(g, data_path, idx):
         # With Martin's code it will be done in the graph_parser
         succs = pickle.load(open(f'{data_path}/info/{idx}_succ.pkl', 'rb'))
         edges = pickle.load(open(f'{data_path}/info/{idx}_edges.pkl', 'rb'))
-        pos_str_nodes, pos_str_edges, neg_str_nodes, neg_str_edges, all_walks = algorithms.dfs_gt_graph(g, succs, edges)
+        pos_str_nodes, pos_str_edges, neg_str_nodes, neg_str_edges, all_walks = algorithms.dfs_gt_neurips_graph(g, succs, edges)
         nodes_gt = pos_str_nodes | neg_str_nodes
         edges_gt = pos_str_edges | neg_str_edges
         if 'solutions' not in os.listdir(data_path):
