@@ -21,6 +21,8 @@ from hyperparameters import get_hyperparameters
 import models
 import utils
 
+from algorithms import parallel_greedy_decoding
+import copy
 
 def save_checkpoint(epoch, model, optimizer, loss_train, loss_valid, out):
     checkpoint = {
@@ -106,6 +108,13 @@ def process_reads(reads, device):
     return processed_reads
 
 
+def view_model_param(model):
+    total_param = 0
+    for param in model.parameters():
+        total_param += np.prod(list(param.data.size()))
+    return total_param
+
+
 def train(args):
     hyperparameters = get_hyperparameters()
     seed = hyperparameters['seed']
@@ -118,6 +127,8 @@ def train(args):
     nb_pos_enc = hyperparameters['nb_pos_enc']
     num_parts_metis_train = hyperparameters['num_parts_metis_train']
     num_parts_metis_eval = hyperparameters['num_parts_metis_eval']
+    num_decoding_paths = hyperparameters['num_decoding_paths']
+    num_contigs = hyperparameters['num_contigs']
     patience = hyperparameters['patience']
     lr = hyperparameters['lr']
     device = hyperparameters['device']
@@ -160,13 +171,13 @@ def train(args):
     if batch_size_train <= 1: # train with full graph 
         #model = models.GraphGCNModel(node_features, edge_features, hidden_features, num_gnn_layers)
         #best_model = models.GraphGCNModel(node_features, edge_features, hidden_features, num_gnn_layers)
-        model = models.GraphGatedGCNModel(node_features, edge_features, hidden_features, hidden_edge_features, num_gnn_layers, hidden_edge_scores, nb_pos_enc) # GatedGCN 
-        best_model = models.GraphGatedGCNModel(node_features, edge_features, hidden_features, hidden_edge_features, num_gnn_layers, hidden_edge_scores, nb_pos_enc) # GatedGCN 
+        model = models.GraphGatedGCNModel(node_features, edge_features, hidden_features, hidden_edge_features, num_gnn_layers, hidden_edge_scores, batch_norm, nb_pos_enc) # GatedGCN 
+        best_model = models.GraphGatedGCNModel(node_features, edge_features, hidden_features, hidden_edge_features, num_gnn_layers, hidden_edge_scores, batch_norm, nb_pos_enc) # GatedGCN 
     else:
         #model = models.BlockGatedGCNModel(node_features, edge_features, hidden_features, num_gnn_layers, batch_norm=batch_norm)
         #best_model = models.BlockGatedGCNModel(node_features, edge_features, hidden_features, num_gnn_layers, batch_norm=batch_norm)
-        model = models.GraphGatedGCNModel(node_features, edge_features, hidden_features, hidden_edge_features, num_gnn_layers, hidden_edge_scores, nb_pos_enc) # GatedGCN 
-        best_model = models.GraphGatedGCNModel(node_features, edge_features, hidden_features, hidden_edge_features, num_gnn_layers, hidden_edge_scores, nb_pos_enc) # GatedGCN 
+        model = models.GraphGatedGCNModel(node_features, edge_features, hidden_features, hidden_edge_features, num_gnn_layers, hidden_edge_scores, batch_norm, nb_pos_enc) # GatedGCN 
+        best_model = models.GraphGatedGCNModel(node_features, edge_features, hidden_features, hidden_edge_features, num_gnn_layers, hidden_edge_scores, batch_norm, nb_pos_enc) # GatedGCN 
 
     model.to(device)
     if not os.path.exists(os.path.join('pretrained')):
@@ -175,6 +186,9 @@ def train(args):
     best_model.to(device)  # TODO: IF I really need to save on memory, maybe not do this
     best_model.load_state_dict(copy.deepcopy(model.state_dict()))
     best_model.eval()
+
+    print(f'\nNumber of network parameters: {view_model_param(model)}\n')
+    print(f'Normalization type : Batch Normalization\n') if batch_norm else print(f'Normalization type : Layer Normalization\n')
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     criterion = torch.nn.BCEWithLogitsLoss()
@@ -244,6 +258,7 @@ def train(args):
 
                         # Run Metis
                         g = g.long()
+                        num_parts_metis_train = torch.LongTensor(1).random_(1000-250,1000+250).item() # DEBUG!!!
                         sampler = dgl.dataloading.ClusterGCNSampler(g, num_parts_metis_train) 
                         dataloader = dgl.dataloading.DataLoader(g, torch.arange(num_parts_metis_train), sampler, batch_size=batch_size_train, shuffle=True, drop_last=False, num_workers=4) # XB
 
@@ -455,6 +470,36 @@ def train(args):
                             torch.save(best_model.state_dict(), model_path)
                         save_checkpoint(epoch, model, optimizer, loss_per_epoch_train[-1], loss_per_epoch_valid[-1], out)
                         scheduler.step(val_loss_all_graphs)
+
+
+                # DECODING 
+                if (not epoch%100 or epoch+1==num_epochs) and epoch>0:
+                    print(f'\n=====>DECODING: Epoch = {epoch}')
+                    time_start_decoding = datetime.now()
+                    device_cpu = torch.device('cpu')
+                    model.train() # DEBUG !!!!!!!!!!!!!
+                    #model.eval() # DEBUG !!!!!!!!!!!!!
+                    for data in ds_train: # DEBUG !!!!!!!!!!!!!
+                    #for data in ds_valid: # DEBUG !!!!!!!!!!!!!
+                        idx, g = data
+                        g_decoding = copy.deepcopy(g)
+                        with torch.no_grad():
+                            model = model.to(device_cpu)
+                            g_decoding = g_decoding.to(device_cpu)
+                            x = g_decoding.ndata['x'].to(device_cpu) 
+                            e = g_decoding.edata['e'].to(device_cpu)
+                            pe = g_decoding.ndata['pe'].to(device_cpu)
+                            edge_predictions = model(g_decoding, x, e, pe)
+                            g_decoding.edata['score'] = edge_predictions 
+                        g_decoding = g_decoding.int().to(device)
+                        all_contigs, all_contigs_len = parallel_greedy_decoding(g_decoding, num_decoding_paths, num_contigs, device)
+                        print(f'Epoch = {epoch}, lengths of all contigs: {all_contigs_len}\n')
+                        del g_decoding
+                        torch.save([all_contigs, all_contigs_len], 'checkpoints/all_contigs.pt')
+                        #all_contigs, all_contigs_len = torch.load('checkpoints/all_contigs.pt')
+                        elapsed = utils.timedelta_to_str(datetime.now() - time_start_decoding)
+                        print(f'elapsed time (decoding): {elapsed}\n')
+                    model = model.to(device)
 
     except KeyboardInterrupt:
         # TODO: Implement this to do something, maybe evaluate on test set?

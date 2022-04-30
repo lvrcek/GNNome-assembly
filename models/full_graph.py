@@ -25,14 +25,14 @@ class GraphGCNModel(nn.Module):
 
 
 class GraphGatedGCNModel(nn.Module):
-    def __init__(self, node_features, edge_features, hidden_features, hidden_edge_features, num_layers, hidden_edge_scores, nb_pos_enc):
+    def __init__(self, node_features, edge_features, hidden_features, hidden_edge_features, num_layers, hidden_edge_scores, batch_norm, nb_pos_enc):
         super().__init__()
         #self.node_encoder = layers.NodeEncoder(node_features, hidden_features)
         self.linear_pe = nn.Linear(nb_pos_enc, hidden_features) 
         #self.edge_encoder = layers.EdgeEncoder(edge_features, hidden_features)
         self.linear1_edge = nn.Linear(edge_features, hidden_edge_features) 
         self.linear2_edge = nn.Linear(hidden_edge_features, hidden_features) 
-        self.gnn = layers.GraphGatedGCN(num_layers, hidden_features)
+        self.gnn = layers.GraphGatedGCN(num_layers, hidden_features, batch_norm)
         self.predictor = layers.ScorePredictor(hidden_features, hidden_edge_scores)
 
     def forward(self, graph, x, e, pe):

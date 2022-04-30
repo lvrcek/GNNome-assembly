@@ -20,10 +20,10 @@ class GraphGCN(nn.Module):
 
 
 class GraphGatedGCN(nn.Module):
-    def __init__(self, num_layers, hidden_features):
+    def __init__(self, num_layers, hidden_features, batch_norm):
         super().__init__()
         self.convs = nn.ModuleList([
-            layers.GatedGCN_1d(hidden_features, hidden_features) for _ in range(num_layers)
+            layers.GatedGCN_1d(hidden_features, hidden_features, batch_norm) for _ in range(num_layers)
         ])
 
     def forward(self, graph, h, e):
