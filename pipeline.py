@@ -198,7 +198,36 @@ def generate_graphs(chr_dict):
             'filter': 0.99,
             'out': 'assembly.fasta'
         }
-        graph_dataset.AssemblyGraphDataset(chr_sim_path, specs=specs)
+        graph_dataset.AssemblyGraphDataset(chr_sim_path, nb_pos_enc=None, specs=specs)
+        # Generate graphs for those reads that don't have them
+        # Probably something with Raven
+        # Then the graph_parser
+
+
+# 2.1. Generate the real_graphs
+def generate_graphs_real(chr_real_list):
+    print(f'SETUP::generate')
+
+    if 'raven' not in os.listdir('vendor'):
+        print(f'SETUP::generate:: Download Raven')
+        subprocess.run(f'git clone -b filter https://github.com/lvrcek/raven.git', shell=True, cwd='vendor')
+        subprocess.run(f'mkdir build', shell=True, cwd='vendor/raven')
+        subprocess.run(f'cmake -DCMAKE_BUILD_TYPE=Release .. && make', shell=True, cwd='vendor/raven/build')
+
+    for chrN in chr_real_list:
+        chr_sim_path = os.path.abspath(f'data/neurips/real/{chrN}')
+        chr_raw_path = os.path.join(chr_sim_path, 'raw')
+        chr_prc_path = os.path.join(chr_sim_path, 'processed')
+        n_raw = len(os.listdir(chr_raw_path))
+        n_prc = len(os.listdir(chr_prc_path))
+        n_diff = n_raw - n_prc
+        print(f'SETUPS::generate:: Generate {n_diff} graphs for {chrN}')
+        specs = {
+            'threads': 32,
+            'filter': 0.99,
+            'out': 'assembly.fasta'
+        }
+        graph_dataset.AssemblyGraphDataset(chr_sim_path, nb_pos_enc=None, specs=specs)
         # Generate graphs for those reads that don't have them
         # Probably something with Raven
         # Then the graph_parser
@@ -209,8 +238,8 @@ def train_valid_split(train_dict, valid_dict):
     #Both are chromosome dicts specifying which data to use for training/validation
     print(f'SETUP::split')
     sim_path = os.path.abspath('data/neurips/simulated/')
-    train_path = os.path.abspath('data/neurips/train')
-    valid_path = os.path.abspath('data/neurips/valid')
+    train_path = os.path.abspath('data/neurips/train2')
+    valid_path = os.path.abspath('data/neurips/valid2')
     
     n_have = 0
     for chrN, n_need in train_dict.items():
@@ -222,7 +251,7 @@ def train_valid_split(train_dict, valid_dict):
             subprocess.run(f'cp {chr_sim_path}/info/{i}_succ.pkl {train_path}/info/{n_have}_succ.pkl', shell=True)
             subprocess.run(f'cp {chr_sim_path}/info/{i}_pred.pkl {train_path}/info/{n_have}_pred.pkl', shell=True)
             subprocess.run(f'cp {chr_sim_path}/info/{i}_edges.pkl {train_path}/info/{n_have}_edges.pkl', shell=True)
-            subprocess.run(f'cp {chr_sim_path}/solutions/{i}_edges.pkl {train_path}/solutions/{n_have}_edges.pkl', shell=True)
+            # subprocess.run(f'cp {chr_sim_path}/solutions/{i}_edges.pkl {train_path}/solutions/{n_have}_edges.pkl', shell=True)
             n_have += 1
 
     n_have = 0
@@ -236,7 +265,7 @@ def train_valid_split(train_dict, valid_dict):
             subprocess.run(f'cp {chr_sim_path}/info/{j}_succ.pkl {valid_path}/info/{n_have}_succ.pkl', shell=True)
             subprocess.run(f'cp {chr_sim_path}/info/{j}_pred.pkl {valid_path}/info/{n_have}_pred.pkl', shell=True)
             subprocess.run(f'cp {chr_sim_path}/info/{j}_edges.pkl {valid_path}/info/{n_have}_edges.pkl', shell=True)
-            subprocess.run(f'cp {chr_sim_path}/solutions/{j}_edges.pkl {valid_path}/solutions/{n_have}_edges.pkl', shell=True)
+            # subprocess.run(f'cp {chr_sim_path}/solutions/{j}_edges.pkl {valid_path}/solutions/{n_have}_edges.pkl', shell=True)
             n_have += 1
 
 

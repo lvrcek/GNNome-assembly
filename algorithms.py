@@ -50,7 +50,8 @@ def parallel_greedy_decoding(original_g, nb_paths, num_contigs, device):
 
         # Remove not used node/edge features
         # GatedGCN
-        original_g.ndata.pop('x'); original_g.ndata.pop('y'); original_g.ndata.pop('pe'); original_g.ndata.pop('h');
+        original_g.ndata.pop('x'); original_g.ndata.pop('pe'); original_g.ndata.pop('h');
+        # original_g.ndata.pop('y')  # Not used anymore
         original_g.ndata.pop('A1h'); original_g.ndata.pop('A2h'); original_g.ndata.pop('A3h'); original_g.ndata.pop('B1h'); original_g.ndata.pop('B2h');
         original_g.ndata.pop('sum_sigma_h_f'); original_g.ndata.pop('sum_sigma_f'); original_g.ndata.pop('h_forward')
         original_g.edata.pop('e'); original_g.edata.pop('y'); original_g.edata.pop('B3e'); original_g.edata.pop('B12h'); original_g.edata.pop('e_ji'); original_g.edata.pop('sigma_f')

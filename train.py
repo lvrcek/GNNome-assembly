@@ -140,6 +140,7 @@ def train(args):
     hidden_edge_features = hyperparameters['hidden_edge_features']
     hidden_edge_scores = hyperparameters['hidden_edge_scores']
     decay = hyperparameters['decay']
+    pos_to_neg_ratio = hyperparameters['pos_to_neg_ratio']
 
     time_start = datetime.now()
     timestamp = time_start.strftime('%Y-%b-%d-%H-%M-%S')
@@ -151,10 +152,10 @@ def train(args):
     utils.set_seed(seed)
     
     sampler = dgl.dataloading.MultiLayerFullNeighborSampler(num_gnn_layers)
-    
+
     if is_split:
-        ds_train = AssemblyGraphDataset(os.path.join(data_path, 'train'), nb_pos_enc)
-        ds_valid = AssemblyGraphDataset(os.path.join(data_path, 'valid'), nb_pos_enc)
+        ds_train = AssemblyGraphDataset(os.path.join(data_path, 'train2'), nb_pos_enc=nb_pos_enc)
+        ds_valid = AssemblyGraphDataset(os.path.join(data_path, 'valid2'), nb_pos_enc=nb_pos_enc)
         num_graphs = len(ds_train) + len(ds_valid)
     else:
         ds = AssemblyGraphDataset(data_path, nb_pos_enc)
@@ -191,7 +192,8 @@ def train(args):
     print(f'Normalization type : Batch Normalization\n') if batch_norm else print(f'Normalization type : Layer Normalization\n')
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    criterion = torch.nn.BCEWithLogitsLoss()
+    pos_weight = torch.tensor([1 / pos_to_neg_ratio], device=device)
+    criterion = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight)
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=decay, patience=patience, verbose=True)
     scaler = torch.cuda.amp.GradScaler()
 
@@ -200,6 +202,10 @@ def train(args):
 
     if not os.path.exists(os.path.join('checkpoints')):
         os.makedirs(os.path.join('checkpoints'))
+
+    cluster_cache_path = f'checkpoints/{out}_cluster_gcn.pkl'
+    if os.path.exists(cluster_cache_path):
+        os.remove(cluster_cache_path)
 
     loss_per_epoch_train, loss_per_epoch_valid = [], []
     acc_per_epoch_train, acc_per_epoch_valid = [], []
@@ -234,8 +240,14 @@ def train(args):
                         train_loss = loss.item()
                         TP, TN, FP, FN = utils.calculate_tfpn(edge_predictions, edge_labels)
                         acc, precision, recall, f1 =  utils.calculate_metrics(TP, TN, FP, FN)
-                        fp_rate = FP / (FP + TN)
-                        fn_rate = FN / (FN + TP)
+                        try:
+                            fp_rate = FP / (FP + TN)
+                        except ZeroDivisionError:
+                            fp_rate = 0.0
+                        try:
+                            fn_rate = FN / (FN + TP)
+                        except ZeroDivisionError:
+                            fn_rate = 0.0
                         train_fp_rate = fp_rate
                         train_fn_rate = fn_rate
                         train_acc = acc
@@ -252,14 +264,14 @@ def train(args):
 
                         # remove Metis clusters to force new clusters
                         try:
-                            os.remove('cluster_gcn.pkl')
+                            os.remove(cluster_cache_path)
                         except:
                             pass 
 
                         # Run Metis
                         g = g.long()
                         num_parts_metis_train = torch.LongTensor(1).random_(1000-250,1000+250).item() # DEBUG!!!
-                        sampler = dgl.dataloading.ClusterGCNSampler(g, num_parts_metis_train) 
+                        sampler = dgl.dataloading.ClusterGCNSampler(g, num_parts_metis_train, cache_path=cluster_cache_path) 
                         dataloader = dgl.dataloading.DataLoader(g, torch.arange(num_parts_metis_train), sampler, batch_size=batch_size_train, shuffle=True, drop_last=False, num_workers=4) # XB
 
                         # For loop over all mini-batch in the graph
@@ -280,8 +292,14 @@ def train(args):
                             running_loss.append(loss.item())
                             TP, TN, FP, FN = utils.calculate_tfpn(edge_predictions, edge_labels)
                             acc, precision, recall, f1 =  utils.calculate_metrics(TP, TN, FP, FN)
-                            fp_rate = FP / (FP + TN)
-                            fn_rate = FN / (FN + TP)
+                            try:
+                                fp_rate = FP / (FP + TN)
+                            except ZeroDivisionError:
+                                fp_rate = 0.0
+                            try:
+                                fn_rate = FN / (FN + TP)
+                            except ZeroDivisionError:
+                                fn_rate = 0.0
                             running_fp_rate.append(fp_rate)
                             running_fn_rate.append(fn_rate)
                             running_acc.append(acc)
@@ -369,8 +387,14 @@ def train(args):
                                 val_loss = loss.item()
                                 TP, TN, FP, FN = utils.calculate_tfpn(edge_predictions, edge_labels)
                                 acc, precision, recall, f1 =  utils.calculate_metrics(TP, TN, FP, FN)
-                                fp_rate = FP / (FP + TN)
-                                fn_rate = FN / (FN + TP)
+                                try:
+                                    fp_rate = FP / (FP + TN)
+                                except ZeroDivisionError:
+                                    fp_rate = 0.0
+                                try:
+                                    fn_rate = FN / (FN + TP)
+                                except ZeroDivisionError:
+                                    fn_rate = 0.0
                                 val_fp_rate = fp_rate
                                 val_fn_rate = fn_rate
                                 val_acc = acc
@@ -387,13 +411,13 @@ def train(args):
 
                                 # remove Metis clusters to force new clusters
                                 try:
-                                    os.remove('cluster_gcn.pkl')
+                                    os.remove(cluster_cache_path)
                                 except:
                                     pass 
 
                                 # Run Metis
                                 g = g.long()
-                                sampler = dgl.dataloading.ClusterGCNSampler(g, num_parts_metis_eval) 
+                                sampler = dgl.dataloading.ClusterGCNSampler(g, num_parts_metis_eval, cache_path=cluster_cache_path) 
                                 dataloader = dgl.dataloading.DataLoader(g, torch.arange(num_parts_metis_eval), sampler, batch_size=batch_size_eval, shuffle=True, drop_last=False, num_workers=4) # XB
 
                                 # For loop over all mini-batch in the graph
@@ -411,8 +435,14 @@ def train(args):
                                     running_loss.append(loss.item())
                                     TP, TN, FP, FN = utils.calculate_tfpn(edge_predictions, edge_labels)
                                     acc, precision, recall, f1 =  utils.calculate_metrics(TP, TN, FP, FN)
-                                    fp_rate = FP / (FP + TN)
-                                    fn_rate = FN / (FN + TP)
+                                    try:
+                                        fp_rate = FP / (FP + TN)
+                                    except ZeroDivisionError:
+                                        fp_rate = 0.0
+                                    try:
+                                        fn_rate = FN / (FN + TP)
+                                    except ZeroDivisionError:
+                                        fn_rate = 0.0
                                     running_fp_rate.append(fp_rate)
                                     running_fn_rate.append(fn_rate)
                                     running_acc.append(acc)
@@ -470,7 +500,6 @@ def train(args):
                             torch.save(best_model.state_dict(), model_path)
                         save_checkpoint(epoch, model, optimizer, loss_per_epoch_train[-1], loss_per_epoch_valid[-1], out)
                         scheduler.step(val_loss_all_graphs)
-
 
                 # DECODING 
                 if (not epoch%100 or epoch+1==num_epochs) and epoch>0:

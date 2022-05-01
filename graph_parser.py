@@ -5,6 +5,7 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 import dgl
 import networkx as nx
+import torch
 
 import algorithms
 # import matplotlib
@@ -345,7 +346,7 @@ def from_csv(graph_path, reads_path):
                 try:
                     idx = int(id)
                 except ValueError:
-                    idx = int(re.findall(r'[a-zA-Z0-9]*\.(\d+)', s)[0])
+                    idx = int(re.findall(r'[a-zA-Z0-9]*\.(\d+)', id)[0])
 
                 strand = 1 if strand[-2] == '+' else -1  # strand[-1] == ','
 
@@ -489,7 +490,7 @@ def from_csv(graph_path, reads_path):
 
     gt_edges_pos, gt_edges_neg = algorithms.dfs_gt_neurips_graph(graph_dgl, successors, edges)
     labels = gt_edges_pos | gt_edges_neg
-    graph_dgl.edata['y'] = torch.tensor([1 if i in labels else 0 for i in range(g.num_edges())], dtype=torch.float)
+    graph_dgl.edata['y'] = torch.tensor([1 if i in labels else 0 for i in range(graph_dgl.num_edges())], dtype=torch.float)
 
     return graph_dgl, predecessors, successors, reads, edges, labels
 

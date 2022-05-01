@@ -62,7 +62,8 @@ class AssemblyGraphDataset(DGLDataset):
             idx = int(file[:-4])
             graph = dgl.load_graphs(os.path.join(self.save_dir, file))[0][0]
             graph = preprocess_graph(graph, self.root, idx)
-            graph = add_positional_encoding(graph, nb_pos_enc) 
+            if nb_pos_enc is not None:
+                graph = add_positional_encoding(graph, nb_pos_enc) 
             #graph, _ = dgl.khop_in_subgraph(graph, 390, k=20) # DEBUG !!!!
             print('DGL graph info:',graph)
             self.graph_list.append(graph)
@@ -108,15 +109,15 @@ class AssemblyGraphDataset(DGLDataset):
                 print(cnt, fastq)
                 reads_path = os.path.abspath(os.path.join(self.raw_dir, fastq))
                 print(reads_path)
-                subprocess.run(f'{self.raven_path} --filter {filter} --weaken -t{threads} -p0 {reads_path} > {out}', shell=True, cwd=self.tmp_dir)
-                subprocess.run(f'mv graph_1.csv {idx}_graph_1.csv', shell=True, cwd=self.tmp_dir)
-                subprocess.run(f'mv graph_1.gfa {idx}_graph_1.gfa', shell=True, cwd=self.tmp_dir)
+                # subprocess.run(f'{self.raven_path} --filter {filter} --weaken -t{threads} -p0 {reads_path} > {out}', shell=True, cwd=self.tmp_dir)
+                # subprocess.run(f'mv graph_1.csv {idx}_graph_1.csv', shell=True, cwd=self.tmp_dir)
+                # subprocess.run(f'mv graph_1.gfa {idx}_graph_1.gfa', shell=True, cwd=self.tmp_dir)
                 cnt = idx  # Just not to change original code too much yet. TODO: Fix later
                 for j in range(1, 2):
                     print(f'graph {j}')
                     # processed_path = os.path.join(self.save_dir, f'd{cnt}_g{j}.dgl')
                     processed_path = os.path.join(self.save_dir, f'{cnt}.dgl')
-                    graph, pred, succ, reads, edges, labels = graph_parser.from_csv(os.path.join(self.tmp_dir, f'graph_{j}.csv'), reads_path)
+                    graph, pred, succ, reads, edges, labels = graph_parser.from_csv(os.path.join(self.tmp_dir, f'{cnt}_graph_{j}.csv'), reads_path)
                     dgl.save_graphs(processed_path, graph)
 
                     pickle.dump(pred, open(f'{self.info_dir}/{cnt}_pred.pkl', 'wb'))
