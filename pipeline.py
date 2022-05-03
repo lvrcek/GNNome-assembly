@@ -183,9 +183,9 @@ def generate_graphs(data_path, chr_dict):
 
     if 'raven' not in os.listdir('vendor'):
         print(f'SETUP::generate:: Download Raven')
-        subprocess.run(f'git clone -b filter https://github.com/lvrcek/raven.git', shell=True, cwd='vendor')
-        subprocess.run(f'mkdir build', shell=True, cwd='vendor/raven')
-        subprocess.run(f'cmake -DCMAKE_BUILD_TYPE=Release .. && make', shell=True, cwd='vendor/raven/build')
+        subprocess.run(f'git clone -b print_graphs https://github.com/lbcb-sci/raven', shell=True, cwd='vendor')
+        subprocess.run(f'cmake -S ./ -B./build -DRAVEN_BUILD_EXE=1 -DCMAKE_BUILD_TYPE=Release', shell=True, cwd='vendor/raven')
+        subprocess.run(f'cmake --build build', shell=True, cwd='vendor/raven')
 
     data_path = os.path.abspath(data_path)
 
@@ -214,9 +214,9 @@ def generate_graphs_real(data_path, chr_real_list):
 
     if 'raven' not in os.listdir('vendor'):
         print(f'SETUP::generate:: Download Raven')
-        subprocess.run(f'git clone -b filter https://github.com/lvrcek/raven.git', shell=True, cwd='vendor')
-        subprocess.run(f'mkdir build', shell=True, cwd='vendor/raven')
-        subprocess.run(f'cmake -DCMAKE_BUILD_TYPE=Release .. && make', shell=True, cwd='vendor/raven/build')
+        subprocess.run(f'git clone -b print_graphs https://github.com/lbcb-sci/raven', shell=True, cwd='vendor')
+        subprocess.run(f'cmake -S ./ -B./build -DRAVEN_BUILD_EXE=1 -DCMAKE_BUILD_TYPE=Release', shell=True, cwd='vendor/raven')
+        subprocess.run(f'cmake --build build', shell=True, cwd='vendor/raven')
 
     data_path = os.path.abspath(data_path)
     for chrN in chr_real_list:
