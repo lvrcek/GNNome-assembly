@@ -54,7 +54,7 @@ class AssemblyGraphDataset(DGLDataset):
         save_dir = os.path.join(self.root, 'processed')
         self.tmp_dir = os.path.join(self.root, 'tmp')
         self.info_dir = os.path.join(self.root, 'info')
-        self.raven_path = os.path.abspath('vendor/raven/build/bin/raven')
+        self.raven_path = os.path.abspath('vendor/raven_new/build/bin/raven')
         super().__init__(name='assembly_graphs', raw_dir=raw_dir, save_dir=save_dir)
 
         self.graph_list = []
@@ -109,9 +109,10 @@ class AssemblyGraphDataset(DGLDataset):
                 print(cnt, fastq)
                 reads_path = os.path.abspath(os.path.join(self.raw_dir, fastq))
                 print(reads_path)
+                subprocess.run(f'{self.raven_path} --identity {filter} -k29 -w9 -t{threads} -p0 {reads_path} > {out}', shell=True, cwd=self.tmp_dir)
                 # subprocess.run(f'{self.raven_path} --filter {filter} --weaken -t{threads} -p0 {reads_path} > {out}', shell=True, cwd=self.tmp_dir)
-                # subprocess.run(f'mv graph_1.csv {idx}_graph_1.csv', shell=True, cwd=self.tmp_dir)
-                # subprocess.run(f'mv graph_1.gfa {idx}_graph_1.gfa', shell=True, cwd=self.tmp_dir)
+                subprocess.run(f'mv graph_1.csv {idx}_graph_1.csv', shell=True, cwd=self.tmp_dir)
+                subprocess.run(f'mv graph_1.gfa {idx}_graph_1.gfa', shell=True, cwd=self.tmp_dir)
                 cnt = idx  # Just not to change original code too much yet. TODO: Fix later
                 for j in range(1, 2):
                     print(f'graph {j}')
