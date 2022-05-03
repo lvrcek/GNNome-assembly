@@ -115,7 +115,7 @@ def view_model_param(model):
     return total_param
 
 
-def train(args):
+def train(data, out, eval, overfit):
     hyperparameters = get_hyperparameters()
     seed = hyperparameters['seed']
     num_epochs = hyperparameters['num_epochs']
@@ -145,26 +145,35 @@ def train(args):
     time_start = datetime.now()
     timestamp = time_start.strftime('%Y-%b-%d-%H-%M-%S')
     data_path = os.path.abspath(args.data)
-    out = args.out if args.out is not None else timestamp
-    is_eval = args.eval
-    is_split = args.split
+    
+    if out is None:
+        train_path = os.path.join(data_path, f'train')
+        valid_path = os.path.join(data_path, f'valid')
+        out = timestamp
+    else:
+        train_path = os.path.join(data_path, f'train_{out}')
+        valid_path = os.path.join(data_path, f'valid_{out}')
+
+    # out = args.out if args.out is not None else timestamp
+    # is_eval = args.eval
+    # is_split = args.split
 
     utils.set_seed(seed)
     
     sampler = dgl.dataloading.MultiLayerFullNeighborSampler(num_gnn_layers)
 
-    if is_split:
-        ds_train = AssemblyGraphDataset(os.path.join(data_path, 'train2'), nb_pos_enc=nb_pos_enc)
-        ds_valid = AssemblyGraphDataset(os.path.join(data_path, 'valid2'), nb_pos_enc=nb_pos_enc)
+    if not overfit:
+        ds_train = AssemblyGraphDataset(train_path, nb_pos_enc=nb_pos_enc)
+        ds_valid = AssemblyGraphDataset(valid_path, nb_pos_enc=nb_pos_enc)
         num_graphs = len(ds_train) + len(ds_valid)
     else:
-        ds = AssemblyGraphDataset(data_path, nb_pos_enc)
+        ds = AssemblyGraphDataset(train_path, nb_pos_enc=nb_pos_enc)
         # TODO: Only a temporary stupid fix, have to decide later how to make it proper
         ds_train = ds 
         ds_valid = ds_train # DEBUG !!!!!!!!!!!!!
         num_graphs = len(ds)
 
-    overfit = num_graphs == 1
+    # overfit = num_graphs == 1
 
     #overfit = False # DEBUG !!!!!!!!!!!!!
     #batch_size_train = batch_size_eval = 1 # DEBUG !!!!!!!!!!!!!
@@ -541,6 +550,7 @@ if __name__ == '__main__':
     parser.add_argument('--data', type=str, default='data/train', help='Path to directory with training data')
     parser.add_argument('--out', type=str, default=None, help='Output name for figures and models')
     parser.add_argument('--eval', action='store_true')
-    parser.add_argument('--split', action='store_true', default=False, help='Is the dataset already split into train/valid/test')
+    parser.add_argument('--overfit', action='store_true', default=False, help='Overfit on the chromosomes in the train directory')
     args = parser.parse_args()
-    train(args)
+    train(args.data, args.out, args.eval, args.overfit)
+

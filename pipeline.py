@@ -104,8 +104,9 @@ def file_structure_setup(data_path):
 
 
 # 0. Download the CHM13 if necessary
-def download_reference():
-    ref_path = os.path.abspath('data/neurips/references/')
+def download_reference(data_path):
+    data_path = os.path.abspath(data_path)
+    ref_path = os.path.join(data_path, 'references/')
     chm_path = os.path.join(ref_path, 'CHM13')
     chr_path = os.path.join(ref_path, 'chromosomes')
     chm13_url = 'https://s3-us-west-2.amazonaws.com/human-pangenomics/T2T/CHM13/assemblies/chm13.draft_v1.1.fasta.gz'
@@ -137,7 +138,7 @@ def download_reference():
 
 
 # 1. Simulate the sequences
-def simulate_reads(chr_dict):
+def simulate_reads(data_path, chr_dict):
     # Dict saying how much of simulated datasets for each chromosome do we need
     # E.g., {'chr1': 4, 'chr6': 2, 'chrX': 4}
 
@@ -148,10 +149,11 @@ def simulate_reads(chr_dict):
         subprocess.run(f'git clone https://github.com/marbl/seqrequester.git', shell=True, cwd='vendor')
         subprocess.run(f'make', shell=True, cwd='vendor/seqrequester/src')
 
-    ref_path = os.path.abspath('data/neurips/references/')
+    data_path = os.path.abspath(data_path)
+    ref_path = os.path.join(data_path, 'references')
     chr_path = os.path.join(ref_path, 'chromosomes')
     len_path = os.path.join(ref_path, 'lengths')
-    sim_path = os.path.abspath('data/neurips/simulated')
+    sim_path = os.path.join(data_path, 'simulated')
     for chrN, n_need in chr_dict.items():
         chr_raw_path = os.path.join(sim_path, f'{chrN}/raw')
         n_have = len(os.listdir(chr_raw_path))
@@ -176,7 +178,7 @@ def simulate_reads(chr_dict):
 
 
 # 2. Generate the graphs
-def generate_graphs(chr_dict):
+def generate_graphs(data_path, chr_dict):
     print(f'SETUP::generate')
 
     if 'raven' not in os.listdir('vendor'):
@@ -185,8 +187,10 @@ def generate_graphs(chr_dict):
         subprocess.run(f'mkdir build', shell=True, cwd='vendor/raven')
         subprocess.run(f'cmake -DCMAKE_BUILD_TYPE=Release .. && make', shell=True, cwd='vendor/raven/build')
 
+    data_path = os.path.abspath(data_path)
+
     for chrN, n_need in chr_dict.items():
-        chr_sim_path = os.path.abspath(f'data/neurips/simulated/{chrN}')
+        chr_sim_path = os.path.join(data_path, 'simulated', f'{chrN}')
         chr_raw_path = os.path.join(chr_sim_path, 'raw')
         chr_prc_path = os.path.join(chr_sim_path, 'processed')
         n_raw = len(os.listdir(chr_raw_path))
@@ -205,7 +209,7 @@ def generate_graphs(chr_dict):
 
 
 # 2.1. Generate the real_graphs
-def generate_graphs_real(chr_real_list):
+def generate_graphs_real(data_path, chr_real_list):
     print(f'SETUP::generate')
 
     if 'raven' not in os.listdir('vendor'):
@@ -214,8 +218,9 @@ def generate_graphs_real(chr_real_list):
         subprocess.run(f'mkdir build', shell=True, cwd='vendor/raven')
         subprocess.run(f'cmake -DCMAKE_BUILD_TYPE=Release .. && make', shell=True, cwd='vendor/raven/build')
 
+    data_path = os.path.abspath(data_path)
     for chrN in chr_real_list:
-        chr_sim_path = os.path.abspath(f'data/neurips/real/{chrN}')
+        chr_sim_path = os.path.abspath(data_path, 'real', f'{chrN}')
         chr_raw_path = os.path.join(chr_sim_path, 'raw')
         chr_prc_path = os.path.join(chr_sim_path, 'processed')
         n_raw = len(os.listdir(chr_raw_path))
@@ -234,13 +239,25 @@ def generate_graphs_real(chr_real_list):
 
 
 # 2.5 Train-valid-test split
-def train_valid_split(train_dict, valid_dict):
+def train_valid_split(data_path, train_dict, valid_dict, out=None):
     #Both are chromosome dicts specifying which data to use for training/validation
     print(f'SETUP::split')
-    sim_path = os.path.abspath('data/neurips/simulated/')
-    train_path = os.path.abspath('data/neurips/train2')
-    valid_path = os.path.abspath('data/neurips/valid2')
-    
+    data_path = os.path.abspath(data_path)
+    sim_path = os.path.join(data_path, 'simulated')
+
+    if out is None:
+        train_path = os.path.join(data_path, f'train')
+        valid_path = os.path.join(data_path, f'valid')
+    else:
+        train_path = os.path.join(data_path, f'train_{out}')
+        valid_path = os.path.join(data_path, f'valid_{out}')
+        if not os.path.isdir(train_path):
+            os.mkdir(train_path)
+            subprocess.run(f'mkdir raw processed info graphia tmp', shell=True, cwd=train_path)
+        if not os.path.isdir(valid_path):
+            os.mkdir(valid_path)
+            subprocess.run(f'mkdir raw processed info graphia tmp', shell=True, cwd=valid_path)
+ 
     n_have = 0
     for chrN, n_need in train_dict.items():
         # copy n_need datasets from chrN into train dict
@@ -289,7 +306,7 @@ if __name__ == '__main__':
     parser.add_argument('--data', type=str, default='data/train', help='Path to directory with training data')
     parser.add_argument('--out', type=str, default=None, help='Output name for figures and models')
     parser.add_argument('--eval', action='store_true')
-    parser.add_argument('--split', action='store_true', default=False, help='Is the dataset already split into train/valid/test')
+    parser.add_argument('--overfit', action='store_true', default=False, help='Overfit on the chromosomes in the train directory')
     args = parser.parse_args()
     # Either get all the arguments
     # Or just reads everything from some config file
@@ -300,10 +317,19 @@ if __name__ == '__main__':
     valid_dict = {'chr19': 1}
     all_chr = merge_dicts(train_dict, valid_dict)
 
-    file_structure_setup('data/neurips')
-    download_reference()
-    simulate_reads(all_chr)
-    generate_graphs(all_chr)
-    train_valid_split(train_dict, valid_dict)
-    train_the_model(args)
+    # data_path = '/home/vrcekl/scratch/data/neurips'
+
+    data = args.data
+    out = args.out
+    eval = args.eval
+    overfit = args.overfit
+
+    data_path = data
+
+    file_structure_setup(data_path)
+    download_reference(data_path)
+    simulate_reads(data_path, all_chr)
+    generate_graphs(data_path, all_chr)
+    train_valid_split(data_path, train_dict, valid_dict, out)
+    train_the_model(data, out, eval, overfit)
 
