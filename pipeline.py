@@ -317,7 +317,7 @@ if __name__ == '__main__':
     # E.g., train = {chr1: 1, chr4: 3, chr5: 5}
     # E.g., eval = {chr6: 2, chr5: 3}
 
-    train_dict = {'chr19': 10}
+    train_dict = {'chr19': 2}
     valid_dict = {'chr19': 1}
     all_chr = merge_dicts(train_dict, valid_dict)
 
