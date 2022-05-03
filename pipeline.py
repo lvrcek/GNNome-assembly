@@ -226,7 +226,7 @@ def generate_graphs_real(data_path, chr_real_list):
         n_raw = len(os.listdir(chr_raw_path))
         n_prc = len(os.listdir(chr_prc_path))
         n_diff = n_raw - n_prc
-        print(f'SETUPS::generate:: Generate {n_diff} graphs for {chrN}')
+        print(f'SETUP::generate:: Generate {n_diff} graphs for {chrN}')
         specs = {
             'threads': 32,
             'filter': 0.99,
