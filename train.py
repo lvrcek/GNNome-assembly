@@ -281,7 +281,7 @@ def train(data, out, eval, overfit):
                         g = g.long()
                         num_clusters = torch.LongTensor(1).random_(num_parts_metis_train-250,num_parts_metis_train+250).item() # DEBUG!!!
                         sampler = dgl.dataloading.ClusterGCNSampler(g, num_clusters, cache_path=cluster_cache_path) 
-                        dataloader = dgl.dataloading.DataLoader(g, torch.arange(num_parts_metis_train), sampler, batch_size=batch_size_train, shuffle=True, drop_last=False, num_workers=4) # XB
+                        dataloader = dgl.dataloading.DataLoader(g, torch.arange(num_clusters), sampler, batch_size=batch_size_train, shuffle=True, drop_last=False, num_workers=4) # XB
 
                         # For loop over all mini-batch in the graph
                         running_loss, running_fp_rate, running_fn_rate = [], [], []
