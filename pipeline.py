@@ -288,9 +288,9 @@ def train_valid_split(data_path, train_dict, valid_dict, out=None):
 
 
 # 3. Train the model
-def train_the_model(args):
+def train_the_model(data, out, eval, overfit):
     print(f'SETUP::train')
-    train.train(args)
+    train.train(data, out, eval, overfit)
 
 # 4. Inference - get the results
 
@@ -313,7 +313,7 @@ if __name__ == '__main__':
     # E.g., train = {chr1: 1, chr4: 3, chr5: 5}
     # E.g., eval = {chr6: 2, chr5: 3}
 
-    train_dict = {'chr19': 4}
+    train_dict = {'chr19': 10}
     valid_dict = {'chr19': 1}
     all_chr = merge_dicts(train_dict, valid_dict)
 

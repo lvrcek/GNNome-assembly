@@ -144,7 +144,7 @@ def train(data, out, eval, overfit):
 
     time_start = datetime.now()
     timestamp = time_start.strftime('%Y-%b-%d-%H-%M-%S')
-    data_path = os.path.abspath(args.data)
+    data_path = os.path.abspath(data)
     
     if out is None:
         train_path = os.path.join(data_path, f'train')
@@ -279,7 +279,7 @@ def train(data, out, eval, overfit):
 
                         # Run Metis
                         g = g.long()
-                        num_parts_metis_train = torch.LongTensor(1).random_(1000-250,1000+250).item() # DEBUG!!!
+                        num_parts_metis_train = torch.LongTensor(1).random_(num_parts_metis_train-250,num_parts_metis_train+250).item() # DEBUG!!!
                         sampler = dgl.dataloading.ClusterGCNSampler(g, num_parts_metis_train, cache_path=cluster_cache_path) 
                         dataloader = dgl.dataloading.DataLoader(g, torch.arange(num_parts_metis_train), sampler, batch_size=batch_size_train, shuffle=True, drop_last=False, num_workers=4) # XB
 
