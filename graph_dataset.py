@@ -54,7 +54,7 @@ class AssemblyGraphDataset(DGLDataset):
         save_dir = os.path.join(self.root, 'processed')
         self.tmp_dir = os.path.join(self.root, 'tmp')
         self.info_dir = os.path.join(self.root, 'info')
-        self.raven_path = os.path.abspath('vendor/raven_new/build/bin/raven')
+        self.raven_path = os.path.abspath('vendor/raven/build/bin/raven')
         super().__init__(name='assembly_graphs', raw_dir=raw_dir, save_dir=save_dir)
 
         self.graph_list = []
