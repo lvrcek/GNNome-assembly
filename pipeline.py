@@ -71,6 +71,10 @@ def merge_dicts(d1, d2):
 
 # -1. Set up the data file structure
 def file_structure_setup(data_path):
+    try:
+        subprocess.run(f'rm -rf raven', shell=True, cwd='vendor')
+    except:
+        pass
     print(f'SETUP::filesystem:: Create directories for storing data')
     if not os.path.isdir(data_path):
         os.makedirs(data_path)
