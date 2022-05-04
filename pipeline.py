@@ -281,7 +281,7 @@ def train_valid_split(data_path, train_dict, valid_dict, out=None):
         # copy n_need datasets from chrN into train dict
         print(f'SETUP::split:: Copying {n_need} graphs of {chrN} into {valid_path}')
         for i in range(n_need):
-            j = i + train_dict[chrN]
+            j = i + valid_dict[chrN]
             chr_sim_path = os.path.join(sim_path, chrN)
             subprocess.run(f'cp {chr_sim_path}/processed/{j}.dgl {valid_path}/processed/{n_have}.dgl', shell=True)
             subprocess.run(f'cp {chr_sim_path}/info/{j}_succ.pkl {valid_path}/info/{n_have}_succ.pkl', shell=True)

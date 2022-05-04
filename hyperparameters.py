@@ -34,7 +34,7 @@ def get_hyperparameters():
     return {
         'seed': 0,
         'lr': 1e-3,
-        'num_epochs': 3000,
+        'num_epochs': 1000,
         'dim_latent': 256,
         'node_features': 1,
         'edge_features': 2,
