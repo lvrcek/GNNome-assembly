@@ -169,7 +169,8 @@ def simulate_reads(data_path, chr_dict):
             # Simulate reads for chrN n_diff times
             # Be careful how you name them
             chr_seq_path = os.path.join(chr_path, f'{chrN}.fasta')
-            chr_dist_path = os.path.join(len_path, f'{chrN}.txt')
+            # chr_dist_path = os.path.join(len_path, f'{chrN}.txt')
+            chr_dist_path = os.path.join('lengths', f'{chrN}.txt')
             chr_len = chr_lens[chrN]
             for i in range(n_diff):
                 idx = n_have + i
@@ -317,8 +318,8 @@ if __name__ == '__main__':
     # E.g., train = {chr1: 1, chr4: 3, chr5: 5}
     # E.g., eval = {chr6: 2, chr5: 3}
 
-    train_dict = {'chr19': 2}
-    valid_dict = {'chr19': 1}
+    train_dict = {'chr19': 4, 'chr18': 4, 'chr21': 4}
+    valid_dict = {'chr17': 1, 'chr20': 1, 'chr22': 1}
     all_chr = merge_dicts(train_dict, valid_dict)
 
     # data_path = '/home/vrcekl/scratch/data/neurips'
