@@ -19,4 +19,4 @@ if __name__ == '__main__':
         'out': args.out
     }
     ds = graph_dataset.AssemblyGraphDataset(args.data, specs=specs)
-    algorithms.get_solutions_for_all(args.data)
+    # algorithms.get_solutions_for_all(args.data)

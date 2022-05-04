@@ -281,7 +281,7 @@ def train_valid_split(data_path, train_dict, valid_dict, out=None):
         # copy n_need datasets from chrN into train dict
         print(f'SETUP::split:: Copying {n_need} graphs of {chrN} into {valid_path}')
         for i in range(n_need):
-            j = i + valid_dict[chrN]
+            j = i + train_dict.get(chrN, 0)
             chr_sim_path = os.path.join(sim_path, chrN)
             subprocess.run(f'cp {chr_sim_path}/processed/{j}.dgl {valid_path}/processed/{n_have}.dgl', shell=True)
             subprocess.run(f'cp {chr_sim_path}/info/{j}_succ.pkl {valid_path}/info/{n_have}_succ.pkl', shell=True)
@@ -320,8 +320,11 @@ if __name__ == '__main__':
 
     # train_dict = {'chr19': 4, 'chr18': 4, 'chr21': 4}
     # valid_dict = {'chr17': 1, 'chr20': 1, 'chr22': 1}
-    train_dict = {'chr19': 2}
+    # train_dict = {'chr19': 10}
+    # valid_dict = {'chr19': 1}
+    train_dict = {'chr19': 1}
     valid_dict = {'chr19': 1}
+
     all_chr = merge_dicts(train_dict, valid_dict)
 
     # data_path = '/home/vrcekl/scratch/data/neurips'
