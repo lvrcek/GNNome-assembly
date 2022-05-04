@@ -318,8 +318,10 @@ if __name__ == '__main__':
     # E.g., train = {chr1: 1, chr4: 3, chr5: 5}
     # E.g., eval = {chr6: 2, chr5: 3}
 
-    train_dict = {'chr19': 4, 'chr18': 4, 'chr21': 4}
-    valid_dict = {'chr17': 1, 'chr20': 1, 'chr22': 1}
+    # train_dict = {'chr19': 4, 'chr18': 4, 'chr21': 4}
+    # valid_dict = {'chr17': 1, 'chr20': 1, 'chr22': 1}
+    train_dict = {'chr19': 2}
+    valid_dict = {'chr19': 1}
     all_chr = merge_dicts(train_dict, valid_dict)
 
     # data_path = '/home/vrcekl/scratch/data/neurips'
