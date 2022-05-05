@@ -31,7 +31,7 @@ class AssemblyGraphDataset(DGLDataset):
         Path to the raven assembler
     """
 
-    def __init__(self, root, nb_pos_enc=10, specs=None):
+    def __init__(self, root, nb_pos_enc=10, specs=None, generate=False):
         """
         Parameters
         ----------
@@ -58,15 +58,16 @@ class AssemblyGraphDataset(DGLDataset):
         super().__init__(name='assembly_graphs', raw_dir=raw_dir, save_dir=save_dir)
 
         self.graph_list = []
-        for file in sorted(os.listdir(self.save_dir)):
-            idx = int(file[:-4])
-            graph = dgl.load_graphs(os.path.join(self.save_dir, file))[0][0]
-            graph = preprocess_graph(graph, self.root, idx)
-            if nb_pos_enc is not None:
-                graph = add_positional_encoding(graph, nb_pos_enc) 
-            #graph, _ = dgl.khop_in_subgraph(graph, 390, k=20) # DEBUG !!!!
-            print('DGL graph info:',graph)
-            self.graph_list.append(graph)
+        if not generate:
+            for file in sorted(os.listdir(self.save_dir)):
+                idx = int(file[:-4])
+                graph = dgl.load_graphs(os.path.join(self.save_dir, file))[0][0]
+                graph = preprocess_graph(graph, self.root, idx)
+                if nb_pos_enc is not None:
+                    graph = add_positional_encoding(graph, nb_pos_enc) 
+                #graph, _ = dgl.khop_in_subgraph(graph, 390, k=20) # DEBUG !!!!
+                print('DGL graph info:',graph)
+                self.graph_list.append(graph)
 
     def has_cache(self):
         """Check if the raw data is already processed and stored."""
@@ -96,7 +97,7 @@ class AssemblyGraphDataset(DGLDataset):
         if not os.path.isdir(graphia_dir):
             os.mkdir(graphia_dir)
 
-        print(f'====> FILTER = {filter}')
+        print(f'====> FILTER = {filter}\n')
 
         with open(f'{self.root}/dataset_log.txt', 'w') as f:
             n_have = len(os.listdir(self.save_dir))
@@ -105,22 +106,27 @@ class AssemblyGraphDataset(DGLDataset):
             files = sorted(os.listdir(self.raw_dir))  # [0.fasta, 1.fasta, ...]
             for cnt, idx in enumerate(range(n_have, n_need)):
             # for cnt, fastq in enumerate(os.listdir(self.raw_dir)):
-                fastq = files[idx]  # have 4 [0-3] -> fastq = 4.fasta, 5.fasta, ...
-                print(cnt, fastq)
+                # fastq = files[idx]  # have 4 [0-3] -> fastq = 4.fasta, 5.fasta, ...
+                fastq = f'{idx}.fasta'
+                print(f'Step {cnt}: generating graphs for reads in {fastq}')
                 reads_path = os.path.abspath(os.path.join(self.raw_dir, fastq))
-                print(reads_path)
+                print(f'Path to the reads: {reads_path}')
+                print(f'Starting raven at: {self.raven_path}')
+                print(f'Parameters: --identity {filter} -k29 -w9 -t{threads} -p0')
+                print(f'Assembly output: {out}\n')
                 subprocess.run(f'{self.raven_path} --identity {filter} -k29 -w9 -t{threads} -p0 {reads_path} > {out}', shell=True, cwd=self.tmp_dir)
                 # subprocess.run(f'{self.raven_path} --filter {filter} --weaken -t{threads} -p0 {reads_path} > {out}', shell=True, cwd=self.tmp_dir)
                 subprocess.run(f'mv graph_1.csv {idx}_graph_1.csv', shell=True, cwd=self.tmp_dir)
                 subprocess.run(f'mv graph_1.gfa {idx}_graph_1.gfa', shell=True, cwd=self.tmp_dir)
                 cnt = idx  # Just not to change original code too much yet. TODO: Fix later
                 for j in range(1, 2):
-                    print(f'graph {j}')
+                    print(f'\nRaven generated the graph! Processing...')
                     # processed_path = os.path.join(self.save_dir, f'd{cnt}_g{j}.dgl')
                     processed_path = os.path.join(self.save_dir, f'{cnt}.dgl')
                     graph, pred, succ, reads, edges, labels = graph_parser.from_csv(os.path.join(self.tmp_dir, f'{cnt}_graph_{j}.csv'), reads_path)
-                    dgl.save_graphs(processed_path, graph)
+                    print(f'Parsed Raven output! Saving files...')
 
+                    dgl.save_graphs(processed_path, graph)
                     pickle.dump(pred, open(f'{self.info_dir}/{cnt}_pred.pkl', 'wb'))
                     pickle.dump(succ, open(f'{self.info_dir}/{cnt}_succ.pkl', 'wb'))
                     pickle.dump(reads, open(f'{self.info_dir}/{cnt}_reads.pkl', 'wb'))
@@ -129,5 +135,6 @@ class AssemblyGraphDataset(DGLDataset):
 
                     graphia_path = os.path.join(graphia_dir, f'{cnt}_graph.txt')
                     graph_parser.print_pairwise(graph, graphia_path)
+                    print(f'Processing of graph {cnt} generated from {fastq} done!\n')
                 f.write(f'{cnt} - {fastq}\n')
 

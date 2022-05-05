@@ -175,6 +175,7 @@ def simulate_reads(data_path, chr_dict):
             for i in range(n_diff):
                 idx = n_have + i
                 chr_save_path = os.path.join(chr_raw_path, f'{idx}.fasta')
+                print(f'\nStep {i}: Simulating reads {chr_save_path}')
                 subprocess.run(f'./vendor/seqrequester/build/bin/seqrequester simulate -genome {chr_seq_path} ' \
                                f'-genomesize {chr_len} -coverage 32.4 -distribution {chr_dist_path} > {chr_save_path}',
                                shell=True)
@@ -201,13 +202,13 @@ def generate_graphs(data_path, chr_dict):
         n_raw = len(os.listdir(chr_raw_path))
         n_prc = len(os.listdir(chr_prc_path))
         n_diff = n_raw - n_prc
-        print(f'SETUPS::generate:: Generate {n_diff} graphs for {chrN}')
+        print(f'SETUP::generate:: Generate {n_diff} graphs for {chrN}')
         specs = {
             'threads': 32,
             'filter': 0.99,
             'out': 'assembly.fasta'
         }
-        graph_dataset.AssemblyGraphDataset(chr_sim_path, nb_pos_enc=None, specs=specs)
+        graph_dataset.AssemblyGraphDataset(chr_sim_path, nb_pos_enc=None, specs=specs, generate=True)
         # Generate graphs for those reads that don't have them
         # Probably something with Raven
         # Then the graph_parser
@@ -237,7 +238,7 @@ def generate_graphs_real(data_path, chr_real_list):
             'filter': 0.99,
             'out': 'assembly.fasta'
         }
-        graph_dataset.AssemblyGraphDataset(chr_sim_path, nb_pos_enc=None, specs=specs)
+        graph_dataset.AssemblyGraphDataset(chr_sim_path, nb_pos_enc=None, specs=specs, generate=True)
         # Generate graphs for those reads that don't have them
         # Probably something with Raven
         # Then the graph_parser
@@ -269,6 +270,7 @@ def train_valid_split(data_path, train_dict, valid_dict, out=None):
         print(f'SETUP::split:: Copying {n_need} graphs of {chrN} into {train_path}')
         for i in range(n_need):
             chr_sim_path = os.path.join(sim_path, chrN)
+            print(f'Copying {chr_sim_path}/processed/{i}.dgl into {train_path}/processed/{n_have}.dgl')
             subprocess.run(f'cp {chr_sim_path}/processed/{i}.dgl {train_path}/processed/{n_have}.dgl', shell=True)
             subprocess.run(f'cp {chr_sim_path}/info/{i}_succ.pkl {train_path}/info/{n_have}_succ.pkl', shell=True)
             subprocess.run(f'cp {chr_sim_path}/info/{i}_pred.pkl {train_path}/info/{n_have}_pred.pkl', shell=True)
@@ -283,6 +285,7 @@ def train_valid_split(data_path, train_dict, valid_dict, out=None):
         for i in range(n_need):
             j = i + train_dict.get(chrN, 0)
             chr_sim_path = os.path.join(sim_path, chrN)
+            print(f'Copying {chr_sim_path}/processed/{j}.dgl into {valid_path}/processed/{n_have}.dgl')
             subprocess.run(f'cp {chr_sim_path}/processed/{j}.dgl {valid_path}/processed/{n_have}.dgl', shell=True)
             subprocess.run(f'cp {chr_sim_path}/info/{j}_succ.pkl {valid_path}/info/{n_have}_succ.pkl', shell=True)
             subprocess.run(f'cp {chr_sim_path}/info/{j}_pred.pkl {valid_path}/info/{n_have}_pred.pkl', shell=True)
@@ -322,8 +325,8 @@ if __name__ == '__main__':
     # valid_dict = {'chr17': 1, 'chr20': 1, 'chr22': 1}
     # train_dict = {'chr19': 10}
     # valid_dict = {'chr19': 1}
-    train_dict = {'chr19': 1}
-    valid_dict = {'chr19': 1}
+    train_dict = {'chr19': 15}
+    valid_dict = {'chr19': 3}
 
     all_chr = merge_dicts(train_dict, valid_dict)
 

@@ -282,7 +282,7 @@ def train(data, out, eval, overfit):
 
                         # Run Metis
                         g = g.long()
-                        num_clusters = torch.LongTensor(1).random_(num_parts_metis_train-250,num_parts_metis_train+250).item() # DEBUG!!!
+                        num_clusters = torch.LongTensor(1).random_(num_parts_metis_train-50,num_parts_metis_train+50).item() # DEBUG!!!
                         sampler = dgl.dataloading.ClusterGCNSampler(g, num_clusters, cache_path=cluster_cache_path) 
                         dataloader = dgl.dataloading.DataLoader(g, torch.arange(num_clusters), sampler, batch_size=batch_size_train, shuffle=True, drop_last=False, num_workers=4) # XB
 
@@ -377,7 +377,7 @@ def train(data, out, eval, overfit):
                     scheduler.step(train_loss_all_graphs)
 
                 #if not overfit:
-                if not epoch%10 and epoch>0: # DEBUG !!!!!!!!!!!!!
+                if not epoch % 3 and epoch > 0: # DEBUG !!!!!!!!!!!!!
 
                     val_loss_all_graphs, val_fp_rate_all_graphs, val_fn_rate_all_graphs = [], [], []
                     val_acc_all_graphs, val_precision_all_graphs, val_recall_all_graphs, val_f1_all_graphs = [], [], [], []

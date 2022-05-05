@@ -167,36 +167,36 @@ def add_positional_encoding(g, pe_dim):
     g.ndata['in_deg'] = g.in_degrees().float()
     g.ndata['out_deg'] = g.out_degrees().float()
     
-    # # Geometric diffusion features with Random Walk
-    # A = g.adjacency_matrix(scipy_fmt="csr")
-    # Dinv = sp.diags(dgl.backend.asnumpy(g.in_degrees()).clip(1) ** -1.0, dtype=float) # D^-1
-    # RW = A @ Dinv  
-    # M = RW
-    # # Iterate
-    # PE = [torch.from_numpy(M.diagonal()).float()]
-    # M_power = M
-    # for _ in range(pe_dim-1):
-    #     M_power = M_power @ M
-    #     PE.append(torch.from_numpy(M_power.diagonal()).float())
-    # PE = torch.stack(PE,dim=-1)
-    # g.ndata['pe'] = PE  
-
-    # k-step PageRank features
+    # Geometric diffusion features with Random Walk
     A = g.adjacency_matrix(scipy_fmt="csr")
-    D = A.sum(axis=1) # out degree
-    Dinv = 1./ (D+1e-9); Dinv[D<1e-9] = 0 # take care of nodes without outgoing edges
-    Dinv = sp.diags(np.squeeze(np.asarray(Dinv)), dtype=float) # D^-1 
-    P = (Dinv @ A).T 
-    n = A.shape[0]
-    One = np.ones([n])
-    x = One/ n
-    PE = [] 
-    alpha = 0.95 
-    for _ in range(pe_dim): 
-        x = alpha* P.dot(x) + (1.0-alpha)/n* One 
-        PE.append(torch.from_numpy(x).float())
+    Dinv = sp.diags(dgl.backend.asnumpy(g.in_degrees()).clip(1) ** -1.0, dtype=float) # D^-1
+    RW = A @ Dinv  
+    M = RW
+    # Iterate
+    PE = [torch.from_numpy(M.diagonal()).float()]
+    M_power = M
+    for _ in range(pe_dim-1):
+        M_power = M_power @ M
+        PE.append(torch.from_numpy(M_power.diagonal()).float())
     PE = torch.stack(PE,dim=-1)
     g.ndata['pe'] = PE  
+
+    # k-step PageRank features
+    # A = g.adjacency_matrix(scipy_fmt="csr")
+    # D = A.sum(axis=1) # out degree
+    # Dinv = 1./ (D+1e-9); Dinv[D<1e-9] = 0 # take care of nodes without outgoing edges
+    # Dinv = sp.diags(np.squeeze(np.asarray(Dinv)), dtype=float) # D^-1 
+    # P = (Dinv @ A).T 
+    # n = A.shape[0]
+    # One = np.ones([n])
+    # x = One/ n
+    # PE = [] 
+    # alpha = 0.95 
+    # for _ in range(pe_dim): 
+    #     x = alpha* P.dot(x) + (1.0-alpha)/n* One 
+    #     PE.append(torch.from_numpy(x).float())
+    # PE = torch.stack(PE,dim=-1)
+    # g.ndata['pe'] = PE  
 
     return g
 
