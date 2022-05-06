@@ -133,29 +133,28 @@ def preprocess_graph(g, data_path, idx):
     ol_sim = (ol_sim - ol_sim.mean()) / ol_sim.std()
     g.edata['e'] = torch.cat((ol_len.unsqueeze(-1), ol_sim.unsqueeze(-1)), dim=1)
 
-    # g = dgl.add_self_loop(g)
-    # return g
+    if 'y' not in g.edata:
+        # TODO: Debug, or just delete this whole part eventually
+        print('Deprecated - labels generated while creating DGL graph')
+        try:
+            nodes_gt, edges_gt = get_correct_ne(idx, data_path)
+            # g.ndata['y'] = torch.tensor([1 if i in nodes_gt else 0 for i in range(g.num_nodes())], dtype=torch.float)
+            g.edata['y'] = torch.tensor([1 if i in edges_gt else 0 for i in range(g.num_edges())], dtype=torch.float)
+        except FileNotFoundError:
+            # print("Solutions not generated")
+            succs = pickle.load(open(f'{data_path}/info/{idx}_succ.pkl', 'rb'))
+            edges = pickle.load(open(f'{data_path}/info/{idx}_edges.pkl', 'rb'))
+            pos_str_edges, neg_str_edges = algorithms.dfs_gt_neurips_graph(g, succs, edges)
+            # nodes_gt = pos_str_nodes | neg_str_nodes
+            edges_gt = pos_str_edges | neg_str_edges
+            if 'solutions' not in os.listdir(data_path):
+                os.mkdir(os.path.join(data_path, 'solutions'))
+            # pickle.dump(nodes_gt, open(f'{data_path}/solutions/{idx}_nodes.pkl', 'wb'))
+            pickle.dump(edges_gt, open(f'{data_path}/solutions/{idx}_edges.pkl', 'wb'))
+            # Generate them here?
+            # g.ndata['y'] = torch.tensor([1 if i in nodes_gt else 0 for i in range(g.num_nodes())], dtype=torch.float)
+            g.edata['y'] = torch.tensor([1 if i in edges_gt else 0 for i in range(g.num_edges())], dtype=torch.float)
 
-    try:
-        nodes_gt, edges_gt = get_correct_ne(idx, data_path)
-        # g.ndata['y'] = torch.tensor([1 if i in nodes_gt else 0 for i in range(g.num_nodes())], dtype=torch.float)
-        g.edata['y'] = torch.tensor([1 if i in edges_gt else 0 for i in range(g.num_edges())], dtype=torch.float)
-    except FileNotFoundError:
-        # print("Solutions not generated")
-        succs = pickle.load(open(f'{data_path}/info/{idx}_succ.pkl', 'rb'))
-        edges = pickle.load(open(f'{data_path}/info/{idx}_edges.pkl', 'rb'))
-        pos_str_edges, neg_str_edges = algorithms.dfs_gt_neurips_graph(g, succs, edges)
-        # nodes_gt = pos_str_nodes | neg_str_nodes
-        edges_gt = pos_str_edges | neg_str_edges
-        if 'solutions' not in os.listdir(data_path):
-            os.mkdir(os.path.join(data_path, 'solutions'))
-        # pickle.dump(nodes_gt, open(f'{data_path}/solutions/{idx}_nodes.pkl', 'wb'))
-        pickle.dump(edges_gt, open(f'{data_path}/solutions/{idx}_edges.pkl', 'wb'))
-        # Generate them here?
-        # g.ndata['y'] = torch.tensor([1 if i in nodes_gt else 0 for i in range(g.num_nodes())], dtype=torch.float)
-        g.edata['y'] = torch.tensor([1 if i in edges_gt else 0 for i in range(g.num_edges())], dtype=torch.float)
-
-    g.add_self_loop()
     return g
 
 
@@ -166,39 +165,44 @@ def add_positional_encoding(g, pe_dim):
 
     g.ndata['in_deg'] = g.in_degrees().float()
     g.ndata['out_deg'] = g.out_degrees().float()
-    
-    # Geometric diffusion features with Random Walk
-    A = g.adjacency_matrix(scipy_fmt="csr")
-    Dinv = sp.diags(dgl.backend.asnumpy(g.in_degrees()).clip(1) ** -1.0, dtype=float) # D^-1
-    RW = A @ Dinv  
-    M = RW
-    # Iterate
-    PE = [torch.from_numpy(M.diagonal()).float()]
-    M_power = M
-    for _ in range(pe_dim-1):
-        M_power = M_power @ M
-        PE.append(torch.from_numpy(M_power.diagonal()).float())
-    PE = torch.stack(PE,dim=-1)
-    g.ndata['pe'] = PE  
 
-    # k-step PageRank features
-    # A = g.adjacency_matrix(scipy_fmt="csr")
-    # D = A.sum(axis=1) # out degree
-    # Dinv = 1./ (D+1e-9); Dinv[D<1e-9] = 0 # take care of nodes without outgoing edges
-    # Dinv = sp.diags(np.squeeze(np.asarray(Dinv)), dtype=float) # D^-1 
-    # P = (Dinv @ A).T 
-    # n = A.shape[0]
-    # One = np.ones([n])
-    # x = One/ n
-    # PE = [] 
-    # alpha = 0.95 
-    # for _ in range(pe_dim): 
-    #     x = alpha* P.dot(x) + (1.0-alpha)/n* One 
-    #     PE.append(torch.from_numpy(x).float())
-    # PE = torch.stack(PE,dim=-1)
-    # g.ndata['pe'] = PE  
+    type_pe = 'PR'
+
+    if type_pe == 'RW':
+        # Geometric diffusion features with Random Walk
+        A = g.adjacency_matrix(scipy_fmt="csr")
+        Dinv = sp.diags(dgl.backend.asnumpy(g.in_degrees()).clip(1) ** -1.0, dtype=float) # D^-1
+        RW = A @ Dinv  
+        M = RW
+        # Iterate
+        PE = [torch.from_numpy(M.diagonal()).float()]
+        M_power = M
+        for _ in range(pe_dim-1):
+            M_power = M_power @ M
+            PE.append(torch.from_numpy(M_power.diagonal()).float())
+        PE = torch.stack(PE,dim=-1)
+        g.ndata['pe'] = PE  
+
+    if type_pe == 'PR':
+        # k-step PageRank features
+        A = g.adjacency_matrix(scipy_fmt="csr")
+        D = A.sum(axis=1) # out degree
+        Dinv = 1./ (D+1e-9); Dinv[D<1e-9] = 0 # take care of nodes without outgoing edges
+        Dinv = sp.diags(np.squeeze(np.asarray(Dinv)), dtype=float) # D^-1 
+        P = (Dinv @ A).T 
+        n = A.shape[0]
+        One = np.ones([n])
+        x = One/ n
+        PE = [] 
+        alpha = 0.95 
+        for _ in range(pe_dim): 
+            x = alpha* P.dot(x) + (1.0-alpha)/n* One 
+            PE.append(torch.from_numpy(x).float())
+        PE = torch.stack(PE,dim=-1)
+        g.ndata['pe'] = PE  
 
     return g
+
 
 def timedelta_to_str(delta):
     hours, remainder = divmod(delta.seconds, 3600)
