@@ -3,6 +3,8 @@ import os
 import pickle
 import random
 from tqdm import tqdm 
+import collections
+
 
 import torch
 import torch.nn.functional as F
@@ -27,6 +29,32 @@ def predict_new(model, graph, succs, preds, edges, device):
     return walks
     # or (later) translate walks into sequences
     # what with the sequences? Store into FASTA ofc
+
+
+def decode_neurips(graph, edges_p, neighbors, predecessors, edges):
+    # Choose starting node for the first time
+    walks = []
+    visited = set()
+    # ----- Modify this later ------
+    all_nodes = {n.item() for n in graph.nodes()}
+    correct_nodes = {n for n in range(graph.num_nodes()) if graph.ndata['y'][n] == 1}
+    potential_nodes = correct_nodes
+    # ------------------------------
+    while True:
+        potential_nodes = potential_nodes - visited
+        start = get_random_start(potential_nodes)
+        if start is None:
+            break
+        visited.add(start)
+        visited.add(start ^ 1)
+        walk_f, visited_f = walk_forwards(start, edges_p, neighbors, edges, visited)
+        walk_b, visited_b = walk_backwards(start, edges_p, predecessors, edges, visited)
+        walk = walk_b[:-1] + [start] + walk_f[1:]
+        visited = visited | visited_f | visited_b
+        walks.append(walk)
+    walks = sorted(walks, key=lambda x: len(x))
+    return walks
+
 
 
 def decode_new(graph, edges_p, neighbors, predecessors, edges):
@@ -64,11 +92,12 @@ def get_random_start(potential_nodes, nodes_p=None):
     return start
 
 
-def walk_forwards(start, edges_p, neighbors, edges, visited):
+def walk_forwards(start, edges_p, neighbors, edges, visited_old):
     current = start
     walk = []
+    visited = set()
     while True:
-        if current in visited and walk:
+        if current in visited | visited_old and walk:
             break
         walk.append(current)
         visited.add(current)
@@ -88,11 +117,12 @@ def walk_forwards(start, edges_p, neighbors, edges, visited):
     return walk, visited
 
 
-def walk_backwards(start, edges_p, predecessors, edges, visited):
+def walk_backwards(start, edges_p, predecessors, edges, visited_old):
     current = start
     walk = []
+    visited = set()
     while True:
-        if current in visited and walk:
+        if current in visited | visited_old and walk:
             break
         walk.append(current)
         visited.add(current)
@@ -251,6 +281,123 @@ def analyze(graph, gnn_paths, greedy_paths, out, ref_length):
         txt_output(f,f'N50:\t{n50_greedy}')
         ng50_greedy = calculate_NG50(greedy_contig_lengths, ref_length)
         txt_output(f,f'NG50:\t{ng50_greedy}')
+
+
+
+def test_walk_neurips(data_path, model_path, device):
+    hyperparameters = get_hyperparameters()
+    seed = hyperparameters['seed']
+    num_epochs = hyperparameters['num_epochs']
+    num_gnn_layers = hyperparameters['num_gnn_layers']
+    hidden_features = hyperparameters['dim_latent']
+    #batch_size = hyperparameters['batch_size']
+    batch_size_train = hyperparameters['batch_size_train']
+    batch_size_eval = hyperparameters['batch_size_eval']
+    nb_pos_enc = hyperparameters['nb_pos_enc']
+    num_parts_metis_train = hyperparameters['num_parts_metis_train']
+    num_parts_metis_eval = hyperparameters['num_parts_metis_eval']
+    num_decoding_paths = hyperparameters['num_decoding_paths']
+    num_contigs = hyperparameters['num_contigs']
+    patience = hyperparameters['patience']
+    lr = hyperparameters['lr']
+    # device = hyperparameters['device']
+    use_reads = hyperparameters['use_reads']
+    use_amp = hyperparameters['use_amp']
+    batch_norm = hyperparameters['batch_norm']
+    node_features = hyperparameters['node_features']
+    edge_features = hyperparameters['edge_features']
+    hidden_edge_features = hyperparameters['hidden_edge_features']
+    hidden_edge_scores = hyperparameters['hidden_edge_scores']
+    decay = hyperparameters['decay']
+    pos_to_neg_ratio = hyperparameters['pos_to_neg_ratio']
+
+    model = models.GraphGatedGCNModel(node_features, edge_features, hidden_features, hidden_edge_features, num_gnn_layers, hidden_edge_scores, batch_norm, nb_pos_enc)
+    model.load_state_dict(torch.load(model_path, map_location=torch.device(device)))
+    ds = AssemblyGraphDataset(data_path, nb_pos_enc=nb_pos_enc)
+
+    for idx, g in ds:
+        with torch.no_grad():
+            g = g.to(device)
+            x = g.ndata['x'].to(device)
+            e = g.edata['e'].to(device)
+            pe = g.ndata['pe'].to(device)
+            pe_in = g.ndata['in_deg'].unsqueeze(1).to(device)
+            pe_out = g.ndata['out_deg'].unsqueeze(1).to(device)
+            pe = torch.cat((pe_in, pe_out, pe), dim=1)
+            edge_predictions = model(g, x, e, pe)
+            g.edata['score'] = edge_predictions.squeeze()
+        
+        succs = pickle.load(open(f'{data_path}/info/{idx}_succ.pkl', 'rb'))
+        preds = pickle.load(open(f'{data_path}/info/{idx}_pred.pkl', 'rb'))
+        edges = pickle.load(open(f'{data_path}/info/{idx}_edges.pkl', 'rb'))
+
+        g = dgl.remove_self_loop(g)
+        all_contigs = []
+        all_contigs_len = []
+        nb_paths = 10
+
+        n_original_g = g.num_nodes(); self_nodes = torch.arange(n_original_g, dtype=torch.int32).to(device)
+
+        visited = set()
+
+        for idx_contig in range(10):
+            if not all_contigs:
+                remove_node_idx = torch.LongTensor([])
+            else:
+                remove_node_idx = torch.LongTensor([item for sublist in all_contigs for item in sublist])
+            list_node_idx = torch.arange(g.num_nodes())
+            keep_node_idx = torch.ones(g.num_nodes())
+            keep_node_idx[remove_node_idx] = 0
+            keep_node_idx = list_node_idx[keep_node_idx==1].int().to(device)
+            print(f'idx_contig: {idx_contig}, nb_processed_nodes: {n_original_g-keep_node_idx.size(0)}, nb_remaining_nodes: {keep_node_idx.size(0)}, nb_original_nodes: {n_original_g}')
+            sub_g = dgl.node_subgraph(g, keep_node_idx, store_ids=True)
+            sub_g.ndata['idx_nodes'] = torch.arange(sub_g.num_nodes()).to(device)
+            n_sub_g = sub_g.num_nodes()
+            print(f'nb of nodes sub-graph: {n_sub_g}')
+            map_subg_to_g = sub_g.ndata[dgl.NID]
+            prob_edges = torch.sigmoid(sub_g.edata['score']).squeeze()
+            prob_edges = prob_edges.masked_fill(prob_edges<1e-9, 1e-9)
+            prob_edges = prob_edges/ prob_edges.sum()
+            prob_edges_nb_paths = prob_edges.repeat(nb_paths, 1)
+            idx_edges = torch.distributions.categorical.Categorical(prob_edges_nb_paths).sample()
+            all_walks = []
+
+            for idx in idx_edges:
+                src_init_edges = sub_g.edges()[0][idx].item()
+                dst_init_edges = sub_g.edges()[1][idx].item()
+                print(src_init_edges, dst_init_edges, succs[src_init_edges], preds[dst_init_edges], (src_init_edges, dst_init_edges) in edges)
+                src_init_edges = map_subg_to_g[src_init_edges].item()
+                dst_init_edges = map_subg_to_g[dst_init_edges].item()
+
+                print(src_init_edges, dst_init_edges, succs[src_init_edges], preds[dst_init_edges], (src_init_edges, dst_init_edges) in edges)
+                # get forwards path
+                walk_f, visited_f = walk_forwards(src_init_edges, g.edata['score'], succs, edges, visited)
+                # get backwards path
+                walk_b, visited_b = walk_backwards(dst_init_edges, g.edata['score'], preds, edges, visited)
+                walk = list(reversed(walk_b)) + walk_f
+                all_walks.append(walk)
+            best_walk = max(all_walks, key=lambda x: len(x))
+            all_contigs.append(best_walk)
+            all_contigs_len.append(len(best_walk))
+            print(all_contigs_len)
+            visited |= set(best_walk)
+
+        return all_contigs, all_contigs_len
+                
+
+
+
+   
+
+        visited = set()
+        edge_predictions = edge_predictions.squeeze(-1)
+        value, idx = torch.topk(edge_predictions, k=1)
+        # start = start.item()
+        start_b, start_f = g.edges()[0][idx].item(), g.edges()[1][idx].item()
+        print(value, idx, start_b, start_f)
+        walk_f, visited_f = walk_forwards(start_f, edge_predictions, succs, edges, visited)
+        walk_b, visited_b = walk_backwards(start_b, edge_predictions, preds, edges, visited_f)
+        print(len(walk_f), len(walk_b))
 
 
 
