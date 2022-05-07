@@ -82,14 +82,14 @@ def decode_new(graph, edges_p, neighbors, predecessors, edges):
     return walks
     
 
-def get_random_start(potential_nodes, nodes_p=None):
-    # potential_nodes = {n.item() for n in graph.nodes()}
-    if len(potential_nodes) < 10:
-        return None
-    potential_nodes = potential_nodes
-    start = random.sample(potential_nodes, 1)[0]
-    # start = max(potential_nodes_p)
-    return start
+# def get_random_start(potential_nodes, nodes_p=None):
+#     # potential_nodes = {n.item() for n in graph.nodes()}
+#     if len(potential_nodes) < 10:
+#         return None
+#     potential_nodes = potential_nodes
+#     start = random.sample(potential_nodes, 1)[0]
+#     # start = max(potential_nodes_p)
+#     return start
 
 
 def walk_forwards(start, edges_p, neighbors, edges, visited_old):
@@ -97,7 +97,8 @@ def walk_forwards(start, edges_p, neighbors, edges, visited_old):
     walk = []
     visited = set()
     while True:
-        if current in visited | visited_old and walk:
+        all_visited = visited | visited_old
+        if current in all_visited:
             break
         walk.append(current)
         visited.add(current)
@@ -107,13 +108,12 @@ def walk_forwards(start, edges_p, neighbors, edges, visited_old):
         if len(neighbors[current]) == 1:
             current = neighbors[current][0]
             continue
-        neighbor_edges = [edges[current, n] for n in neighbors[current] if n not in visited]
+        neighbor_edges = [edges[current, n] for n in neighbors[current] if n not in all_visited]
         if not neighbor_edges:
             break
         neighbor_p = edges_p[neighbor_edges]
         _, index = torch.topk(neighbor_p, k=1, dim=0)
-        choice = neighbors[current][index]
-        current = choice
+        current = neighbors[current][index]
     return walk, visited
 
 
@@ -122,7 +122,8 @@ def walk_backwards(start, edges_p, predecessors, edges, visited_old):
     walk = []
     visited = set()
     while True:
-        if current in visited | visited_old and walk:
+        all_visited = visited | visited_old
+        if current in all_visited:
             break
         walk.append(current)
         visited.add(current)
@@ -132,78 +133,77 @@ def walk_backwards(start, edges_p, predecessors, edges, visited_old):
         if len(predecessors[current]) == 1:
             current = predecessors[current][0]
             continue
-        neighbor_edges = [edges[n, current] for n in predecessors[current] if n not in visited]
+        neighbor_edges = [edges[n, current] for n in predecessors[current] if n not in all_visited]
         if not neighbor_edges:
             break
         neighbor_p = edges_p[neighbor_edges]
         _, index = torch.topk(neighbor_p, k=1, dim=0)
-        choice = predecessors[current][index]
-        current = choice
+        current = predecessors[current][index]
     walk = list(reversed(walk))
     return walk, visited
 
 
-def predict_old(model, graph, pred, neighbors, reads, edges):
-    starts = [k for k,v in pred.items() if len(v)==0 and graph.ndata['read_strand'][k]==1]
-    
-    components = algorithms.get_components(graph, neighbors, pred)
-    # components = [c for c in components if len(c) >= 10]  # For some reason components are not split properly so I should leave this line out
-    components = sorted(components, key=lambda x: -len(x))
-    walks = []
+# def predict_old(model, graph, pred, neighbors, reads, edges):
+#     starts = [k for k,v in pred.items() if len(v)==0 and graph.ndata['read_strand'][k]==1]
+#     
+#     components = algorithms.get_components(graph, neighbors, pred)
+#     # components = [c for c in components if len(c) >= 10]  # For some reason components are not split properly so I should leave this line out
+#     components = sorted(components, key=lambda x: -len(x))
+#     walks = []
+# 
+#     logits = model(graph, reads)
+# 
+#     for i, component in enumerate(components):
+#         try:
+#             start_nodes = [node for node in component if len(pred[node]) == 0 and graph.ndata['read_strand'][node] == 1]
+#             start = min(start_nodes, key=lambda x: graph.ndata['read_start'][x])  # TODO: Wait a sec, 'read_start' shouldn't be used!!
+#             walk = decode_old(neighbors, edges, start, logits)
+#             walks.append(walk)
+#         except ValueError:
+#             # Negative strand
+#             # TODO: Solve later
+#             pass
+# 
+#     walks = sorted(walks, key=lambda x: -len(x))
+#     final = [walks[0]]
+# 
+#     if len(walks) > 1:
+#         all_nodes = set(walks[0])
+#         for w in walks[1:]:
+#             if len(w) < 10:
+#                 continue
+#             if len(set(w) & all_nodes) == 0:
+#                 final.append(w)
+#                 all_nodes = all_nodes | set(w)
+# 
+#     return final
 
-    logits = model(graph, reads)
 
-    for i, component in enumerate(components):
-        try:
-            start_nodes = [node for node in component if len(pred[node]) == 0 and graph.ndata['read_strand'][node] == 1]
-            start = min(start_nodes, key=lambda x: graph.ndata['read_start'][x])  # TODO: Wait a sec, 'read_start' shouldn't be used!!
-            walk = decode_old(neighbors, edges, start, logits)
-            walks.append(walk)
-        except ValueError:
-            # Negative strand
-            # TODO: Solve later
-            pass
-
-    walks = sorted(walks, key=lambda x: -len(x))
-    final = [walks[0]]
-
-    if len(walks) > 1:
-        all_nodes = set(walks[0])
-        for w in walks[1:]:
-            if len(w) < 10:
-                continue
-            if len(set(w) & all_nodes) == 0:
-                final.append(w)
-                all_nodes = all_nodes | set(w)
-
-    return final
-
-
-def decode_old(neighbors, edges, start, logits):
-    current = start
-    visited = set()
-    walk = []
-
-    while True:
-        if current in visited:
-            break
-        walk.append(current)
-        visited.add(current)
-        visited.add(current ^ 1)
-        if len(neighbors[current]) == 0:
-            break
-        if len(neighbors[current]) == 1:
-            current = neighbors[current][0]
-            continue
-
-        neighbor_edges = [edges[current, n] for n in neighbors[current]]
-        neighbor_logits = logits.squeeze(1)[neighbor_edges]
-
-        _, index = torch.topk(neighbor_logits, k=1, dim=0)
-        choice = neighbors[current][index]
-        current = choice
-
-    return walk
+# def decode_old(neighbors, edges, start, logits):
+#     current = start
+#     visited = set()
+#     walk = []
+# 
+#     while True:
+#         if current in visited:
+#             break
+#         walk.append(current)
+#         visited.add(current)
+#         visited.add(current ^ 1)
+#         if len(neighbors[current]) == 0:
+#             break
+#         if len(neighbors[current]) == 1:
+#             current = neighbors[current][0]
+#             continue
+# 
+#         neighbor_edges = [edges[current, n] for n in neighbors[current]]
+#         neighbor_logits = logits.squeeze(1)[neighbor_edges]
+# 
+#         _, index = torch.topk(neighbor_logits, k=1, dim=0)
+#         choice = neighbors[current][index]
+#         current = choice
+# 
+#     return walk
 
 
 # def calculate_N50(list_of_lengths):
@@ -339,35 +339,36 @@ def test_walk_neurips(data_path, model_path, device):
         preds = pickle.load(open(f'{data_path}/info/{idx}_pred.pkl', 'rb'))
         edges = pickle.load(open(f'{data_path}/info/{idx}_edges.pkl', 'rb'))
 
+        # walk = ...
+
         # Get contigs for one graph
         g = dgl.remove_self_loop(g)
         all_contigs = []
         all_contigs_len = []
-        nb_paths = 10
-        num_contigs = 10
+        nb_paths = 20
 
-        n_original_g = g.num_nodes()
-        # self_nodes = torch.arange(n_original_g, dtype=torch.int32).to(device)
+        # n_original_g = g.num_nodes()
 
         visited = set()
-
+        idx_contig = -1
         while True:
+            idx_contig += 1
             if not all_contigs:
                 remove_node_idx = torch.LongTensor([])
             else:
-                remove_node_idx = torch.LongTensor([item for sublist in all_contigs for item in sublist])
+                # remove_node_idx = torch.LongTensor([item for sublist in all_contigs for item in sublist])
+                remove_node_idx = torch.LongTensor([item for item in visited])
 
             list_node_idx = torch.arange(g.num_nodes())
             keep_node_idx = torch.ones(g.num_nodes())
             keep_node_idx[remove_node_idx] = 0
             keep_node_idx = list_node_idx[keep_node_idx==1].int().to(device)
-            print(f'idx_contig: {idx_contig}, nb_processed_nodes: {n_original_g-keep_node_idx.size(0)}, \
-                    nb_remaining_nodes: {keep_node_idx.size(0)}, nb_original_nodes: {n_original_g}')
+            print(f'\nidx_contig: {idx_contig}, nb_processed_nodes: {g.num_nodes() - keep_node_idx.size(0)}, ' \
+                  f'nb_remaining_nodes: {keep_node_idx.size(0)}, nb_original_nodes: {g.num_nodes()}')
 
             sub_g = dgl.node_subgraph(g, keep_node_idx, store_ids=True)
             sub_g.ndata['idx_nodes'] = torch.arange(sub_g.num_nodes()).to(device)
-            n_sub_g = sub_g.num_nodes()
-            print(f'nb of nodes sub-graph: {n_sub_g}')
+            print(f'nb of nodes sub-graph: {sub_g.num_nodes()}')
 
             map_subg_to_g = sub_g.ndata[dgl.NID]
             prob_edges = torch.sigmoid(sub_g.edata['score']).squeeze()
@@ -379,20 +380,18 @@ def test_walk_neurips(data_path, model_path, device):
 
             # Get nb_paths paths for a single iteration - we take the longest one
             for idx in idx_edges:
-                src_init_edges = sub_g.edges()[0][idx].item()
-                dst_init_edges = sub_g.edges()[1][idx].item()
-                print(src_init_edges, dst_init_edges, succs[src_init_edges], preds[dst_init_edges], (src_init_edges, dst_init_edges) in edges)
-
-                src_init_edges = map_subg_to_g[src_init_edges].item()
-                dst_init_edges = map_subg_to_g[dst_init_edges].item()
-                print(src_init_edges, dst_init_edges, succs[src_init_edges], preds[dst_init_edges], (src_init_edges, dst_init_edges) in edges)
+                src_init_edges = map_subg_to_g[sub_g.edges()[0][idx]].item()
+                dst_init_edges = map_subg_to_g[sub_g.edges()[1][idx]].item()
+                # print(src_init_edges, dst_init_edges, succs[src_init_edges], preds[dst_init_edges], (src_init_edges, dst_init_edges) in edges)
 
                 # get forwards path
-                walk_f, visited_f = walk_forwards(src_init_edges, g.edata['score'], succs, edges, visited)
+                walk_f, visited_f = walk_forwards(dst_init_edges, g.edata['score'], succs, edges, visited)
                 # get backwards path
-                walk_b, visited_b = walk_backwards(dst_init_edges, g.edata['score'], preds, edges, visited | visited_f)
-                walk = list(reversed(walk_b)) + walk_f
+                walk_b, visited_b = walk_backwards(src_init_edges, g.edata['score'], preds, edges, visited | visited_f)
+                # concatenate two paths
+                walk = walk_b + walk_f
                 all_walks.append(walk)
+                print(f'src={src_init_edges} dst={dst_init_edges} len_f={len(walk_f)} len_b={(len(walk_b))}')
 
             best_walk = max(all_walks, key=lambda x: len(x))
             if len(best_walk) < 50:
@@ -404,9 +403,15 @@ def test_walk_neurips(data_path, model_path, device):
             print(all_contigs_len)
             visited = visited | set(best_walk) | set([n^1 for n in best_walk])
 
+
         #  This is for just one graph
         contigs_per_graph.append(all_contigs)
-        # return all_contigs, all_contigs_len
+
+        inference_dir = os.path.join(data_path, 'inference')
+        if not os.path.isdir(inference_dir):
+            os.mkdir(inference_dir)
+        inference_path = os.path.join(inference_dir, f'{idx}_contigs.pkl')
+        pickle.dump(all_contigs, open(f'{inference_path}', 'wb'))
 
     return contigs_per_graph
 
