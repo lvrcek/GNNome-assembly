@@ -206,81 +206,81 @@ def decode_old(neighbors, edges, start, logits):
     return walk
 
 
-def calculate_N50(list_of_lengths):
-    """Calculate N50 for a sequence of numbers.
-    Args:
-        list_of_lengths (list): List of numbers.
-    Returns:
-        float: N50 value.
-    """
-    tmp = []
-    for tmp_number in set(list_of_lengths):
-        tmp += [tmp_number] * list_of_lengths.count(tmp_number) * tmp_number
-    tmp.sort()
+# def calculate_N50(list_of_lengths):
+#     """Calculate N50 for a sequence of numbers.
+#     Args:
+#         list_of_lengths (list): List of numbers.
+#     Returns:
+#         float: N50 value.
+#     """
+#     tmp = []
+#     for tmp_number in set(list_of_lengths):
+#         tmp += [tmp_number] * list_of_lengths.count(tmp_number) * tmp_number
+#     tmp.sort()
 
-    if (len(tmp) % 2) == 0:
-        median = (tmp[int(len(tmp) / 2) - 1] + tmp[int(len(tmp) / 2)]) / 2
-    else:
-        median = tmp[int(len(tmp) / 2)]
+#     if (len(tmp) % 2) == 0:
+#         median = (tmp[int(len(tmp) / 2) - 1] + tmp[int(len(tmp) / 2)]) / 2
+#     else:
+#         median = tmp[int(len(tmp) / 2)]
 
-    return median
+#     return median
 
-def calculate_NG50(list_of_lengths, ref_length):
-    """Calculate N50 for a sequence of numbers.
-    Args:
-        list_of_lengths (list): List of numbers.
-    Returns:
-        float: N50 value.
-    """
-    if ref_length == 0:
-        return -1
-    list_of_lengths.sort(reverse=True)
-    total_bps = 0
-    for contig in list_of_lengths:
-        total_bps += contig
-        if total_bps > ref_length/2:
-            return contig
-    return -1
+# def calculate_NG50(list_of_lengths, ref_length):
+#     """Calculate N50 for a sequence of numbers.
+#     Args:
+#         list_of_lengths (list): List of numbers.
+#     Returns:
+#         float: N50 value.
+#     """
+#     if ref_length == 0:
+#         return -1
+#     list_of_lengths.sort(reverse=True)
+#     total_bps = 0
+#     for contig in list_of_lengths:
+#         total_bps += contig
+#         if total_bps > ref_length/2:
+#             return contig
+#     return -1
 
-def txt_output(f, txt):
-    print(f'\t{txt}')
-    f.write(f'\t{txt}\n')
+# def txt_output(f, txt):
+#     print(f'\t{txt}')
+#     f.write(f'\t{txt}\n')
 
-def analyze(graph, gnn_paths, greedy_paths, out, ref_length):
-    with open(f'{out}/analysis.txt', 'w') as f:
-        # f.write(f'Chromosome total length:\t\n')
-        #print(out.split("/"), out.split("/")[-2])
-        gnn_contig_lengths = []
-        for path in gnn_paths:
-            contig_len = graph.ndata["read_end"][path[-1]] - graph.ndata["read_start"][path[0]]
-            gnn_contig_lengths.append(abs(contig_len).item())
-        txt_output(f, 'GNN: ')
-        txt_output(f, f'Contigs: \t{gnn_contig_lengths}')
-        txt_output(f,f'Contigs amount:\t{len(gnn_contig_lengths)}')
-        txt_output(f,f'Longest Contig:\t{max(gnn_contig_lengths)}')
-        txt_output(f,f'Reconstructed:\t{sum(gnn_contig_lengths)}')
-        txt_output(f,f'Percentage:\t{sum(gnn_contig_lengths)/ref_length*100}')
-        n50_gnn = calculate_N50(gnn_contig_lengths)
-        txt_output(f,f'N50:\t{n50_gnn}')
-        ng50_gnn = calculate_NG50(gnn_contig_lengths, ref_length)
-        txt_output(f,f'NG50:\t{ng50_gnn}')
+# def analyze(graph, gnn_paths, greedy_paths, out, ref_length):
+#     with open(f'{out}/analysis.txt', 'w') as f:
+#         # f.write(f'Chromosome total length:\t\n')
+#         #print(out.split("/"), out.split("/")[-2])
+#         gnn_contig_lengths = []
+#         for path in gnn_paths:
+#             contig_len = graph.ndata["read_end"][path[-1]] - graph.ndata["read_start"][path[0]]
+#             gnn_contig_lengths.append(abs(contig_len).item())
+#         txt_output(f, 'GNN: ')
+#         txt_output(f, f'Contigs: \t{gnn_contig_lengths}')
+#         txt_output(f,f'Contigs amount:\t{len(gnn_contig_lengths)}')
+#         txt_output(f,f'Longest Contig:\t{max(gnn_contig_lengths)}')
+#         txt_output(f,f'Reconstructed:\t{sum(gnn_contig_lengths)}')
+#         txt_output(f,f'Percentage:\t{sum(gnn_contig_lengths)/ref_length*100}')
+#         n50_gnn = calculate_N50(gnn_contig_lengths)
+#         txt_output(f,f'N50:\t{n50_gnn}')
+#         ng50_gnn = calculate_NG50(gnn_contig_lengths, ref_length)
+#         txt_output(f,f'NG50:\t{ng50_gnn}')
 
 
-        txt_output(f,f'Greedy paths:\t{len(greedy_paths)}\n')
-        greedy_contig_lengths = []
-        for path in greedy_paths:
-            contig_len = graph.ndata["read_end"][path[-1]] - graph.ndata["read_start"][path[0]]
-            greedy_contig_lengths.append(abs(contig_len).item())
-        txt_output(f, 'Greedy: ')
-        txt_output(f, f'Contigs: \t{greedy_contig_lengths}')
-        txt_output(f,f'Contigs amount:\t{len(greedy_contig_lengths)}')
-        txt_output(f,f'Longest Contig:\t{max(greedy_contig_lengths)}')
-        txt_output(f,f'Reconstructed:\t{sum(greedy_contig_lengths)}')
-        txt_output(f,f'Percentage:\t{sum(greedy_contig_lengths)/ref_length*100}')
-        n50_greedy = calculate_N50(greedy_contig_lengths)
-        txt_output(f,f'N50:\t{n50_greedy}')
-        ng50_greedy = calculate_NG50(greedy_contig_lengths, ref_length)
-        txt_output(f,f'NG50:\t{ng50_greedy}')
+#         txt_output(f,f'Greedy paths:\t{len(greedy_paths)}\n')
+#         greedy_contig_lengths = []
+#         for path in greedy_paths:
+#             contig_len = graph.ndata["read_end"][path[-1]] - graph.ndata["read_start"][path[0]]
+#             greedy_contig_lengths.append(abs(contig_len).item())
+#         txt_output(f, 'Greedy: ')
+#         txt_output(f, f'Contigs: \t{greedy_contig_lengths}')
+#         txt_output(f,f'Contigs amount:\t{len(greedy_contig_lengths)}')
+#         txt_output(f,f'Longest Contig:\t{max(greedy_contig_lengths)}')
+#         txt_output(f,f'Reconstructed:\t{sum(greedy_contig_lengths)}')
+#         txt_output(f,f'Percentage:\t{sum(greedy_contig_lengths)/ref_length*100}')
+#         n50_greedy = calculate_N50(greedy_contig_lengths)
+#         txt_output(f,f'N50:\t{n50_greedy}')
+#         ng50_greedy = calculate_NG50(greedy_contig_lengths, ref_length)
+#         txt_output(f,f'NG50:\t{ng50_greedy}')
 
 
 
@@ -311,11 +311,18 @@ def test_walk_neurips(data_path, model_path, device):
     decay = hyperparameters['decay']
     pos_to_neg_ratio = hyperparameters['pos_to_neg_ratio']
 
+    device = 'cpu'
+    # train_path = data_path/train
+    # valid_path = data_path/valid
+    # ...
+
     model = models.GraphGatedGCNModel(node_features, edge_features, hidden_features, hidden_edge_features, num_gnn_layers, hidden_edge_scores, batch_norm, nb_pos_enc)
     model.load_state_dict(torch.load(model_path, map_location=torch.device(device)))
     ds = AssemblyGraphDataset(data_path, nb_pos_enc=nb_pos_enc)
 
+    contigs_per_graph = []
     for idx, g in ds:
+        # Get scores
         with torch.no_grad():
             g = g.to(device)
             x = g.ndata['x'].to(device)
@@ -327,33 +334,41 @@ def test_walk_neurips(data_path, model_path, device):
             edge_predictions = model(g, x, e, pe)
             g.edata['score'] = edge_predictions.squeeze()
         
+        # Load info data
         succs = pickle.load(open(f'{data_path}/info/{idx}_succ.pkl', 'rb'))
         preds = pickle.load(open(f'{data_path}/info/{idx}_pred.pkl', 'rb'))
         edges = pickle.load(open(f'{data_path}/info/{idx}_edges.pkl', 'rb'))
 
+        # Get contigs for one graph
         g = dgl.remove_self_loop(g)
         all_contigs = []
         all_contigs_len = []
         nb_paths = 10
+        num_contigs = 10
 
-        n_original_g = g.num_nodes(); self_nodes = torch.arange(n_original_g, dtype=torch.int32).to(device)
+        n_original_g = g.num_nodes()
+        # self_nodes = torch.arange(n_original_g, dtype=torch.int32).to(device)
 
         visited = set()
 
-        for idx_contig in range(10):
+        while True:
             if not all_contigs:
                 remove_node_idx = torch.LongTensor([])
             else:
                 remove_node_idx = torch.LongTensor([item for sublist in all_contigs for item in sublist])
+
             list_node_idx = torch.arange(g.num_nodes())
             keep_node_idx = torch.ones(g.num_nodes())
             keep_node_idx[remove_node_idx] = 0
             keep_node_idx = list_node_idx[keep_node_idx==1].int().to(device)
-            print(f'idx_contig: {idx_contig}, nb_processed_nodes: {n_original_g-keep_node_idx.size(0)}, nb_remaining_nodes: {keep_node_idx.size(0)}, nb_original_nodes: {n_original_g}')
+            print(f'idx_contig: {idx_contig}, nb_processed_nodes: {n_original_g-keep_node_idx.size(0)}, \
+                    nb_remaining_nodes: {keep_node_idx.size(0)}, nb_original_nodes: {n_original_g}')
+
             sub_g = dgl.node_subgraph(g, keep_node_idx, store_ids=True)
             sub_g.ndata['idx_nodes'] = torch.arange(sub_g.num_nodes()).to(device)
             n_sub_g = sub_g.num_nodes()
             print(f'nb of nodes sub-graph: {n_sub_g}')
+
             map_subg_to_g = sub_g.ndata[dgl.NID]
             prob_edges = torch.sigmoid(sub_g.edata['score']).squeeze()
             prob_edges = prob_edges.masked_fill(prob_edges<1e-9, 1e-9)
@@ -362,104 +377,100 @@ def test_walk_neurips(data_path, model_path, device):
             idx_edges = torch.distributions.categorical.Categorical(prob_edges_nb_paths).sample()
             all_walks = []
 
+            # Get nb_paths paths for a single iteration - we take the longest one
             for idx in idx_edges:
                 src_init_edges = sub_g.edges()[0][idx].item()
                 dst_init_edges = sub_g.edges()[1][idx].item()
                 print(src_init_edges, dst_init_edges, succs[src_init_edges], preds[dst_init_edges], (src_init_edges, dst_init_edges) in edges)
+
                 src_init_edges = map_subg_to_g[src_init_edges].item()
                 dst_init_edges = map_subg_to_g[dst_init_edges].item()
-
                 print(src_init_edges, dst_init_edges, succs[src_init_edges], preds[dst_init_edges], (src_init_edges, dst_init_edges) in edges)
+
                 # get forwards path
                 walk_f, visited_f = walk_forwards(src_init_edges, g.edata['score'], succs, edges, visited)
                 # get backwards path
-                walk_b, visited_b = walk_backwards(dst_init_edges, g.edata['score'], preds, edges, visited)
+                walk_b, visited_b = walk_backwards(dst_init_edges, g.edata['score'], preds, edges, visited | visited_f)
                 walk = list(reversed(walk_b)) + walk_f
                 all_walks.append(walk)
+
             best_walk = max(all_walks, key=lambda x: len(x))
+            if len(best_walk) < 50:
+                break
+
+            # If longest contig is longer than 50 (arbitrary threshold), add it and continue, else break
             all_contigs.append(best_walk)
             all_contigs_len.append(len(best_walk))
             print(all_contigs_len)
-            visited |= set(best_walk)
+            visited = visited | set(best_walk) | set([n^1 for n in best_walk])
 
-        return all_contigs, all_contigs_len
-                
+        #  This is for just one graph
+        contigs_per_graph.append(all_contigs)
+        # return all_contigs, all_contigs_len
 
-
-
-   
-
-        visited = set()
-        edge_predictions = edge_predictions.squeeze(-1)
-        value, idx = torch.topk(edge_predictions, k=1)
-        # start = start.item()
-        start_b, start_f = g.edges()[0][idx].item(), g.edges()[1][idx].item()
-        print(value, idx, start_b, start_f)
-        walk_f, visited_f = walk_forwards(start_f, edge_predictions, succs, edges, visited)
-        walk_b, visited_b = walk_backwards(start_b, edge_predictions, preds, edges, visited_f)
-        print(len(walk_f), len(walk_b))
+    return contigs_per_graph
 
 
 
-def test_walk(data_path, model_path,  device):
-    hyperparameters = get_hyperparameters()
-    # device = hyperparameters['device']
-    dim_latent = hyperparameters['dim_latent']
-    num_gnn_layers = hyperparameters['num_gnn_layers']
-    # use_reads = hyperparameters['use_reads']
+# def test_walk(data_path, model_path,  device):
+#     hyperparameters = get_hyperparameters()
+#     # device = hyperparameters['device']
+#     dim_latent = hyperparameters['dim_latent']
+#     num_gnn_layers = hyperparameters['num_gnn_layers']
+#     # use_reads = hyperparameters['use_reads']
 
-    # node_dim = hyperparameters['node_features']
-    # edge_dim = hyperparameters['edge_dim']
+#     # node_dim = hyperparameters['node_features']
+#     # edge_dim = hyperparameters['edge_dim']
 
-    # if model_path is None:
-    #     model_path = 'pretrained/model_32d_8l.pt'  # Best performing model
-    model = models.BlockGatedGCNModel(1, 2, 128, 4).to(device)
-    model.load_state_dict(torch.load(model_path, map_location=torch.device(device)))
-    # model.eval()
+#     # if model_path is None:
+#     #     model_path = 'pretrained/model_32d_8l.pt'  # Best performing model
+#     model = models.BlockGatedGCNModel(1, 2, 128, 4).to(device)
+#     model.load_state_dict(torch.load(model_path, map_location=torch.device(device)))
+#     # model.eval()
 
-    ds = AssemblyGraphDataset(data_path)
+#     ds = AssemblyGraphDataset(data_path)
 
-    # info_all = load_graph_data(len(ds), data_path, False)
+#     # info_all = load_graph_data(len(ds), data_path, False)
 
-    idx, g = ds[0]
-    sampler = dgl.dataloading.MultiLayerFullNeighborSampler(4)
-    graph_ids = torch.arange(g.num_edges()).int()
-    dl = dgl.dataloading.EdgeDataLoader(g, graph_ids, sampler, batch_size=4096*10, shuffle=False, drop_last=False)
-    logits = torch.tensor([]).to(device)
-    with torch.no_grad():
-        for input_nodes, edge_subgraph, blocks in tqdm(dl):
-            blocks = [b.to(device) for b in blocks]
-            edge_subgraph = edge_subgraph.to(device)
-            x = blocks[0].srcdata['x']
-            e_0 = blocks[0].edata['e']
-            e_subgraph = edge_subgraph.edata['e']
-            # print(x.squeeze(-1))
-            # print(e_0)
-            # print(e_subgraph)
-            p = model(edge_subgraph, blocks, x, e_0, e_subgraph).squeeze(-1)
-            # print(p)
-            # print(p.sum())
-            logits = torch.cat((logits, p), dim=0)
-    return logits
+#     idx, g = ds[0]
+#     sampler = dgl.dataloading.MultiLayerFullNeighborSampler(4)
+#     graph_ids = torch.arange(g.num_edges()).int()
+#     dl = dgl.dataloading.EdgeDataLoader(g, graph_ids, sampler, batch_size=4096*10, shuffle=False, drop_last=False)
+#     logits = torch.tensor([]).to(device)
+#     with torch.no_grad():
+#         for input_nodes, edge_subgraph, blocks in tqdm(dl):
+#             blocks = [b.to(device) for b in blocks]
+#             edge_subgraph = edge_subgraph.to(device)
+#             x = blocks[0].srcdata['x']
+#             e_0 = blocks[0].edata['e']
+#             e_subgraph = edge_subgraph.edata['e']
+#             # print(x.squeeze(-1))
+#             # print(e_0)
+#             # print(e_subgraph)
+#             p = model(edge_subgraph, blocks, x, e_0, e_subgraph).squeeze(-1)
+#             # print(p)
+#             # print(p.sum())
+#             logits = torch.cat((logits, p), dim=0)
+#     return logits
 
 
-def walk_to_sequence(data_path, walks, graph, reads, edges):
-    contigs = []
-    for i, walk in enumerate(walks):
-        sequence = ''
-        for src, dst in zip(walk[:-1], walk[1:]):
-            edge_id = edges[(src, dst)]
-            prefix = graph.edata['prefix_length'][edge_id].item()
-            sequence += reads[src][:prefix]
-        sequence += reads[walk[-1]]
-        sequence = SeqIO.SeqRecord(sequence)
-        sequence.id = f'contig_{i+1}'
-        sequence.description = f'length={len(sequence)}'
-        contigs.append(sequence)
-    if 'assembly' not in os.listdir(data_path):
-        os.mkdir(os.path.join(data_path, 'assembly'))
-    assembly_path = os.path.join(data_path, 'assembly', 'assembly.fasta')
-    SeqIO.write(contigs, path, 'fasta')
+# def walk_to_sequence(data_path, walks, graph, reads, edges):
+#     contigs = []
+#     for i, walk in enumerate(walks):
+#         sequence = ''
+#         for src, dst in zip(walk[:-1], walk[1:]):
+#             edge_id = edges[(src, dst)]
+#             prefix = graph.edata['prefix_length'][edge_id].item()
+#             sequence += reads[src][:prefix]
+#         sequence += reads[walk[-1]]
+#         sequence = SeqIO.SeqRecord(sequence)
+#         sequence.id = f'contig_{i+1}'
+#         sequence.description = f'length={len(sequence)}'
+#         contigs.append(sequence)
+#     if 'assembly' not in os.listdir(data_path):
+#         os.mkdir(os.path.join(data_path, 'assembly'))
+#     assembly_path = os.path.join(data_path, 'assembly', 'assembly.fasta')
+#     SeqIO.write(contigs, path, 'fasta')
 
 
 def inference(model_path=None, data_path=None):
@@ -513,7 +524,7 @@ def inference(model_path=None, data_path=None):
             baselines.append(baseline)
         pickle.dump(baselines, open(f'{inference_path}/{idx}_greedy.pkl', 'wb'))
 
-        analyze(graph, walks, baselines, inference_path)
+        # analyze(graph, walks, baselines, inference_path)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
