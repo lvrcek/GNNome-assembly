@@ -5,6 +5,33 @@ import dgl
 from Bio import SeqIO
 
 
+chr_lens = {
+    'chr1' : 248387328,
+    'chr2' : 242696752,
+    'chr3' : 201105948,
+    'chr4' : 193574945,
+    'chr5' : 182045439,
+    'chr6' : 172126628,
+    'chr7' : 160567428,
+    'chr8' : 146259331,
+    'chr9' : 150617247,
+    'chr10': 134758134,
+    'chr11': 135127769,
+    'chr12': 133324548,
+    'chr13': 113566686,
+    'chr14': 101161492,
+    'chr15': 99753195,
+    'chr16': 96330374,
+    'chr17': 84276897,
+    'chr18': 80542538,
+    'chr19': 61707364,
+    'chr20': 66210255,
+    'chr21': 45090682,
+    'chr22': 51324926,
+    'chrX' : 154259566,
+}
+
+
 def walk_to_sequence(walks, graph, reads, edges):
     contigs = []
     for i, walk in enumerate(walks):
@@ -30,88 +57,52 @@ def save_assembly(contigs, data_path, idx):
 
 
 def calculate_N50(contigs):
-    """Calculate N50 for a sequence of numbers.
+    """Calculate N50 for contigs.
     Args:
-        list_of_lengths (list): List of numbers.
+        list_of_lengths (list): List of SeqRecord objects.
     Returns:
         float: N50 value.
     """
-    list_of_lengths = [len(c) for c in contigs]
-    list_of_length.sort(reverse=True)
-    total_length = sum(list_of_lengths)
+    lengths_list = [len(c.seq) for c in contigs]
+    lengths_list.sort(reverse=True)
+    total_length = sum(lengths_list)
     total_bps = 0
-    if total_length <= 0:
-        return -1
-    for length in list_of_lengths:
+    for length in lengths_list:
         total_bps += length
-        if total_bps >= total_length/2:
+        if total_bps >= total_length / 2:
             return length
     return -1
 
 
-def calculate_N50_from_lengths(list_of_lengths):
-    """Calculate N50 for a sequence of numbers.
-    Args:
-        list_of_lengths (list): List of numbers.
-    Returns:
-        float: N50 value.
-    """
-    tmp = []
-    for tmp_number in set(list_of_lengths):
-        tmp += [tmp_number] * list_of_lengths.count(tmp_number) * tmp_number
-    tmp.sort()
-
-    if (len(tmp) % 2) == 0:
-        median = (tmp[int(len(tmp) / 2) - 1] + tmp[int(len(tmp) / 2)]) / 2
-    else:
-        median = tmp[int(len(tmp) / 2)]
-
-    return median
-
-
 def calculate_NG50(contigs, ref_length):
-    """Calculate N50 for contigs.
+    """Calculate NG50 for contigs.
     Args:
         list_of_lengths (list): List of SeqRecord objects.
     Returns:
         int: NG50 value.
     """
-    list_of_lengths = [len(c.seq) for c in contigs]
     if ref_length <= 0:
         return -1
-    list_of_lengths.sort(reverse=True)
+    lengths_list = [len(c.seq) for c in contigs]
+    lengths_list.sort(reverse=True)
     total_bps = 0
-    for length in list_of_lengths:
+    for length in lengths_list:
         total_bps += length
-        if total_bps >= ref_length/2:
+        if total_bps >= ref_length / 2:
             return length
     return -1
 
 
-
-def calculate_NG50_from_lengths(list_of_lengths, ref_length):
-    """Calculate N50 for a sequence of numbers.
-    Args:
-        list_of_lengths (list): List of numbers.
-    Returns:
-        float: N50 value.
-    """
-    if ref_length == 0:
-        return -1
-    list_of_lengths.sort(reverse=True)
-    total_bps = 0
-    for contig in list_of_lengths:
-        total_bps += contig
-        if total_bps > ref_length/2:
-            return contig
-    return -1
-
-
-def quick_evaluation(walks, graph, reads, edges):
+def quick_evaluation(walks, graph, reads, edges, chrN):
     contigs = walk_to_sequence(walks, graph, reads, edges)
+    chr_len = chr_lens[chrN]
+    lengths_list = [len(c.seq) for c in contigs]
+    num_contigs = len(contigs)
+    longest_contig = max(lengths_list)
+    reconstructed = sum(lengths_list) / chr_len
     n50 = calculate_N50(contigs)
-    ng50 = calculate_NG50(contigs, 0)  # How to pass which chromosome it is? Create another dictionary? ...
-    return n50, ng50
+    ng50 = calculate_NG50(contigs, chr_len)
+    return num_contigs, longest_contig, reconstructed, n50, ng50
 
 
 # def txt_output(f, txt):
@@ -155,6 +146,6 @@ def quick_evaluation(walks, graph, reads, edges):
 #         txt_output(f,f'NG50:\t{ng50_greedy}')
 
 
-def run_quest():
+def run_quast():
     ...
 

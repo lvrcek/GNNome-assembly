@@ -3,6 +3,7 @@ from datetime import datetime
 import copy
 import os
 from posixpath import split
+import pickle
 
 from tqdm import tqdm
 import numpy as np
@@ -21,8 +22,10 @@ from hyperparameters import get_hyperparameters
 import models
 import utils
 
-from algorithms import parallel_greedy_decoding
-import copy
+from algorithms import parallel_greedy_decoding, sequential_greedy_decoding
+from inference import get_contigs_for_one_graph
+from evaluate import quick_evaluation
+
 
 def save_checkpoint(epoch, model, optimizer, loss_train, loss_valid, out):
     checkpoint = {
@@ -141,6 +144,7 @@ def train(data, out, eval, overfit):
     hidden_edge_scores = hyperparameters['hidden_edge_scores']
     decay = hyperparameters['decay']
     pos_to_neg_ratio = hyperparameters['pos_to_neg_ratio']
+    wandb_mode = hyperparameters['wandb_mode']
 
     time_start = datetime.now()
     timestamp = time_start.strftime('%Y-%b-%d-%H-%M-%S')
@@ -220,7 +224,7 @@ def train(data, out, eval, overfit):
     acc_per_epoch_train, acc_per_epoch_valid = [], []
 
     try:
-        with wandb.init(project="GeNNome-neurips", config=hyperparameters):
+        with wandb.init(project="GeNNome-neurips", config=hyperparameters, mode=wandb_mode):
             wandb.watch(model, criterion, log='all', log_freq=1000)
 
             for epoch in range(num_epochs):
@@ -362,11 +366,11 @@ def train(data, out, eval, overfit):
                 print(f'Loss: {train_loss_all_graphs:.4f}, fp_rate(GT=0): {train_fp_rate_all_graphs:.4f}, fn_rate(GT=1): {train_fn_rate_all_graphs:.4f}')
                 print(f'lr_value: {lr_value:.6f}, elapsed time: {elapsed}\n')
 
-                try:
-                    wandb.log({'train_loss': train_loss_all_graphs, 'train_accuracy': train_acc_all_graphs, 'train_precision': train_precision_all_graphs, \
-                            'train_recall': train_recall_all_graphs, 'train_f1': train_f1_all_graphs, 'train_fp-rate': train_fp_rate_all_graphs, 'train_fn-rate': train_fn_rate_all_graphs, 'lr_value': lr_value})
-                except Exception:
-                    print(f'WandB exception occured!')
+                # try:
+                #     wandb.log({'train_loss': train_loss_all_graphs, 'train_accuracy': train_acc_all_graphs, 'train_precision': train_precision_all_graphs, \
+                #             'train_recall': train_recall_all_graphs, 'train_f1': train_f1_all_graphs, 'train_fp-rate': train_fp_rate_all_graphs, 'train_fn-rate': train_fn_rate_all_graphs, 'lr_value': lr_value})
+                # except Exception:
+                #     print(f'WandB exception occured!')
 
                 if overfit: # temp : one graph at the moment
                     if len(loss_per_epoch_train) > 1 and loss_per_epoch_train[-1] < min(loss_per_epoch_train[:-1]):
@@ -376,8 +380,8 @@ def train(data, out, eval, overfit):
                     save_checkpoint(epoch, model, optimizer, loss_per_epoch_train[-1], 0.0, out)
                     scheduler.step(train_loss_all_graphs)
 
-                #if not overfit:
-                if not epoch % 3 and epoch > 0: # DEBUG !!!!!!!!!!!!!
+                if True:  # TODO: if you're going to do validation every epoch just remove this
+                # if not epoch % 3 and epoch > 0: # DEBUG !!!!!!!!!!!!!
 
                     val_loss_all_graphs, val_fp_rate_all_graphs, val_fn_rate_all_graphs = [], [], []
                     val_acc_all_graphs, val_precision_all_graphs, val_recall_all_graphs, val_f1_all_graphs = [], [], [], []
@@ -510,9 +514,23 @@ def train(data, out, eval, overfit):
                         print(f'Loss: {val_loss_all_graphs:.4f}, fp_rate(GT=0): {val_fp_rate_all_graphs:.4f}, fn_rate(GT=1): {val_fn_rate_all_graphs:.4f}')
                         print(f'elapsed time: {elapsed}\n')
 
+
+                        # try:
+                        #     wandb.log({'train_loss': train_loss_all_graphs, 'train_accuracy': train_acc_all_graphs, 'train_precision': train_precision_all_graphs, \
+                        #             'train_recall': train_recall_all_graphs, 'train_f1': train_f1_all_graphs, 'train_fp-rate': train_fp_rate_all_graphs, 'train_fn-rate': train_fn_rate_all_graphs, 'lr_value': lr_value})
+                        # except Exception:
+                        #     print(f'WandB exception occured!')
+
+
                         try:
-                            wandb.log({'val_loss': val_loss_all_graphs, 'val_accuracy': val_acc_all_graphs, 'val_precision': val_precision_all_graphs, \
-                                    'val_recall': val_recall_all_graphs, 'val_f1': val_f1_all_graphs, 'val_fp-rate': val_fp_rate_all_graphs, 'val_fn-rate': val_fn_rate_all_graphs})
+                            wandb.log({'train_loss': train_loss_all_graphs, 'train_accuracy': train_acc_all_graphs, \
+                                       'train_precision': train_precision_all_graphs, 'lr_value': lr_value, \
+                                       'train_recall': train_recall_all_graphs, 'train_f1': train_f1_all_graphs, \
+                                       'train_fp-rate': train_fp_rate_all_graphs, 'train_fn-rate': train_fn_rate_all_graphs, \
+                                       'val_loss': val_loss_all_graphs, 'val_accuracy': val_acc_all_graphs, \
+                                       'val_precision': val_precision_all_graphs, \
+                                       'val_recall': val_recall_all_graphs, 'val_f1': val_f1_all_graphs, \
+                                       'val_fp-rate': val_fp_rate_all_graphs, 'val_fn-rate': val_fn_rate_all_graphs})
                         except Exception:
                             print(f'WandB exception occured!')
 
@@ -522,8 +540,48 @@ def train(data, out, eval, overfit):
                         save_checkpoint(epoch, model, optimizer, loss_per_epoch_train[-1], loss_per_epoch_valid[-1], out)
                         scheduler.step(val_loss_all_graphs)
 
-                # DECODING 
-                if (not epoch%100 or epoch+1==num_epochs) and epoch>0:
+                # DECODING : LV 
+                if (not epoch % 2 or epoch + 1 == num_epochs) and epoch > 0:
+                    print(f'\n=====>DECODING: Epoch = {epoch}')
+                    time_start_decoding = datetime.now()
+                    # device_cpu = torch.device('cpu')
+                    model.eval()
+                    for data in ds_valid:
+                        idx, g = data
+                        with torch.no_grad():
+                            g = g.int().to(device)
+                            x = g.ndata['x'].to(device) 
+                            e = g.edata['e'].to(device)
+                            pe = g.ndata['pe'].to(device)
+                            pe_in = g.ndata['in_deg'].unsqueeze(1).to(device)
+                            pe_out = g.ndata['out_deg'].unsqueeze(1).to(device)
+                            pe = torch.cat((pe_in, pe_out, pe), dim=1)
+                            edge_predictions = model(g, x, e, pe)
+                            g.edata['score'] = edge_predictions 
+                        succs = pickle.load(open(f'{train_path}/info/{idx}_succ.pkl', 'rb'))
+                        preds = pickle.load(open(f'{train_path}/info/{idx}_pred.pkl', 'rb'))
+                        edges = pickle.load(open(f'{train_path}/info/{idx}_edges.pkl', 'rb'))
+                        len_threshold = 50  # TODO: Add as hyperparameter!!!
+                        seq_contigs = get_contigs_for_one_graph(g, succs, preds, edges, num_decoding_paths, len_threshold, device)
+                        print(f'Epoch = {epoch}, sequential lengths of all contigs: {[len(c) for c in seq_contigs]}\n')
+                        # torch.save([all_contigs, all_contigs_len], 'checkpoints/all_contigs.pt')
+                        elapsed = utils.timedelta_to_str(datetime.now() - time_start_decoding)
+                        print(f'elapsed time (decoding): {elapsed}\n')
+                        reads = pickle.load(open(f'{train_path}/info/{idx}_reads.pkl', 'rb'))
+                        try:
+                            g_to_chr = pickle.load(open(f'{train_path}/info/g_to_chr.pkl', 'rb'))
+                            chrN = g_to_chr[idx]
+                        except FileNotFoundError:
+                            chrN = 'chr19'
+                        num_contigs, longest_contig, reconstructed, n50, ng50 = quick_evaluation(seq_contigs, g, reads, edges, chrN)
+                        print(f'{num_contigs=} {longest_contig=} {reconstructed=:.4f} {n50=} {ng50=}')
+                        elapsed = utils.timedelta_to_str(datetime.now() - time_start_decoding)
+                        print(f'elapsed time (decoding): {elapsed}\n')
+
+                    # model = model.to(device)
+
+                # DECODING : XB
+                if (not epoch % 100 or epoch + 1 == num_epochs) and epoch > 0 and False:
                     print(f'\n=====>DECODING: Epoch = {epoch}')
                     time_start_decoding = datetime.now()
                     device_cpu = torch.device('cpu')
@@ -536,23 +594,25 @@ def train(data, out, eval, overfit):
                         with torch.no_grad():
                             model = model.to(device_cpu)
                             g_decoding = g_decoding.to(device_cpu)
-                            x = g_decoding.ndata['x'].to(device_cpu) 
+                            x = g_decoding.ndata['x'].to(device_cpu)
                             e = g_decoding.edata['e'].to(device_cpu)
                             pe = g_decoding.ndata['pe'].to(device_cpu)
                             pe_in = g_decoding.ndata['in_deg'].unsqueeze(1).to(device_cpu)
                             pe_out = g_decoding.ndata['out_deg'].unsqueeze(1).to(device_cpu)
                             pe = torch.cat((pe_in, pe_out, pe), dim=1)
                             edge_predictions = model(g_decoding, x, e, pe)
-                            g_decoding.edata['score'] = edge_predictions 
+                            g_decoding.edata['score'] = edge_predictions
                         g_decoding = g_decoding.int().to(device)
-                        all_contigs, all_contigs_len = parallel_greedy_decoding(g_decoding, num_decoding_paths, num_contigs, device)
-                        print(f'Epoch = {epoch}, lengths of all contigs: {all_contigs_len}\n')
+                        all_contigs, all_contigs_len = parallel_greedy_decoding(g_decoding, num_decoding_paths, num_contigs, device, train_path)
+                        print(f'Epoch = {epoch}, parallel lengths of all contigs: \n{all_contigs_len}\n')
                         del g_decoding
                         torch.save([all_contigs, all_contigs_len], 'checkpoints/all_contigs.pt')
                         #all_contigs, all_contigs_len = torch.load('checkpoints/all_contigs.pt')
                         elapsed = utils.timedelta_to_str(datetime.now() - time_start_decoding)
                         print(f'elapsed time (decoding): {elapsed}\n')
                     model = model.to(device)
+
+
 
     except KeyboardInterrupt:
         # TODO: Implement this to do something, maybe evaluate on test set?

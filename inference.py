@@ -167,7 +167,7 @@ def get_contigs_for_one_graph(g, succs, preds, edges, nb_paths=20, len_threshold
 
     while True:
         idx_contig += 1        
-        sub_g, map_subg_to_g = get_subgraph(g, visited)
+        sub_g, map_subg_to_g = get_subgraph(g, visited, device)
         idx_edges = sample_edges(sub_g.edata['score'], nb_paths)
         all_walks = []
 
@@ -247,6 +247,8 @@ def inference(data_path, model_path, device='cpu'):
 
     model = models.GraphGatedGCNModel(node_features, edge_features, hidden_features, hidden_edge_features, num_gnn_layers, hidden_edge_scores, batch_norm, nb_pos_enc)
     model.load_state_dict(torch.load(model_path, map_location=torch.device(device)))
+    model.eval()
+
     ds = AssemblyGraphDataset(data_path, nb_pos_enc=nb_pos_enc)
 
     inference_dir = os.path.join(data_path, 'inference')

@@ -1,6 +1,7 @@
 import argparse
 import gzip
 import os
+import pickle
 import subprocess
 
 from tqdm import tqdm
@@ -11,29 +12,29 @@ import graph_dataset
 import train
 
 chr_lens = {
-'chr1': 248387328,
-'chr2': 242696752,
-'chr3': 201105948,
-'chr4': 193574945,
-'chr5': 182045439,
-'chr6': 172126628,
-'chr7': 160567428,
-'chr8': 146259331,
-'chr9': 150617247,
-'chr10': 134758134,
-'chr11': 135127769,
-'chr12': 133324548,
-'chr13': 113566686,
-'chr14': 101161492,
-'chr15': 99753195,
-'chr16': 96330374,
-'chr17': 84276897,
-'chr18': 80542538,
-'chr19': 61707364,
-'chr20': 66210255,
-'chr21': 45090682,
-'chr22': 51324926,
-'chrX': 154259566,
+    'chr1' : 248387328,
+    'chr2' : 242696752,
+    'chr3' : 201105948,
+    'chr4' : 193574945,
+    'chr5' : 182045439,
+    'chr6' : 172126628,
+    'chr7' : 160567428,
+    'chr8' : 146259331,
+    'chr9' : 150617247,
+    'chr10': 134758134,
+    'chr11': 135127769,
+    'chr12': 133324548,
+    'chr13': 113566686,
+    'chr14': 101161492,
+    'chr15': 99753195,
+    'chr16': 96330374,
+    'chr17': 84276897,
+    'chr18': 80542538,
+    'chr19': 61707364,
+    'chr20': 66210255,
+    'chr21': 45090682,
+    'chr22': 51324926,
+    'chrX' : 154259566,
 }
 
 
@@ -264,25 +265,30 @@ def train_valid_split(data_path, train_dict, valid_dict, out=None):
             os.mkdir(valid_path)
             subprocess.run(f'mkdir raw processed info graphia tmp', shell=True, cwd=valid_path)
  
+    train_g_to_chr = {}
     n_have = 0
     for chrN, n_need in train_dict.items():
         # copy n_need datasets from chrN into train dict
         print(f'SETUP::split:: Copying {n_need} graphs of {chrN} into {train_path}')
         for i in range(n_need):
+            train_g_to_chr[n_have] = chrN
             chr_sim_path = os.path.join(sim_path, chrN)
             print(f'Copying {chr_sim_path}/processed/{i}.dgl into {train_path}/processed/{n_have}.dgl')
             subprocess.run(f'cp {chr_sim_path}/processed/{i}.dgl {train_path}/processed/{n_have}.dgl', shell=True)
             subprocess.run(f'cp {chr_sim_path}/info/{i}_succ.pkl {train_path}/info/{n_have}_succ.pkl', shell=True)
             subprocess.run(f'cp {chr_sim_path}/info/{i}_pred.pkl {train_path}/info/{n_have}_pred.pkl', shell=True)
             subprocess.run(f'cp {chr_sim_path}/info/{i}_edges.pkl {train_path}/info/{n_have}_edges.pkl', shell=True)
+            subprocess.run(f'cp {chr_sim_path}/info/{i}_reads.pkl {train_path}/info/{n_have}_reads.pkl', shell=True)
             # subprocess.run(f'cp {chr_sim_path}/solutions/{i}_edges.pkl {train_path}/solutions/{n_have}_edges.pkl', shell=True)
             n_have += 1
 
+    valid_g_to_chr = {}
     n_have = 0
     for chrN, n_need in valid_dict.items():
         # copy n_need datasets from chrN into train dict
         print(f'SETUP::split:: Copying {n_need} graphs of {chrN} into {valid_path}')
         for i in range(n_need):
+            valid_g_to_chr[n_have] = chrN
             j = i + train_dict.get(chrN, 0)
             chr_sim_path = os.path.join(sim_path, chrN)
             print(f'Copying {chr_sim_path}/processed/{j}.dgl into {valid_path}/processed/{n_have}.dgl')
@@ -290,9 +296,12 @@ def train_valid_split(data_path, train_dict, valid_dict, out=None):
             subprocess.run(f'cp {chr_sim_path}/info/{j}_succ.pkl {valid_path}/info/{n_have}_succ.pkl', shell=True)
             subprocess.run(f'cp {chr_sim_path}/info/{j}_pred.pkl {valid_path}/info/{n_have}_pred.pkl', shell=True)
             subprocess.run(f'cp {chr_sim_path}/info/{j}_edges.pkl {valid_path}/info/{n_have}_edges.pkl', shell=True)
+            subprocess.run(f'cp {chr_sim_path}/info/{j}_reads.pkl {valid_path}/info/{n_have}_reads.pkl', shell=True)
             # subprocess.run(f'cp {chr_sim_path}/solutions/{j}_edges.pkl {valid_path}/solutions/{n_have}_edges.pkl', shell=True)
             n_have += 1
-
+    
+    pickle.dump(train_g_to_chr, open(f'{train_path}/info/g_to_chr.pkl', 'wb'))
+    pickle.dump(valid_g_to_chr, open(f'{valid_path}/info/g_to_chr.pkl', 'wb'))
 
 
 # 3. Train the model
@@ -301,12 +310,23 @@ def train_the_model(data, out, eval, overfit):
     train.train(data, out, eval, overfit)
 
 # 4. Inference - get the results
+# The network is trained, we choose the best network, load it and get the scores
+# We decode those scores with some algorithm - greedy or beam search
+# We can save the walks or we can simply save the assemblies. Maybe better to save both
+
+
 
 # 5. Save the assembly
 
+
 # 6. Evaluate the assembly (num_contigs, NG50))
+# Which metrics do we even want to show? Number of contigs, % reconstructed, n50, ng50, nga50
+# For nga50 we need quast. Ok, no problem. Install it and run it.
+
 
 # 7. Print out the report
+# I guess ideally I would parse the quast output, combine with any other metrics that I have and save the report for a certain graph.
+
 
 
 if __name__ == '__main__':
@@ -325,8 +345,8 @@ if __name__ == '__main__':
     # valid_dict = {'chr17': 1, 'chr20': 1, 'chr22': 1}
     # train_dict = {'chr19': 10}
     # valid_dict = {'chr19': 1}
-    train_dict = {'chr19': 15}
-    valid_dict = {'chr19': 3}
+    train_dict = {'chr19': 1}
+    valid_dict = {'chr19': 1}
 
     all_chr = merge_dicts(train_dict, valid_dict)
 
