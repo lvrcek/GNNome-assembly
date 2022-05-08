@@ -10,6 +10,9 @@ from Bio import SeqIO
 
 import graph_dataset
 import train
+import inference
+import evaluate
+
 
 chr_lens = {
     'chr1' : 248387328,
@@ -64,9 +67,9 @@ def create_chr_dirs(pth):
         subprocess.run(f'mkdir raw processed info tmp graphia solutions', shell=True, cwd=os.path.join(pth, f'chr{i}'))
 
 
-def merge_dicts(d1, d2):
-    keys = {*d1, *d2}
-    merged = {key: d1.get(key, 0) + d2.get(key, 0) for key in keys}
+def merge_dicts(d1, d2, d3={}):
+    keys = {*d1, *d2, *d3}
+    merged = {key: d1.get(key, 0) + d2.get(key, 0) + d3.get(key, 0) for key in keys}
     return merged
 
 
@@ -246,7 +249,7 @@ def generate_graphs_real(data_path, chr_real_list):
 
 
 # 2.5 Train-valid-test split
-def train_valid_split(data_path, train_dict, valid_dict, out=None):
+def train_valid_split(data_path, train_dict, valid_dict, test_dict={}, out=None):
     #Both are chromosome dicts specifying which data to use for training/validation
     print(f'SETUP::split')
     data_path = os.path.abspath(data_path)
@@ -255,15 +258,20 @@ def train_valid_split(data_path, train_dict, valid_dict, out=None):
     if out is None:
         train_path = os.path.join(data_path, f'train')
         valid_path = os.path.join(data_path, f'valid')
+        test_path  = os.path.join(data_path, f'test')
     else:
         train_path = os.path.join(data_path, f'train_{out}')
         valid_path = os.path.join(data_path, f'valid_{out}')
+        test_path  = os.path.join(data_path, f'test_{out}')
         if not os.path.isdir(train_path):
             os.mkdir(train_path)
             subprocess.run(f'mkdir raw processed info graphia tmp', shell=True, cwd=train_path)
         if not os.path.isdir(valid_path):
             os.mkdir(valid_path)
             subprocess.run(f'mkdir raw processed info graphia tmp', shell=True, cwd=valid_path)
+        if not os.path.isdir(test_path) and len(test_dict) > 0:
+            os.mkdir(test_path)
+            subprocess.run(f'mkdir raw processed info graphia tmp', shell=True, cwd=test_path)
  
     train_g_to_chr = {}
     n_have = 0
@@ -281,6 +289,7 @@ def train_valid_split(data_path, train_dict, valid_dict, out=None):
             subprocess.run(f'cp {chr_sim_path}/info/{i}_reads.pkl {train_path}/info/{n_have}_reads.pkl', shell=True)
             # subprocess.run(f'cp {chr_sim_path}/solutions/{i}_edges.pkl {train_path}/solutions/{n_have}_edges.pkl', shell=True)
             n_have += 1
+    pickle.dump(train_g_to_chr, open(f'{train_path}/info/g_to_chr.pkl', 'wb'))
 
     valid_g_to_chr = {}
     n_have = 0
@@ -299,9 +308,29 @@ def train_valid_split(data_path, train_dict, valid_dict, out=None):
             subprocess.run(f'cp {chr_sim_path}/info/{j}_reads.pkl {valid_path}/info/{n_have}_reads.pkl', shell=True)
             # subprocess.run(f'cp {chr_sim_path}/solutions/{j}_edges.pkl {valid_path}/solutions/{n_have}_edges.pkl', shell=True)
             n_have += 1
-    
-    pickle.dump(train_g_to_chr, open(f'{train_path}/info/g_to_chr.pkl', 'wb'))
     pickle.dump(valid_g_to_chr, open(f'{valid_path}/info/g_to_chr.pkl', 'wb'))
+
+    if test_dict: 
+        test_g_to_chr = {}
+        n_have = 0
+        for chrN, n_need in test_dict.items():
+            # copy n_need datasets from chrN into train dict
+            print(f'SETUP::split:: Copying {n_need} graphs of {chrN} into {test_path}')
+            for i in range(n_need):
+                test_g_to_chr[n_have] = chrN
+                k = i + train_dict.get(chrN, 0) + valid_dict.get(chrN, 0)
+                chr_sim_path = os.path.join(sim_path, chrN)
+                print(f'Copying {chr_sim_path}/processed/{k}.dgl into {test_path}/processed/{n_have}.dgl')
+                subprocess.run(f'cp {chr_sim_path}/processed/{k}.dgl {test_path}/processed/{n_have}.dgl', shell=True)
+                subprocess.run(f'cp {chr_sim_path}/info/{k}_succ.pkl {test_path}/info/{n_have}_succ.pkl', shell=True)
+                subprocess.run(f'cp {chr_sim_path}/info/{k}_pred.pkl {test_path}/info/{n_have}_pred.pkl', shell=True)
+                subprocess.run(f'cp {chr_sim_path}/info/{k}_edges.pkl {test_path}/info/{n_have}_edges.pkl', shell=True)
+                subprocess.run(f'cp {chr_sim_path}/info/{k}_reads.pkl {test_path}/info/{n_have}_reads.pkl', shell=True)
+                # subprocess.run(f'cp {chr_sim_path}/solutions/{j}_edges.pkl {valid_path}/solutions/{n_have}_edges.pkl', shell=True)
+                n_have += 1
+        pickle.dump(test_g_to_chr, open(f'{test_path}/info/g_to_chr.pkl', 'wb'))
+
+    return train_path, valid_path, test_path
 
 
 # 3. Train the model
@@ -309,24 +338,17 @@ def train_the_model(data, out, eval, overfit):
     print(f'SETUP::train')
     train.train(data, out, eval, overfit)
 
+
 # 4. Inference - get the results
-# The network is trained, we choose the best network, load it and get the scores
-# We decode those scores with some algorithm - greedy or beam search
-# We can save the walks or we can simply save the assemblies. Maybe better to save both
-
-
-
-# 5. Save the assembly
-
-
-# 6. Evaluate the assembly (num_contigs, NG50))
-# Which metrics do we even want to show? Number of contigs, % reconstructed, n50, ng50, nga50
-# For nga50 we need quast. Ok, no problem. Install it and run it.
-
-
-# 7. Print out the report
-# I guess ideally I would parse the quast output, combine with any other metrics that I have and save the report for a certain graph.
-
+def predict(data_path, out, model_path=None, device='cpu'):
+    if model_path is None:
+        model_path = os.path.abspath(f'pretrained/model_{out}.pt')
+    walks_per_graph, contigs_per_graph = inference.inference(data_path, model_path, device)
+    g_to_chr = pickle.load(open(f'{data_path}/info/g_to_chr.pkl', 'rb'))
+    for idx, contigs in enumerate(contigs_per_graph):
+        chrN = g_to_chr[idx]
+        num_contigs, longest_contig, reconstructed, n50, ng50 = evaluate.quick_evaluation(contigs, chrN)
+        evaluate.print_summary(data_path, idx, chrN, num_contigs, longest_contig, reconstructed, n50, ng50)
 
 
 if __name__ == '__main__':
@@ -345,10 +367,11 @@ if __name__ == '__main__':
     # valid_dict = {'chr17': 1, 'chr20': 1, 'chr22': 1}
     # train_dict = {'chr19': 10}
     # valid_dict = {'chr19': 1}
-    train_dict = {'chr19': 1}
-    valid_dict = {'chr19': 1}
+    train_dict = {'chr19': 15}
+    valid_dict = {'chr19': 3}
+    test_dict  = {'chr19': 2}
 
-    all_chr = merge_dicts(train_dict, valid_dict)
+    all_chr = merge_dicts(train_dict, valid_dict, test_dict)
 
     # data_path = '/home/vrcekl/scratch/data/neurips'
 
@@ -363,6 +386,7 @@ if __name__ == '__main__':
     download_reference(data_path)
     simulate_reads(data_path, all_chr)
     generate_graphs(data_path, all_chr)
-    train_valid_split(data_path, train_dict, valid_dict, out)
+    train_path, valid_path, test_path = train_valid_split(data_path, train_dict, valid_dict, test_dict, out)
     train_the_model(data, out, eval, overfit)
+    predict(test_path, out, device='cuda:3')
 

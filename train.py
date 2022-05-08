@@ -19,12 +19,12 @@ import wandb
 
 from graph_dataset import AssemblyGraphDataset
 from hyperparameters import get_hyperparameters
+import evaluate
 import models
 import utils
 
 from algorithms import parallel_greedy_decoding, sequential_greedy_decoding
 from inference import get_contigs_for_one_graph
-from evaluate import quick_evaluation
 
 
 def save_checkpoint(epoch, model, optimizer, loss_train, loss_valid, out):
@@ -541,10 +541,11 @@ def train(data, out, eval, overfit):
                         scheduler.step(val_loss_all_graphs)
 
                 # DECODING : LV 
-                if (not epoch % 2 or epoch + 1 == num_epochs) and epoch > 0:
+                if (not epoch % 50 or epoch + 1 == num_epochs) and epoch > 0:
                     print(f'\n=====>DECODING: Epoch = {epoch}')
                     time_start_decoding = datetime.now()
                     # device_cpu = torch.device('cpu')
+                    decode_path = valid_path # If you're overfitting then put train_path
                     model.eval()
                     for data in ds_valid:
                         idx, g = data
@@ -558,27 +559,28 @@ def train(data, out, eval, overfit):
                             pe = torch.cat((pe_in, pe_out, pe), dim=1)
                             edge_predictions = model(g, x, e, pe)
                             g.edata['score'] = edge_predictions 
-                        succs = pickle.load(open(f'{train_path}/info/{idx}_succ.pkl', 'rb'))
-                        preds = pickle.load(open(f'{train_path}/info/{idx}_pred.pkl', 'rb'))
-                        edges = pickle.load(open(f'{train_path}/info/{idx}_edges.pkl', 'rb'))
+                        succs = pickle.load(open(f'{decode_path}/info/{idx}_succ.pkl', 'rb'))
+                        preds = pickle.load(open(f'{decode_path}/info/{idx}_pred.pkl', 'rb'))
+                        edges = pickle.load(open(f'{decode_path}/info/{idx}_edges.pkl', 'rb'))
                         len_threshold = 50  # TODO: Add as hyperparameter!!!
-                        seq_contigs = get_contigs_for_one_graph(g, succs, preds, edges, num_decoding_paths, len_threshold, device)
-                        print(f'Epoch = {epoch}, sequential lengths of all contigs: {[len(c) for c in seq_contigs]}\n')
+                        walks = get_contigs_for_one_graph(g, succs, preds, edges, num_decoding_paths, len_threshold, device)
+                        print(f'Epoch = {epoch}, sequential lengths of all contigs: {[len(w) for w in walks]}\n')
                         # torch.save([all_contigs, all_contigs_len], 'checkpoints/all_contigs.pt')
                         elapsed = utils.timedelta_to_str(datetime.now() - time_start_decoding)
-                        print(f'elapsed time (decoding): {elapsed}\n')
-                        reads = pickle.load(open(f'{train_path}/info/{idx}_reads.pkl', 'rb'))
+                        print(f'elapsed time (decoding - finding walks): {elapsed}\n')
+                        reads = pickle.load(open(f'{decode_path}/info/{idx}_reads.pkl', 'rb'))
                         try:
-                            g_to_chr = pickle.load(open(f'{train_path}/info/g_to_chr.pkl', 'rb'))
+                            g_to_chr = pickle.load(open(f'{decode_path}/info/g_to_chr.pkl', 'rb'))
                             chrN = g_to_chr[idx]
                         except FileNotFoundError:
-                            chrN = 'chr19'
-                        num_contigs, longest_contig, reconstructed, n50, ng50 = quick_evaluation(seq_contigs, g, reads, edges, chrN)
+                            print('SOMETHING WRONG WITH g_to_chr !!')
+                            raise
+                        contigs = evaluate.walk_to_sequence(walks, g, reads, edges)
+                        num_contigs, longest_contig, reconstructed, n50, ng50 = evaluate.quick_evaluation(contigs, chrN)
                         print(f'{num_contigs=} {longest_contig=} {reconstructed=:.4f} {n50=} {ng50=}')
                         elapsed = utils.timedelta_to_str(datetime.now() - time_start_decoding)
-                        print(f'elapsed time (decoding): {elapsed}\n')
+                        print(f'elapsed time (decoding - evaluating contigs): {elapsed}\n')
 
-                    # model = model.to(device)
 
                 # DECODING : XB
                 if (not epoch % 100 or epoch + 1 == num_epochs) and epoch > 0 and False:

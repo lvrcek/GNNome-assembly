@@ -12,6 +12,7 @@ import dgl
 from graph_dataset import AssemblyGraphDataset
 from hyperparameters import get_hyperparameters
 import models
+import evaluate
 
 
 # def test_walk(data_path, model_path,  device):
@@ -159,11 +160,13 @@ def walk_backwards(start, edges_p, predecessors, edges, visited_old):
 def get_contigs_for_one_graph(g, succs, preds, edges, nb_paths=20, len_threshold=50, device='cpu'):
     # Get contigs for one graph
     g = dgl.remove_self_loop(g)
+    g = g.to(device)
     all_contigs = []
     all_contigs_len = []
     nb_paths = 20
     visited = set()
     idx_contig = -1
+    scores = g.edata['score'].to('cpu')
 
     while True:
         idx_contig += 1        
@@ -181,9 +184,9 @@ def get_contigs_for_one_graph(g, succs, preds, edges, nb_paths=20, len_threshold
             # print(src_init_edges, dst_init_edges, succs[src_init_edges], preds[dst_init_edges], (src_init_edges, dst_init_edges) in edges)
 
             # get forwards path
-            walk_f, visited_f = walk_forwards(dst_init_edges, g.edata['score'], succs, edges, visited)
+            walk_f, visited_f = walk_forwards(dst_init_edges, scores, succs, edges, visited)
             # get backwards path
-            walk_b, visited_b = walk_backwards(src_init_edges, g.edata['score'], preds, edges, visited | visited_f)
+            walk_b, visited_b = walk_backwards(src_init_edges, scores, preds, edges, visited | visited_f)
             # concatenate two paths
             walk = walk_b + walk_f
             all_walks.append(walk)
@@ -255,6 +258,7 @@ def inference(data_path, model_path, device='cpu'):
     if not os.path.isdir(inference_dir):
         os.mkdir(inference_dir)
 
+    walks_per_graph = []
     contigs_per_graph = []
     for idx, g in ds:
         # Get scores
@@ -274,14 +278,18 @@ def inference(data_path, model_path, device='cpu'):
         succs = pickle.load(open(f'{data_path}/info/{idx}_succ.pkl', 'rb'))
         preds = pickle.load(open(f'{data_path}/info/{idx}_pred.pkl', 'rb'))
         edges = pickle.load(open(f'{data_path}/info/{idx}_edges.pkl', 'rb'))
+        reads = pickle.load(open(f'{data_path}/info/{idx}_reads.pkl', 'rb'))
 
         # Get contigs
-        contigs = get_contigs_for_one_graph(g, succs, preds, edges, nb_paths, len_threshold, device='cpu')
-        inference_path = os.path.join(inference_dir, f'{idx}_contigs.pkl')
-        pickle.dump(contigs, open(f'{inference_path}', 'wb'))
+        walks = get_contigs_for_one_graph(g, succs, preds, edges, nb_paths, len_threshold, device='cpu')
+        inference_path = os.path.join(inference_dir, f'{idx}_walks.pkl')
+        pickle.dump(walks, open(f'{inference_path}', 'wb'))
+        contigs = evaluate.walk_to_sequence(walks, g, reads, edges)
+        evaluate.save_assembly(contigs, data_path, idx)
+        walks_per_graph.append(walks)
         contigs_per_graph.append(contigs)
 
-    return contigs_per_graph
+    return walks_per_graph, contigs_per_graph
 
 
 if __name__ == '__main__':

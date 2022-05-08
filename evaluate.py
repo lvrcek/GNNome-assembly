@@ -1,3 +1,4 @@
+import os
 import pickle
 
 import torch
@@ -52,7 +53,7 @@ def save_assembly(contigs, data_path, idx):
     assembly_dir = os.path.join(data_path, 'assembly')
     if 'assembly' not in os.listdir(data_path):
         os.mkdir(assembly_dir)
-    assembly_path = os.path.join(assembly_dir, '{idx}_assembly.fasta')
+    assembly_path = os.path.join(assembly_dir, f'{idx}_assembly.fasta')
     SeqIO.write(contigs, assembly_path, 'fasta')
 
 
@@ -93,8 +94,8 @@ def calculate_NG50(contigs, ref_length):
     return -1
 
 
-def quick_evaluation(walks, graph, reads, edges, chrN):
-    contigs = walk_to_sequence(walks, graph, reads, edges)
+def quick_evaluation(contigs, chrN):
+    # contigs = walk_to_sequence(walks, graph, reads, edges)
     chr_len = chr_lens[chrN]
     lengths_list = [len(c.seq) for c in contigs]
     num_contigs = len(contigs)
@@ -105,28 +106,24 @@ def quick_evaluation(walks, graph, reads, edges, chrN):
     return num_contigs, longest_contig, reconstructed, n50, ng50
 
 
-# def txt_output(f, txt):
-#     print(f'\t{txt}')
-#     f.write(f'\t{txt}\n')
+def txt_output(f, txt):
+    print(f'{txt}')
+    f.write(f'{txt}\n')
 
-# def analyze(graph, gnn_paths, greedy_paths, out, ref_length):
-#     with open(f'{out}/analysis.txt', 'w') as f:
-#         # f.write(f'Chromosome total length:\t\n')
-#         #print(out.split("/"), out.split("/")[-2])
-#         gnn_contig_lengths = []
-#         for path in gnn_paths:
-#             contig_len = graph.ndata["read_end"][path[-1]] - graph.ndata["read_start"][path[0]]
-#             gnn_contig_lengths.append(abs(contig_len).item())
-#         txt_output(f, 'GNN: ')
-#         txt_output(f, f'Contigs: \t{gnn_contig_lengths}')
-#         txt_output(f,f'Contigs amount:\t{len(gnn_contig_lengths)}')
-#         txt_output(f,f'Longest Contig:\t{max(gnn_contig_lengths)}')
-#         txt_output(f,f'Reconstructed:\t{sum(gnn_contig_lengths)}')
-#         txt_output(f,f'Percentage:\t{sum(gnn_contig_lengths)/ref_length*100}')
-#         n50_gnn = calculate_N50(gnn_contig_lengths)
-#         txt_output(f,f'N50:\t{n50_gnn}')
-#         ng50_gnn = calculate_NG50(gnn_contig_lengths, ref_length)
-#         txt_output(f,f'NG50:\t{ng50_gnn}')
+def print_summary(data_path, idx, chrN, num_contigs, longest_contig, reconstructed, n50, ng50):
+    reports_dir = os.path.join(data_path, 'reports')
+    if not os.path.isdir(reports_dir ):
+        os.mkdir(reports_dir)
+    with open(f'{reports_dir}/{idx}_report.txt', 'w') as f:
+        txt_output(f, f'-'*80)
+        txt_output(f, f'Report for graph {idx} in {data_path}')
+        txt_output(f, f'Graph created from {chrN}')
+        txt_output(f, f'Num contigs:\t{num_contigs}')
+        txt_output(f, f'Longest contig:\t{longest_contig}')
+        txt_output(f, f'Reconstructed:\t{reconstructed * 100}%')
+        txt_output(f, f'N50:\t{n50}')
+        txt_output(f, f'NG50:\t{ng50}')
+        
 
 
 #         txt_output(f,f'Greedy paths:\t{len(greedy_paths)}\n')
