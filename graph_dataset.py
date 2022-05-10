@@ -114,7 +114,7 @@ class AssemblyGraphDataset(DGLDataset):
                 print(f'Starting raven at: {self.raven_path}')
                 print(f'Parameters: --identity {filter} -k29 -w9 -t{threads} -p0')
                 print(f'Assembly output: {out}\n')
-                subprocess.run(f'{self.raven_path} --identity {filter} -k29 -w9 -t{threads} -p0 {reads_path} > {out}', shell=True, cwd=self.tmp_dir)
+                subprocess.run(f'{self.raven_path} --identity {filter} -k29 -w9 -t{threads} -p0 {reads_path} > {idx}_{out}', shell=True, cwd=self.tmp_dir)
                 # subprocess.run(f'{self.raven_path} --filter {filter} --weaken -t{threads} -p0 {reads_path} > {out}', shell=True, cwd=self.tmp_dir)
                 subprocess.run(f'mv graph_1.csv {idx}_graph_1.csv', shell=True, cwd=self.tmp_dir)
                 subprocess.run(f'mv graph_1.gfa {idx}_graph_1.gfa', shell=True, cwd=self.tmp_dir)
