@@ -59,15 +59,17 @@ class AssemblyGraphDataset(DGLDataset):
 
         self.graph_list = []
         if not generate:
-            for file in sorted(os.listdir(self.save_dir)):
+            for file in os.listdir(self.save_dir):
                 idx = int(file[:-4])
                 graph = dgl.load_graphs(os.path.join(self.save_dir, file))[0][0]
                 graph = preprocess_graph(graph, self.root, idx)
                 if nb_pos_enc is not None:
                     graph = add_positional_encoding(graph, nb_pos_enc) 
                 #graph, _ = dgl.khop_in_subgraph(graph, 390, k=20) # DEBUG !!!!
-                print('DGL graph info:',graph)
-                self.graph_list.append(graph)
+                print(f'DGL graph idx={idx} info:\n',graph)
+                self.graph_list.append((idx, graph))
+            self.graph_list.sort(key=lambda x: x[0])
+
 
     def has_cache(self):
         """Check if the raw data is already processed and stored."""
@@ -79,8 +81,8 @@ class AssemblyGraphDataset(DGLDataset):
 
     def __getitem__(self, idx):
         # (graph,), _ = dgl.load_graphs(os.path.join(self.save_dir, str(idx) + '.dgl'))
-        graph = self.graph_list[idx]
-        return idx, graph
+        i, graph = self.graph_list[idx]
+        return i, graph
 
     def process(self):
         """Process the raw data and save it on the disk."""
