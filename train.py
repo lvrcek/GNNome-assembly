@@ -23,7 +23,7 @@ import evaluate
 import models
 import utils
 
-from algorithms import parallel_greedy_decoding, sequential_greedy_decoding
+from algorithms import parallel_greedy_decoding
 from inference import get_contigs_for_one_graph
 
 
@@ -145,6 +145,8 @@ def train(data, out, eval, overfit):
     decay = hyperparameters['decay']
     pos_to_neg_ratio = hyperparameters['pos_to_neg_ratio']
     wandb_mode = hyperparameters['wandb_mode']
+    len_threshold = hyperparameters['len_threshold']
+    num_greedy_paths = hyperparameters['num_greedy_paths']
 
     time_start = datetime.now()
     timestamp = time_start.strftime('%Y-%b-%d-%H-%M-%S')
@@ -540,80 +542,86 @@ def train(data, out, eval, overfit):
                         save_checkpoint(epoch, model, optimizer, loss_per_epoch_train[-1], loss_per_epoch_valid[-1], out)
                         scheduler.step(val_loss_all_graphs)
 
-                # DECODING : LV 
-                if (not epoch % 50 or epoch + 1 == num_epochs) and epoch > 0:
-                    print(f'\n=====>DECODING: Epoch = {epoch}')
-                    time_start_decoding = datetime.now()
-                    # device_cpu = torch.device('cpu')
-                    decode_path = valid_path # If you're overfitting then put train_path
-                    model.eval()
-                    for data in ds_valid:
-                        idx, g = data
-                        with torch.no_grad():
-                            g = g.int().to(device)
-                            x = g.ndata['x'].to(device) 
-                            e = g.edata['e'].to(device)
-                            pe = g.ndata['pe'].to(device)
-                            pe_in = g.ndata['in_deg'].unsqueeze(1).to(device)
-                            pe_out = g.ndata['out_deg'].unsqueeze(1).to(device)
-                            pe = torch.cat((pe_in, pe_out, pe), dim=1)
-                            edge_predictions = model(g, x, e, pe)
-                            g.edata['score'] = edge_predictions 
-                        succs = pickle.load(open(f'{decode_path}/info/{idx}_succ.pkl', 'rb'))
-                        preds = pickle.load(open(f'{decode_path}/info/{idx}_pred.pkl', 'rb'))
-                        edges = pickle.load(open(f'{decode_path}/info/{idx}_edges.pkl', 'rb'))
-                        len_threshold = 50  # TODO: Add as hyperparameter!!!
-                        walks = get_contigs_for_one_graph(g, succs, preds, edges, num_decoding_paths, len_threshold, device)
-                        print(f'Epoch = {epoch}, sequential lengths of all contigs: {[len(w) for w in walks]}\n')
-                        # torch.save([all_contigs, all_contigs_len], 'checkpoints/all_contigs.pt')
-                        elapsed = utils.timedelta_to_str(datetime.now() - time_start_decoding)
-                        print(f'elapsed time (decoding - finding walks): {elapsed}\n')
-                        reads = pickle.load(open(f'{decode_path}/info/{idx}_reads.pkl', 'rb'))
-                        try:
-                            g_to_chr = pickle.load(open(f'{decode_path}/info/g_to_chr.pkl', 'rb'))
-                            chrN = g_to_chr[idx]
-                        except FileNotFoundError:
-                            print('SOMETHING WRONG WITH g_to_chr !!')
-                            raise
-                        contigs = evaluate.walk_to_sequence(walks, g, reads, edges)
-                        num_contigs, longest_contig, reconstructed, n50, ng50 = evaluate.quick_evaluation(contigs, chrN)
-                        print(f'{num_contigs=} {longest_contig=} {reconstructed=:.4f} {n50=} {ng50=}')
-                        elapsed = utils.timedelta_to_str(datetime.now() - time_start_decoding)
-                        print(f'elapsed time (decoding - evaluating contigs): {elapsed}\n')
 
+                # # DECODING : LV 
+                # if (not epoch % 50 or epoch + 1 == num_epochs) and epoch > 0: # 50
+                #     print(f'\n=====>DECODING: Epoch = {epoch}')
+                #     time_start_decoding = datetime.now()
+                #     # device_cpu = torch.device('cpu')
+                #     decode_path = valid_path # If you're overfitting then put train_path
+                #     model.eval()
+                #     for data in ds_valid:
+                #         idx, g = data
+                #         with torch.no_grad():
+                #             g = g.int().to(device)
+                #             x = g.ndata['x'].to(device) 
+                #             e = g.edata['e'].to(device)
+                #             pe = g.ndata['pe'].to(device)
+                #             pe_in = g.ndata['in_deg'].unsqueeze(1).to(device)
+                #             pe_out = g.ndata['out_deg'].unsqueeze(1).to(device)
+                #             pe = torch.cat((pe_in, pe_out, pe), dim=1)
+                #             edge_predictions = model(g, x, e, pe)
+                #             g.edata['score'] = edge_predictions 
+                #         succs = pickle.load(open(f'{decode_path}/info/{idx}_succ.pkl', 'rb'))
+                #         preds = pickle.load(open(f'{decode_path}/info/{idx}_pred.pkl', 'rb'))
+                #         edges = pickle.load(open(f'{decode_path}/info/{idx}_edges.pkl', 'rb'))
+                #         walks = get_contigs_for_one_graph(g, succs, preds, edges, num_greedy_paths, len_threshold, device)
+                #         print(f'Epoch = {epoch}, sequential lengths of all contigs: {[len(w) for w in walks]}\n')
+                #         elapsed = utils.timedelta_to_str(datetime.now() - time_start_decoding)
+                #         print(f'elapsed time (sequential decoding - finding walks): {elapsed}, num_greedy_paths: {num_greedy_paths}, len_threshold: {len_threshold}\n')
+                #         reads = pickle.load(open(f'{decode_path}/info/{idx}_reads.pkl', 'rb'))
+                #         try:
+                #             g_to_chr = pickle.load(open(f'{decode_path}/info/g_to_chr.pkl', 'rb'))
+                #             chrN = g_to_chr[idx]
+                #         except FileNotFoundError:
+                #             print('SOMETHING WRONG WITH g_to_chr !!')
+                #             raise
+                #         contigs = evaluate.walk_to_sequence(walks, g, reads, edges)
+                #         num_contigs, longest_contig, reconstructed, n50, ng50 = evaluate.quick_evaluation(contigs, chrN)
+                #         print(f'{num_contigs=} {longest_contig=} {reconstructed=:.4f} {n50=} {ng50=}')
+                #         elapsed = utils.timedelta_to_str(datetime.now() - time_start_decoding)
+                #         print(f'elapsed time (sequential decoding - evaluating contigs): {elapsed}\n')
 
-                # DECODING : XB
-                if (not epoch % 100 or epoch + 1 == num_epochs) and epoch > 0 and False:
-                    print(f'\n=====>DECODING: Epoch = {epoch}')
-                    time_start_decoding = datetime.now()
-                    device_cpu = torch.device('cpu')
-                    model.train() # DEBUG !!!!!!!!!!!!!
-                    #model.eval() # DEBUG !!!!!!!!!!!!!
-                    for data in ds_train: # DEBUG !!!!!!!!!!!!!
-                    #for data in ds_valid: # DEBUG !!!!!!!!!!!!!
-                        idx, g = data
-                        g_decoding = copy.deepcopy(g)
-                        with torch.no_grad():
-                            model = model.to(device_cpu)
-                            g_decoding = g_decoding.to(device_cpu)
-                            x = g_decoding.ndata['x'].to(device_cpu)
-                            e = g_decoding.edata['e'].to(device_cpu)
-                            pe = g_decoding.ndata['pe'].to(device_cpu)
-                            pe_in = g_decoding.ndata['in_deg'].unsqueeze(1).to(device_cpu)
-                            pe_out = g_decoding.ndata['out_deg'].unsqueeze(1).to(device_cpu)
-                            pe = torch.cat((pe_in, pe_out, pe), dim=1)
-                            edge_predictions = model(g_decoding, x, e, pe)
-                            g_decoding.edata['score'] = edge_predictions
-                        g_decoding = g_decoding.int().to(device)
-                        all_contigs, all_contigs_len = parallel_greedy_decoding(g_decoding, num_decoding_paths, num_contigs, device, train_path)
-                        print(f'Epoch = {epoch}, parallel lengths of all contigs: \n{all_contigs_len}\n')
-                        del g_decoding
-                        torch.save([all_contigs, all_contigs_len], 'checkpoints/all_contigs.pt')
-                        #all_contigs, all_contigs_len = torch.load('checkpoints/all_contigs.pt')
-                        elapsed = utils.timedelta_to_str(datetime.now() - time_start_decoding)
-                        print(f'elapsed time (decoding): {elapsed}\n')
-                    model = model.to(device)
-
+                # # DECODING : XB
+                # if (not epoch % 50 or epoch + 1 == num_epochs) and epoch > 0:
+                #     print(f'\n=====>DECODING: Epoch = {epoch}')
+                #     time_start_decoding = datetime.now()
+                #     device_cpu = torch.device('cpu')
+                #     model.train() # overfitting # DEBUG !! 
+                #     #model.eval() # evaluation # DEBUG !!
+                #     decode_path = train_path # overfitting 
+                #     #decode_path = valid_path # evaluation
+                #     for data in ds_train: # overfitting # DEBUG !!
+                #     #for data in ds_valid: # evaluation # DEBUG !!
+                #         idx, g = data
+                #         with torch.no_grad():
+                #             time_start_forward = datetime.now()
+                #             g = g.to(device)
+                #             x = g.ndata['x'].to(device)
+                #             e = g.edata['e'].to(device)
+                #             pe = g.ndata['pe'].to(device)
+                #             pe_in = g.ndata['in_deg'].unsqueeze(1).to(device)
+                #             pe_out = g.ndata['out_deg'].unsqueeze(1).to(device)
+                #             pe = torch.cat((pe_in, pe_out, pe), dim=1)
+                #             edge_predictions = model(g, x, e, pe)
+                #             g.edata['score'] = edge_predictions.squeeze()
+                #         walks, walks_len = parallel_greedy_decoding(g, num_greedy_paths, len_threshold, device) 
+                #         print(f'Epoch = {epoch}, parallel lengths of all contigs: {[len(w) for w in walks]}\n')
+                #         elapsed = utils.timedelta_to_str(datetime.now() - time_start_decoding)
+                #         print(f'elapsed time (parallel decoding - finding walks): {elapsed}, num_greedy_paths: {num_greedy_paths}, len_threshold: {len_threshold}\n')
+                #         reads = pickle.load(open(f'{decode_path}/info/{idx}_reads.pkl', 'rb'))
+                #         edges = pickle.load(open(f'{decode_path}/info/{idx}_edges.pkl', 'rb'))
+                #         try:
+                #             g_to_chr = pickle.load(open(f'{decode_path}/info/g_to_chr.pkl', 'rb'))
+                #             chrN = g_to_chr[idx]
+                #         except FileNotFoundError:
+                #             print('SOMETHING WRONG WITH g_to_chr !!')
+                #             raise
+                #         contigs = evaluate.walk_to_sequence(walks, g, reads, edges)
+                #         num_contigs, longest_contig, reconstructed, n50, ng50 = evaluate.quick_evaluation(contigs, chrN)
+                #         print(f'{num_contigs=} {longest_contig=} {reconstructed=:.4f} {n50=} {ng50=}')
+                #         elapsed = utils.timedelta_to_str(datetime.now() - time_start_decoding)
+                #         print(f'elapsed time (parallel decoding - evaluating contigs): {elapsed}\n')
 
 
     except KeyboardInterrupt:

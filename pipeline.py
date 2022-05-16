@@ -74,11 +74,14 @@ def merge_dicts(d1, d2, d3={}):
 
 
 # -1. Set up the data file structure
-def file_structure_setup(data_path):
-    # try:
-    #     subprocess.run(f'rm -rf raven', shell=True, cwd='vendor')
-    # except:
-    #     pass
+def file_structure_setup(data_path): 
+    if not os.listdir('vendor/raven'): # if raven folder is empty then build raven (first remove raven/ folder, second run generate_graphs function)
+        try:
+            subprocess.run(f'rm -rf raven', shell=True, cwd='vendor')
+        except:
+            pass
+    else:
+        pass  
     print(f'SETUP::filesystem:: Create directories for storing data')
     if not os.path.isdir(data_path):
         os.makedirs(data_path)
@@ -367,6 +370,9 @@ if __name__ == '__main__':
     # valid_dict = {'chr17': 1, 'chr20': 1, 'chr22': 1}
     # train_dict = {'chr19': 10}
     # valid_dict = {'chr19': 1}
+    # train_dict = {'chr19': 1} # DEBUG !!
+    # valid_dict = {'chr19': 1} # DEBUG !!
+    # test_dict  = {'chr19': 1} # DEBUG !!
     train_dict = {'chr19': 15}
     valid_dict = {'chr19': 3}
     test_dict  = {'chr19': 2}

@@ -14,6 +14,9 @@ from hyperparameters import get_hyperparameters
 import models
 import evaluate
 
+from datetime import datetime
+from algorithms import parallel_greedy_decoding
+import utils
 
 # def test_walk(data_path, model_path,  device):
 #     hyperparameters = get_hyperparameters()
@@ -227,7 +230,7 @@ def sample_edges(edge_scores, nb_paths):
     return idx_edges
 
 
-def inference(data_path, model_path, device='cpu'):
+def inference(model_path, data_path, device='cpu'):
     hyperparameters = get_hyperparameters()
     seed = hyperparameters['seed']
     num_gnn_layers = hyperparameters['num_gnn_layers']
@@ -240,29 +243,45 @@ def inference(data_path, model_path, device='cpu'):
     node_features = hyperparameters['node_features']
     edge_features = hyperparameters['edge_features']
     hidden_edge_features = hyperparameters['hidden_edge_features']
-    hidden_edge_scores = hyperparameters['hidden_edge_scores']
-
-    # TODO: Remove these hardcoded hyperparameters
-    nb_paths = 20
-    len_threshold = 50
-    device = 'cpu'
-    # ######################
-
-    model = models.GraphGatedGCNModel(node_features, edge_features, hidden_features, hidden_edge_features, num_gnn_layers, hidden_edge_scores, batch_norm, nb_pos_enc)
-    model.load_state_dict(torch.load(model_path, map_location=torch.device(device)))
-    model.eval()
-
-    ds = AssemblyGraphDataset(data_path, nb_pos_enc=nb_pos_enc)
-
+    hidden_edge_scores = hyperparameters['hidden_edge_scores']   
+    len_threshold = hyperparameters['len_threshold'] 
+    num_greedy_paths = hyperparameters['num_greedy_paths']
+    device = hyperparameters['device'] # for small graphs like chr19
+    #device = 'cpu'                    # for large graphs
+    
+    # Paths 
+    #   Model/network is saved at : pretrained/model_{out}
+    #   DGL train greaph(s) are saved at : data/train_{out}/processed
+    #   Contigs are saved at : data/train_{out}/assembly/{idx}_assembly.fasta
+    #   Walks are save at : data/train_{out}/inference/{idx}_walks.pkl
+    #   Reads at saved at : data/train_{out}/info/{idx}_reads.pkl
+    #   E.g. model_path = 'pretrained/model_{out}.pt'
+    #   E.g. data_path = 'data/train_{out}'
+    print('model_path',model_path)
+    print('data_path',data_path)
+    
+    # Add a folder inference/ to store results
     inference_dir = os.path.join(data_path, 'inference')
     if not os.path.isdir(inference_dir):
         os.mkdir(inference_dir)
 
+    # Load model/network 
+    model = models.GraphGatedGCNModel(node_features, edge_features, hidden_features, hidden_edge_features, num_gnn_layers, hidden_edge_scores, batch_norm, nb_pos_enc)
+    model.load_state_dict(torch.load(model_path, map_location=torch.device(device)))
+    model.to(device)
+    model.eval()
+    model.train() # DEBUG !! 
+
+    # Add positional encoding to graph(s)
+    ds = AssemblyGraphDataset(data_path, nb_pos_enc=nb_pos_enc)
+
+    # Forward pass on the graph(s)
     walks_per_graph = []
     contigs_per_graph = []
     for idx, g in ds:
         # Get scores
         with torch.no_grad():
+            time_start_forward = datetime.now()
             g = g.to(device)
             x = g.ndata['x'].to(device)
             e = g.edata['e'].to(device)
@@ -272,22 +291,57 @@ def inference(data_path, model_path, device='cpu'):
             pe = torch.cat((pe_in, pe_out, pe), dim=1)
             edge_predictions = model(g, x, e, pe)
             g.edata['score'] = edge_predictions.squeeze()
+        time_forward = datetime.now() - time_start_forward
         
+        # Compute walks and contigs LV
+        time_start_decoding = datetime.now()
         # Load info data
         # info_all = load_graph_data(len(ds), data_path, use_reads)  # Later can do it like this
         succs = pickle.load(open(f'{data_path}/info/{idx}_succ.pkl', 'rb'))
         preds = pickle.load(open(f'{data_path}/info/{idx}_pred.pkl', 'rb'))
         edges = pickle.load(open(f'{data_path}/info/{idx}_edges.pkl', 'rb'))
         reads = pickle.load(open(f'{data_path}/info/{idx}_reads.pkl', 'rb'))
-
         # Get contigs
-        walks = get_contigs_for_one_graph(g, succs, preds, edges, nb_paths, len_threshold, device='cpu')
+        walks = get_contigs_for_one_graph(g, succs, preds, edges, num_greedy_paths, len_threshold, device='cpu')
+        elapsed = utils.timedelta_to_str(time_forward + datetime.now() - time_start_decoding)
+        print(f'\nelapsed time for forward pass + sequential greedy decoding : {elapsed}')
         inference_path = os.path.join(inference_dir, f'{idx}_walks.pkl')
         pickle.dump(walks, open(f'{inference_path}', 'wb'))
         contigs = evaluate.walk_to_sequence(walks, g, reads, edges)
+        walks_len = [len(walk) for walk in walks]
+        contigs_len = [len(contig) for contig in contigs]
+        print(f'num_contigs: {len(contigs_len)}\nlengths of walks: {walks_len}\nlengths of contigs: {contigs_len}')
         evaluate.save_assembly(contigs, data_path, idx)
+        g_to_chr = pickle.load(open(f'{data_path}/info/g_to_chr.pkl', 'rb'))
+        chrN = g_to_chr[idx] # chromosome id
+        num_contigs, longest_contig, reconstructed, n50, ng50 = evaluate.quick_evaluation(contigs, chrN)
+        print(f'{longest_contig=} {reconstructed=:.4f} {n50=} {ng50=}')
         walks_per_graph.append(walks)
         contigs_per_graph.append(contigs)
+        elapsed = utils.timedelta_to_str(time_forward + datetime.now() - time_start_decoding)
+        print(f'total time (sequential greedy decoding): {elapsed}, num_greedy_paths: {num_greedy_paths}, len_threshold: {len_threshold}, nb_contigs: {len(contigs)}\n')
+
+        # Compute walks and contigs XB
+        time_start_decoding = datetime.now()
+        walks, walks_len = parallel_greedy_decoding(g, num_greedy_paths, len_threshold, device) 
+        elapsed = utils.timedelta_to_str(time_forward + datetime.now() - time_start_decoding)
+        print(f'\nelapsed time for forward pass + parallel greedy decoding : {elapsed}')
+        inference_path = os.path.join(inference_dir, f'{idx}_walks.pkl')
+        pickle.dump(walks, open(f'{inference_path}', 'wb'))
+        reads = pickle.load(open(f'{data_path}/info/{idx}_reads.pkl', 'rb'))
+        edges = pickle.load(open(f'{data_path}/info/{idx}_edges.pkl', 'rb'))
+        contigs = evaluate.walk_to_sequence(walks, g, reads, edges)
+        contigs_len = [len(contig) for contig in contigs]
+        print(f'num_contigs: {len(contigs_len)}\nlengths of walks: {walks_len}\nlengths of contigs: {contigs_len}')
+        evaluate.save_assembly(contigs, data_path, idx)
+        g_to_chr = pickle.load(open(f'{data_path}/info/g_to_chr.pkl', 'rb'))
+        chrN = g_to_chr[idx] # chromosome id
+        num_contigs, longest_contig, reconstructed, n50, ng50 = evaluate.quick_evaluation(contigs, chrN)
+        print(f'{longest_contig=} {reconstructed=:.4f} {n50=} {ng50=}')
+        walks_per_graph.append(walks)
+        contigs_per_graph.append(contigs)
+        elapsed = utils.timedelta_to_str(time_forward + datetime.now() - time_start_decoding)
+        print(f'total time (parallel greedy decoding): {elapsed}, num_greedy_paths: {num_greedy_paths}, len_threshold: {len_threshold}, nb_contigs: {len(contigs)}\n')
 
     return walks_per_graph, contigs_per_graph
 
