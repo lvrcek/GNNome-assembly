@@ -3,72 +3,12 @@ import pickle
 import random
 
 import torch
-# import matplotlib
-# # matplotlib.use('Agg')
-# matplotlib.interactive(True)
-# import matplotlib.pyplot as plt
 import numpy as np
 import dgl
 
 from scipy import sparse as sp 
 
 import algorithms
-
-
-def draw_loss_plots(train_loss, valid_loss, out):
-    """Draw and save plot of train and validation loss over epochs.
-
-    Parameters
-    ----------
-    train_loss : list
-        List of training loss for each epoch
-    valid_loss : list
-        List of validation loss for each epoch
-    out : str
-        A string used for naming the file
-
-    Returns
-    -------
-    None
-    """
-    pass
-    # Removed because importing matplotlib causes terminal to hang in some situations
-    # plt.figure()
-    # plt.plot(train_loss, label='train')
-    # plt.plot(valid_loss, label='validation')
-    # plt.title('Loss over epochs')
-    # plt.xlabel('Epoch')
-    # plt.ylabel('Loss')
-    # plt.legend()
-    # plt.savefig(f'figures/loss_{out}.png')
-
-
-def draw_accuracy_plots(train_acc, valid_acc, out):
-    """Draw and save plot of train and validation accuracy over epochs.
-
-    Parameters
-    ----------
-    train_loss : list
-        List of training accuracy for each epoch
-    valid_loss : list
-        List of validation accuracy for each epoch
-    out : str
-        A string used for naming the file
-
-    Returns
-    -------
-    None
-    """
-    pass
-    # Removed because importing matplotlib causes terminal to hang in some situations
-    # plt.figure()
-    # plt.plot(train_acc, label='train')
-    # plt.plot(valid_acc, label='validation')
-    # plt.title('Accuracy over epochs')
-    # plt.xlabel('Epoch')
-    # plt.ylabel('Accuracy')
-    # plt.legend()
-    # plt.savefig(f'figures/accuracy_{out}.png')
 
 
 def set_seed(seed=42):
@@ -144,15 +84,11 @@ def preprocess_graph(g, data_path, idx):
             # print("Solutions not generated")
             succs = pickle.load(open(f'{data_path}/info/{idx}_succ.pkl', 'rb'))
             edges = pickle.load(open(f'{data_path}/info/{idx}_edges.pkl', 'rb'))
-            pos_str_edges, neg_str_edges = algorithms.dfs_gt_neurips_graph(g, succs, edges)
-            # nodes_gt = pos_str_nodes | neg_str_nodes
+            pos_str_edges, neg_str_edges = algorithms.get_gt_graph(g, succs, edges)
             edges_gt = pos_str_edges | neg_str_edges
             if 'solutions' not in os.listdir(data_path):
                 os.mkdir(os.path.join(data_path, 'solutions'))
-            # pickle.dump(nodes_gt, open(f'{data_path}/solutions/{idx}_nodes.pkl', 'wb'))
             pickle.dump(edges_gt, open(f'{data_path}/solutions/{idx}_edges.pkl', 'wb'))
-            # Generate them here?
-            # g.ndata['y'] = torch.tensor([1 if i in nodes_gt else 0 for i in range(g.num_nodes())], dtype=torch.float)
             g.edata['y'] = torch.tensor([1 if i in edges_gt else 0 for i in range(g.num_edges())], dtype=torch.float)
 
     return g
@@ -302,3 +238,4 @@ def calculate_metrics(TP, TN, FP, FN):
         f1 = 0
     accuracy = (TP + TN) / (TP + TN + FP + FN)
     return accuracy, precision, recall, f1
+

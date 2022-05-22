@@ -342,113 +342,71 @@ def interval_union(name, root):
     return result
 
 
-def bfs_visit(graph, neighbors, start, all_visited):
-    """Get al the nodes in the component, regardless of the strand."""
-    queue = deque()
-    queue.append(start)
-    visited = set()
-    while queue:
-        # print('here')
-        current = queue.popleft()
-        if current in visited:
-            continue
-        if current in all_visited:
-            # visited.add(current)
-            continue
-        visited.add(current)
-        queue.extend(neighbors[current])
-    return visited
+# def bfs_visit(graph, neighbors, start, all_visited):
+#     """Get al the nodes in the component, regardless of the strand."""
+#     queue = deque()
+#     queue.append(start)
+#     visited = set()
+#     while queue:
+#         # print('here')
+#         current = queue.popleft()
+#         if current in visited:
+#             continue
+#         if current in all_visited:
+#             # visited.add(current)
+#             continue
+#         visited.add(current)
+#         queue.extend(neighbors[current])
+#     return visited
 
 
-def get_components(graph, neighbors, preds):
-    # Connect all the components in the defined manner, regardless of the strands
-    components = []
-    start = 0
-    all_visited = set()
-    starts = [n.item() for n in graph.nodes() if len(preds[n.item()]) == 0]
-    print(starts)
-    for start in starts:
-        comp = bfs_visit(graph, neighbors, start, all_visited)
-        components.append(comp)
-        all_visited = all_visited | set(comp)
-
-    print(len(components))
-    changes = True
-
-    while changes:
-        changes = False
-        components = sorted(components, key=lambda x: len(x))
-        comp = components[0]
-        for i in range(1, len(components)):
-            larger_comp = components[i]
-            for node in comp:
-                intersect = set(neighbors[node]) & larger_comp
-                if len(intersect) > 0:
-                    skip = True
-                    for joint in intersect:
-                        if len(neighbors[joint]) > 0:
-                            # Join the two components together
-                            skip = False
-                            break
-                        else:
-                            # Don't join them together
-                            # Because you can't visit any other nodes from the joint node
-                            pass
-                    if skip:
-                        continue
-                    new_comp = comp | larger_comp
-                    components.remove(comp)
-                    components.remove(larger_comp)
-                    components.append(new_comp)
-                    changes = True
-                    break
-            if changes:
-                break
-
-#    # Attempt to solve an issue with repeating components
-#    threshold = len(components)
-#    num_iter = 0
-#    while changes or num_iter < threshold:
-#        num_iter += 1
-#        changes = False
-#        components = sorted(components, key=lambda x: len(x))
-#        for j, comp in enumerate(components):
-#            for i in range(j+1, len(components)):
-#                larger_comp = components[i]
-#                # if len(comp) == 6:
-#                #     print(comp)
-#                for node in comp:
-#                    # if node == 31098:
-#                    #     print('hajhajh')
-#                    intersect = set(neighbors[node]) & larger_comp
-#                    if len(intersect) > 0:
-#                        skip = True
-#                        for joint in intersect:
-#                            # if joint == 31100:
-#                            #     print('here')
-#                            if len(neighbors[joint]) > 0:
-#                                # Join the two components together
-#                                skip = False
-#                                break
-#                            else:
-#                                # Don't join them together
-#                                # Because you can't visit any other nodes from the joint node
-#                                pass
-#                        if skip:
-#                            continue
-#                        new_comp = comp | larger_comp
-#                        components.remove(comp)
-#                        components.remove(larger_comp)
-#                        components.append(new_comp)
-#                        changes = True
-#                        break
-#                if changes:
-#                    break
-#            if changes:
-#                break
-
-    print(len(components))  # Number of components
-    return components
+# def get_components(graph, neighbors, preds):
+#     # Connect all the components in the defined manner, regardless of the strands
+#     components = []
+#     start = 0
+#     all_visited = set()
+#     starts = [n.item() for n in graph.nodes() if len(preds[n.item()]) == 0]
+#     print(starts)
+#     for start in starts:
+#         comp = bfs_visit(graph, neighbors, start, all_visited)
+#         components.append(comp)
+#         all_visited = all_visited | set(comp)
+# 
+#     print(len(components))
+#     changes = True
+# 
+#     while changes:
+#         changes = False
+#         components = sorted(components, key=lambda x: len(x))
+#         comp = components[0]
+#         for i in range(1, len(components)):
+#             larger_comp = components[i]
+#             for node in comp:
+#                 intersect = set(neighbors[node]) & larger_comp
+#                 if len(intersect) > 0:
+#                     skip = True
+#                     for joint in intersect:
+#                         if len(neighbors[joint]) > 0:
+#                             # Join the two components together
+#                             skip = False
+#                             break
+#                         else:
+#                             # Don't join them together
+#                             # Because you can't visit any other nodes from the joint node
+#                             pass
+#                     if skip:
+#                         continue
+#                     new_comp = comp | larger_comp
+#                     components.remove(comp)
+#                     components.remove(larger_comp)
+#                     components.append(new_comp)
+#                     changes = True
+#                     break
+#             if changes:
+#                 break
+# 
+#     print(len(components))  # Number of components
+#     return components
 
 
 # def dijkstra_gt(graph, neighbors, start, subset):
@@ -578,41 +536,41 @@ def get_correct_edges(graph, neighbors, edges, walk):
     return pos_str_edges, neg_str_edges
 
 
-def dfs_gt_graph(graph, neighbors, edges):
-    threshold, _ = torch.topk(graph.ndata['read_start'][graph.ndata['read_strand']==1], k=1)
-    last_pos = -1
-    strand = 1
-    all_walks = []
-    correct_nodes, correct_edges = set(), set()
+# def dfs_gt_graph(graph, neighbors, edges):
+#     threshold, _ = torch.topk(graph.ndata['read_start'][graph.ndata['read_strand']==1], k=1)
+#     last_pos = -1
+#     strand = 1
+#     all_walks = []
+#     correct_nodes, correct_edges = set(), set()
+# 
+#     while True:
+#         print('in')
+#         start_pos, start_idx = get_start(graph, strand, last_pos)
+#         neg_str_correct_edges = set()
+#         walk, _ = dfs(graph, neighbors, start=start_idx)
+# 
+#         print(last_pos, graph.ndata['read_end'][walk[-1]])
+#         print(len(walk))
+#         print(start_idx)
+#         all_walks.append(walk)
+# 
+#         correct_nodes = correct_nodes | set(walk)
+# 
+#         pos_str_edges, neg_str_edges = get_correct_edges(graph, neighbors, edges, walk)
+#         correct_edges = correct_edges | pos_str_edges
+#         neg_str_correct_edges = neg_str_correct_edges | neg_str_edges
+#         
+#         last_pos = graph.ndata['read_end'][walk[-1]]
+#         print(last_pos)
+#         if last_pos > 0.99 * threshold:
+#             break
+# 
+#     neg_str_correct_nodes = set([n^1 for n in correct_nodes])
+# 
+#     return correct_nodes, correct_edges, neg_str_correct_nodes, neg_str_correct_edges, all_walks
 
-    while True:
-        print('in')
-        start_pos, start_idx = get_start(graph, strand, last_pos)
-        neg_str_correct_edges = set()
-        walk, _ = dfs(graph, neighbors, start=start_idx)
 
-        print(last_pos, graph.ndata['read_end'][walk[-1]])
-        print(len(walk))
-        print(start_idx)
-        all_walks.append(walk)
-
-        correct_nodes = correct_nodes | set(walk)
-
-        pos_str_edges, neg_str_edges = get_correct_edges(graph, neighbors, edges, walk)
-        correct_edges = correct_edges | pos_str_edges
-        neg_str_correct_edges = neg_str_correct_edges | neg_str_edges
-        
-        last_pos = graph.ndata['read_end'][walk[-1]]
-        print(last_pos)
-        if last_pos > 0.99 * threshold:
-            break
-
-    neg_str_correct_nodes = set([n^1 for n in correct_nodes])
-
-    return correct_nodes, correct_edges, neg_str_correct_nodes, neg_str_correct_edges, all_walks
-
-
-def dfs_gt_neurips_graph(graph, neighbors, edges):
+def get_gt_graph(graph, neighbors, edges):
     all_nodes = {i for i in range(graph.num_nodes()) if graph.ndata['read_strand'][i] == 1}
     last_node = max(all_nodes, key=lambda x: graph.ndata['read_end'][x])
 
@@ -654,38 +612,38 @@ def dfs_gt_neurips_graph(graph, neighbors, edges):
 
 
 
-def dfs_gt_another(graph, neighbors, preds):
-    components = get_components(graph, neighbors, preds)
-    # components = [c for c in components if len(c) >= 10]
-    components = sorted(components, key=lambda x: -len(x))
-    walks = []
-    for i, component in enumerate(components):
-        try:
-            start_nodes = [node for node in component if len(preds[node]) == 0 and graph.ndata['read_strand'][node] == 1]
-            start = min(start_nodes, key=lambda x: graph.ndata['read_start'][x])
-            walk = dfs(graph, neighbors, start)
-            print(f'Component {i}: length = {len(walk)}')
-            print(f'\tStart: {graph.ndata["read_start"][walk[0]]}\tEnd: {graph.ndata["read_end"][walk[-1]]}')
-            walks.append(walk)
-        except ValueError:
-            # len(start_nodes) == 0
-            # Means it's a negative-strand component, neglect for now
-            # TODO: Solve later
-            print(f'Component {i}: passed')
-            pass
-
-    walks = sorted(walks, key=lambda x: -len(x))
-    final = [walks[0]]
-    if len(walks) > 1:
-        all_nodes = set(walks[0])
-        for w in walks[1:]:
-            if len(w) < 10:
-                continue
-            if len(set(w) & all_nodes) == 0:
-                final.append(w)
-                all_nodes = all_nodes | set(w)
-
-    return final
+# def dfs_gt_another(graph, neighbors, preds):
+#     components = get_components(graph, neighbors, preds)
+#     # components = [c for c in components if len(c) >= 10]
+#     components = sorted(components, key=lambda x: -len(x))
+#     walks = []
+#     for i, component in enumerate(components):
+#         try:
+#             start_nodes = [node for node in component if len(preds[node]) == 0 and graph.ndata['read_strand'][node] == 1]
+#             start = min(start_nodes, key=lambda x: graph.ndata['read_start'][x])
+#             walk = dfs(graph, neighbors, start)
+#             print(f'Component {i}: length = {len(walk)}')
+#             print(f'\tStart: {graph.ndata["read_start"][walk[0]]}\tEnd: {graph.ndata["read_end"][walk[-1]]}')
+#             walks.append(walk)
+#         except ValueError:
+#             # len(start_nodes) == 0
+#             # Means it's a negative-strand component, neglect for now
+#             # TODO: Solve later
+#             print(f'Component {i}: passed')
+#             pass
+# 
+#     walks = sorted(walks, key=lambda x: -len(x))
+#     final = [walks[0]]
+#     if len(walks) > 1:
+#         all_nodes = set(walks[0])
+#         for w in walks[1:]:
+#             if len(w) < 10:
+#                 continue
+#             if len(set(w) & all_nodes) == 0:
+#                 final.append(w)
+#                 all_nodes = all_nodes | set(w)
+# 
+#     return final
 
 
 def get_solutions_for_all(data_path, threshold=None):

@@ -34,6 +34,22 @@ class GraphGatedGCN(nn.Module):
         return h, e
 
 
+# For updating edge represenations in both directons
+class GraphGatedGCN_2d(nn.Module):
+    def __init__(self, num_layers, hidden_features, batch_norm):
+        super().__init__()
+        self.convs = nn.ModuleList([
+            layers.GatedGCN_2d(hidden_features, hidden_features, batch_norm) for _ in range(num_layers)
+        ])
+
+    def forward(self, graph, h, e_f, e_b):
+        for i in range(len(self.convs)):
+            h, e_f, e_b = self.convs[i](graph, h, e_f, e_b)
+            # h = F.relu(h)
+            # e = F.relu(e)
+        return h, e_f, e_b
+
+
 # Block graph processors
 class BlockGCN(nn.Module):
     def __init__(self, num_layers, hidden_features):
