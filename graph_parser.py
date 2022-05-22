@@ -8,9 +8,6 @@ import networkx as nx
 import torch
 
 import algorithms
-# import matplotlib
-# matplotlib.interactive(True)
-# from matplotlib import pyplot as plt
 
 
 def get_neighbors(graph):
@@ -76,115 +73,6 @@ def get_edges(graph):
     return edges_dict
 
 
-def find_edge_index(graph, src, dst):
-    """Return index for the edge in a graph.
-
-    Given a DGLGraph object, and two nodes connected by an edge,
-    return the index of that edge.
-    
-    Parameters
-    ----------
-    graph : dgl.DGLGraph
-        A graph in which the edge is searched
-    src : int
-        Index of the source node
-    dst : int
-        Index of the destination node
-
-    Returns
-    -------
-    int
-        index of the edge connecting src and dst nodes
-    """
-    for idx, (node1, node2) in enumerate(zip(graph.edges()[0], graph.edges()[1])):
-        if node1 == src and node2 == dst:
-            return idx
-
-
-def translate_nodes_into_sequence(graph, reads, node_tr):
-    """Concatenate reads associated with nodes in a walk.
-
-    Each node is associated with a read (genomic sequence), and when
-    there is an edge between two ndoes that means that the associated
-    sequences are overlapping. Given a graph, reads, and a list of
-    nodes, this function concatenates the sequences for all the nodes
-    in a list in a prefix-suffix manner. For overlapping, this function
-    relies on the overlap_length attribute.
-    
-    Parameters
-    ----------
-    graph : dgl.DGLGraph
-        A graph on which the walk was performed
-    reads : dict
-        A dictionary where each node is associated with a sequence
-    node_tr : list
-        A list of nodes depicting the walk
-
-    Returns
-    -------
-    str
-        a sequence of concatenated reads
-    """
-    seq = reads[node_tr[0]]
-    for src, dst in zip(node_tr[:-1], node_tr[1:]):
-        idx = find_edge_index(graph, src, dst)
-        overlap_length = graph.edata['overlap_length'][idx]
-        seq += reads[dst][overlap_length:]
-    return seq
-
-
-def translate_nodes_into_sequence2(graph, reads, node_tr):
-    """Concatenate reads associated with nodes in a walk.
-
-    Each node is associated with a read (genomic sequence), and when
-    there is an edge between two ndoes that means that the associated
-    sequences are overlapping. Given a graph, reads, and a list of
-    nodes, this function concatenates the sequences for all the nodes
-    in a list in a prefix-suffix manner. For overlapping, this function
-    relies on the prefix_length attribute.
-    
-    Parameters
-    ----------
-    graph : dgl.DGLGraph
-        A graph on which the walk was performed
-    reads : dict
-        A dictionary where each node is associated with a sequence
-    node_tr : list
-        A list of nodes depicting the walk
-
-    Returns
-    -------
-    str
-        a sequence of concatenated reads
-    """
-    seq = ''
-    for src, dst in zip(node_tr[:-1], node_tr[1:]):
-        idx = find_edge_index(graph, src, dst)
-        prefix_length = graph.edata['prefix_length'][idx]
-        seq += reads[src][:prefix_length]
-    seq += reads[node_tr[-1]]
-    return seq
-
-
-def get_quality(hits, seq_len):
-    """Returns the fraction of the best mapping - DEPRECATED
-    
-    Parameters
-    ----------
-    hits : list
-        The list of mappy.Alignment objects resulting from aligning
-        a sequence to the reference
-    seq_len : int
-        Length of the sequence aligned to the reference
-
-    Returns
-    -------
-    float
-        a fraction of how much sequence was aligned to the reference
-    """
-    return (hits[0].q_en - hits[0].q_st) / seq_len
-
-
 def print_pairwise(graph, path):
     """Outputs the graph into a pairwise TXT format.
     
@@ -207,7 +95,7 @@ def print_pairwise(graph, path):
 def from_gfa(graph_path, reads_path):
     """Parse an assembly graph stored in a GFA format.
 
-    Raven assemblers can store an assembly graph in a CSV or a GFA
+    Raven assembler can store an assembly graph in a CSV or a GFA
     format. This function parses the GFA file and extracts the
     sequences from the FASTQ files by comparing read IDs. Returns
     deques of sequences and discriptions extracted from the FASTQ file.
@@ -266,7 +154,7 @@ def from_gfa(graph_path, reads_path):
 def from_csv(graph_path, reads_path):
     """Parse an assembly graph stored in a CSV format.
 
-    Raven assemblers can store an assembly graph in a CSV or a GFA
+    Raven assembler can store an assembly graph in a CSV or a GFA
     format. This function parses the CSV file, creates a DGL graph
     and returns the DGL graph and its related information stored in
     dictionaries---neighbors, predecessors and sequences of each node.
@@ -333,7 +221,7 @@ def from_csv(graph_path, reads_path):
                 description = description_queue.popleft()
                 try:
                     id, strand, start, end = description.split()
-                except:
+                except ValueError:
                     id, idx, strand, start, end = description.split()
                 # except:
                 #     id, idx, strand, start, end = description.split()
@@ -488,7 +376,7 @@ def from_csv(graph_path, reads_path):
     for i, key in enumerate(sorted(node_data)):
         reads[i] = node_data[key]
 
-    gt_edges_pos, gt_edges_neg = algorithms.dfs_gt_neurips_graph(graph_dgl, successors, edges)
+    gt_edges_pos, gt_edges_neg = algorithms.get_gt_graph(graph_dgl, successors, edges)
     labels = gt_edges_pos | gt_edges_neg
     graph_dgl.edata['y'] = torch.tensor([1 if i in labels else 0 for i in range(graph_dgl.num_edges())], dtype=torch.float)
 

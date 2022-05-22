@@ -8,6 +8,7 @@ from dgl.data import DGLDataset
 import graph_parser
 from utils import preprocess_graph, add_positional_encoding
 
+
 class AssemblyGraphDataset(DGLDataset):
     """
     A dataset to store the assembly graphs.
@@ -73,14 +74,12 @@ class AssemblyGraphDataset(DGLDataset):
 
     def has_cache(self):
         """Check if the raw data is already processed and stored."""
-        # return len(os.listdir(self.save_dir)) > 0
         return len(os.listdir(self.save_dir)) >= len(os.listdir(self.raw_dir))
 
     def __len__(self):
         return len(os.listdir(self.save_dir))
 
     def __getitem__(self, idx):
-        # (graph,), _ = dgl.load_graphs(os.path.join(self.save_dir, str(idx) + '.dgl'))
         i, graph = self.graph_list[idx]
         return i, graph
 
@@ -104,11 +103,7 @@ class AssemblyGraphDataset(DGLDataset):
         with open(f'{self.root}/dataset_log.txt', 'w') as f:
             n_have = len(os.listdir(self.save_dir))
             n_need = len(os.listdir(self.raw_dir))
-            n_diff = n_need - n_have
-            files = sorted(os.listdir(self.raw_dir))  # [0.fasta, 1.fasta, ...]
             for cnt, idx in enumerate(range(n_have, n_need)):
-            # for cnt, fastq in enumerate(os.listdir(self.raw_dir)):
-                # fastq = files[idx]  # have 4 [0-3] -> fastq = 4.fasta, 5.fasta, ...
                 fastq = f'{idx}.fasta'
                 print(f'Step {cnt}: generating graphs for reads in {fastq}')
                 reads_path = os.path.abspath(os.path.join(self.raw_dir, fastq))
@@ -117,26 +112,23 @@ class AssemblyGraphDataset(DGLDataset):
                 print(f'Parameters: --identity {filter} -k29 -w9 -t{threads} -p0')
                 print(f'Assembly output: {out}\n')
                 subprocess.run(f'{self.raven_path} --identity {filter} -k29 -w9 -t{threads} -p0 {reads_path} > {idx}_{out}', shell=True, cwd=self.tmp_dir)
-                # subprocess.run(f'{self.raven_path} --filter {filter} --weaken -t{threads} -p0 {reads_path} > {out}', shell=True, cwd=self.tmp_dir)
                 subprocess.run(f'mv graph_1.csv {idx}_graph_1.csv', shell=True, cwd=self.tmp_dir)
                 subprocess.run(f'mv graph_1.gfa {idx}_graph_1.gfa', shell=True, cwd=self.tmp_dir)
-                cnt = idx  # Just not to change original code too much yet. TODO: Fix later
-                for j in range(1, 2):
-                    print(f'\nRaven generated the graph! Processing...')
-                    # processed_path = os.path.join(self.save_dir, f'd{cnt}_g{j}.dgl')
-                    processed_path = os.path.join(self.save_dir, f'{cnt}.dgl')
-                    graph, pred, succ, reads, edges, labels = graph_parser.from_csv(os.path.join(self.tmp_dir, f'{cnt}_graph_{j}.csv'), reads_path)
-                    print(f'Parsed Raven output! Saving files...')
+                
+                print(f'\nRaven generated the graph! Processing...')
+                processed_path = os.path.join(self.save_dir, f'{idx}.dgl')
+                graph, pred, succ, reads, edges, labels = graph_parser.from_csv(os.path.join(self.tmp_dir, f'{idx}_graph_1.csv'), reads_path)
+                print(f'Parsed Raven output! Saving files...')
 
-                    dgl.save_graphs(processed_path, graph)
-                    pickle.dump(pred, open(f'{self.info_dir}/{cnt}_pred.pkl', 'wb'))
-                    pickle.dump(succ, open(f'{self.info_dir}/{cnt}_succ.pkl', 'wb'))
-                    pickle.dump(reads, open(f'{self.info_dir}/{cnt}_reads.pkl', 'wb'))
-                    pickle.dump(edges, open(f'{self.info_dir}/{cnt}_edges.pkl', 'wb'))
-                    pickle.dump(labels, open(f'{self.info_dir}/{cnt}_labels.pkl', 'wb'))
+                dgl.save_graphs(processed_path, graph)
+                pickle.dump(pred, open(f'{self.info_dir}/{idx}_pred.pkl', 'wb'))
+                pickle.dump(succ, open(f'{self.info_dir}/{idx}_succ.pkl', 'wb'))
+                pickle.dump(reads, open(f'{self.info_dir}/{idx}_reads.pkl', 'wb'))
+                pickle.dump(edges, open(f'{self.info_dir}/{idx}_edges.pkl', 'wb'))
+                pickle.dump(labels, open(f'{self.info_dir}/{idx}_labels.pkl', 'wb'))
 
-                    graphia_path = os.path.join(graphia_dir, f'{cnt}_graph.txt')
-                    graph_parser.print_pairwise(graph, graphia_path)
-                    print(f'Processing of graph {cnt} generated from {fastq} done!\n')
-                f.write(f'{cnt} - {fastq}\n')
+                graphia_path = os.path.join(graphia_dir, f'{idx}_graph.txt')
+                graph_parser.print_pairwise(graph, graphia_path)
+                print(f'Processing of graph {idx} generated from {fastq} done!\n')
+                f.write(f'{idx} - {fastq}\n')
 
