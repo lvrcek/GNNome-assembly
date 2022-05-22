@@ -49,11 +49,11 @@ def walk_to_sequence(walks, graph, reads, edges):
     return contigs
 
 
-def save_assembly(contigs, data_path, idx):
-    assembly_dir = os.path.join(data_path, 'assembly')
-    if 'assembly' not in os.listdir(data_path):
+def save_assembly(contigs, data_path, idx, suffix='', dir_name='assembly'):
+    assembly_dir = os.path.join(data_path, dir_name)
+    if dir_name not in os.listdir(data_path):
         os.mkdir(assembly_dir)
-    assembly_path = os.path.join(assembly_dir, f'{idx}_assembly.fasta')
+    assembly_path = os.path.join(assembly_dir, f'{idx}_assembly{suffix}.fasta')
     SeqIO.write(contigs, assembly_path, 'fasta')
 
 
@@ -110,6 +110,7 @@ def txt_output(f, txt):
     print(f'{txt}')
     f.write(f'{txt}\n')
 
+
 def print_summary(data_path, idx, chrN, num_contigs, longest_contig, reconstructed, n50, ng50):
     reports_dir = os.path.join(data_path, 'reports')
     if not os.path.isdir(reports_dir ):
@@ -120,29 +121,7 @@ def print_summary(data_path, idx, chrN, num_contigs, longest_contig, reconstruct
         txt_output(f, f'Graph created from {chrN}')
         txt_output(f, f'Num contigs:\t{num_contigs}')
         txt_output(f, f'Longest contig:\t{longest_contig}')
-        txt_output(f, f'Reconstructed:\t{reconstructed * 100}%')
+        txt_output(f, f'Reconstructed:\t{reconstructed * 100:2f}%')
         txt_output(f, f'N50:\t{n50}')
         txt_output(f, f'NG50:\t{ng50}')
         
-
-
-#         txt_output(f,f'Greedy paths:\t{len(greedy_paths)}\n')
-#         greedy_contig_lengths = []
-#         for path in greedy_paths:
-#             contig_len = graph.ndata["read_end"][path[-1]] - graph.ndata["read_start"][path[0]]
-#             greedy_contig_lengths.append(abs(contig_len).item())
-#         txt_output(f, 'Greedy: ')
-#         txt_output(f, f'Contigs: \t{greedy_contig_lengths}')
-#         txt_output(f,f'Contigs amount:\t{len(greedy_contig_lengths)}')
-#         txt_output(f,f'Longest Contig:\t{max(greedy_contig_lengths)}')
-#         txt_output(f,f'Reconstructed:\t{sum(greedy_contig_lengths)}')
-#         txt_output(f,f'Percentage:\t{sum(greedy_contig_lengths)/ref_length*100}')
-#         n50_greedy = calculate_N50(greedy_contig_lengths)
-#         txt_output(f,f'N50:\t{n50_greedy}')
-#         ng50_greedy = calculate_NG50(greedy_contig_lengths, ref_length)
-#         txt_output(f,f'NG50:\t{ng50_greedy}')
-
-
-def run_quast():
-    ...
-
