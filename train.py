@@ -4,6 +4,7 @@ import copy
 import os
 from posixpath import split
 import pickle
+import random
 
 from tqdm import tqdm
 import numpy as np
@@ -50,65 +51,65 @@ def load_checkpoint(out, model, optimizer):
     return epoch, model, optimizer, loss_train, loss_valid
 
 
-def process_gt_graph(model, graph, neighbors, edges, criterion, optimizer, scaler, epoch, norm, device, nodes_gt, edges_gt):
+# def process_gt_graph(model, graph, neighbors, edges, criterion, optimizer, scaler, epoch, norm, device, nodes_gt, edges_gt):
+# 
+#     use_amp = get_hyperparameters()['use_amp']
+# 
+#     nodes_gt = torch.tensor([1 if i in nodes_gt else 0 for i in range(graph.num_nodes())], dtype=torch.float).to(device)
+#     edges_gt = torch.tensor([1 if i in edges_gt else 0 for i in range(graph.num_edges())], dtype=torch.float).to(device)
+# 
+#     losses = []
+#     accuracies = []
+#     
+#     node_criterion = nn.BCEWithLogitsLoss()
+#     edge_pos_weight = torch.tensor([1/25], device=device)
+#     edge_criterion = nn.BCEWithLogitsLoss(pos_weight=None)
+# 
+#     edges_p = model(graph, None)
+#     # start_end = slice(batch*batch_size, (batch+1)*batch_size)
+#     edge_loss = edge_criterion(edges_p.squeeze(-1), edges_gt)
+#     loss = edge_loss
+#     optimizer.zero_grad()
+#     if use_amp:
+#         scaler.scale(loss).backward()
+#         scaler.step(optimizer)
+#         scaler.update()
+#     else:
+#         edge_loss.backward()
+#         optimizer.step()
+# 
+#     edges_predict = torch.round(torch.sigmoid(edges_p.squeeze(-1)))
+# 
+#     TP = torch.sum(torch.logical_and(edges_predict==1, edges_gt==1)).item()
+#     TN = torch.sum(torch.logical_and(edges_predict==0, edges_gt==0)).item()
+#     FP = torch.sum(torch.logical_and(edges_predict==1, edges_gt==0)).item()
+#     FN = torch.sum(torch.logical_and(edges_predict==0, edges_gt==1)).item()
+# 
+#     recall = TP / (TP + FP)
+#     precision = TP / (TP + FN)
+#     f1 = TP / (TP + 0.5 * (FP + FN) )
+#     # f1 = 2 * precision * recall / (precision + recall)
+# 
+#     edge_accuracy = (edges_predict == edges_gt).sum().item() / graph.num_edges()
+# 
+#     # accuracy = (node_accuracy + edge_accuracy) / 2
+#     accuracy = edge_accuracy
+#     losses.append(loss.item())
+#     accuracies.append(accuracy)
+#     wandb.log({'loss': loss.item(), 'accuracy': accuracy, 'precision': precision, 'recall': recall, 'f1': f1})
+#     print(f'{TP=}, {TN=}, {FP=}, {FN=}')
+# 
+#     return losses, accuracies
 
-    use_amp = get_hyperparameters()['use_amp']
 
-    nodes_gt = torch.tensor([1 if i in nodes_gt else 0 for i in range(graph.num_nodes())], dtype=torch.float).to(device)
-    edges_gt = torch.tensor([1 if i in edges_gt else 0 for i in range(graph.num_edges())], dtype=torch.float).to(device)
-
-    losses = []
-    accuracies = []
-    
-    node_criterion = nn.BCEWithLogitsLoss()
-    edge_pos_weight = torch.tensor([1/25], device=device)
-    edge_criterion = nn.BCEWithLogitsLoss(pos_weight=None)
-
-    edges_p = model(graph, None)
-    # start_end = slice(batch*batch_size, (batch+1)*batch_size)
-    edge_loss = edge_criterion(edges_p.squeeze(-1), edges_gt)
-    loss = edge_loss
-    optimizer.zero_grad()
-    if use_amp:
-        scaler.scale(loss).backward()
-        scaler.step(optimizer)
-        scaler.update()
-    else:
-        edge_loss.backward()
-        optimizer.step()
-
-    edges_predict = torch.round(torch.sigmoid(edges_p.squeeze(-1)))
-
-    TP = torch.sum(torch.logical_and(edges_predict==1, edges_gt==1)).item()
-    TN = torch.sum(torch.logical_and(edges_predict==0, edges_gt==0)).item()
-    FP = torch.sum(torch.logical_and(edges_predict==1, edges_gt==0)).item()
-    FN = torch.sum(torch.logical_and(edges_predict==0, edges_gt==1)).item()
-
-    recall = TP / (TP + FP)
-    precision = TP / (TP + FN)
-    f1 = TP / (TP + 0.5 * (FP + FN) )
-    # f1 = 2 * precision * recall / (precision + recall)
-
-    edge_accuracy = (edges_predict == edges_gt).sum().item() / graph.num_edges()
-
-    # accuracy = (node_accuracy + edge_accuracy) / 2
-    accuracy = edge_accuracy
-    losses.append(loss.item())
-    accuracies.append(accuracy)
-    wandb.log({'loss': loss.item(), 'accuracy': accuracy, 'precision': precision, 'recall': recall, 'f1': f1})
-    print(f'{TP=}, {TN=}, {FP=}, {FN=}')
-
-    return losses, accuracies
-
-
-def process_reads(reads, device):
-    processed_reads = {}
-    for id, read in reads.items():
-        read = read.replace('A', '0').replace('C', '1').replace('G', '2').replace('T', '3')
-        read = ' '.join(read).split()
-        read = torch.tensor(list(map(int, read)), device=device)
-        processed_reads[id] = read
-    return processed_reads
+# def process_reads(reads, device):
+#     processed_reads = {}
+#     for id, read in reads.items():
+#         read = read.replace('A', '0').replace('C', '1').replace('G', '2').replace('T', '3')
+#         read = ' '.join(read).split()
+#         read = torch.tensor(list(map(int, read)), device=device)
+#         processed_reads[id] = read
+#     return processed_reads
 
 
 def view_model_param(model):
@@ -135,69 +136,62 @@ def train(data, out, eval, overfit):
     patience = hyperparameters['patience']
     lr = hyperparameters['lr']
     device = hyperparameters['device']
-    use_reads = hyperparameters['use_reads']
-    use_amp = hyperparameters['use_amp']
+    # use_reads = hyperparameters['use_reads']
+    # use_amp = hyperparameters['use_amp']
     batch_norm = hyperparameters['batch_norm']
     node_features = hyperparameters['node_features']
     edge_features = hyperparameters['edge_features']
     hidden_edge_features = hyperparameters['hidden_edge_features']
     hidden_edge_scores = hyperparameters['hidden_edge_scores']
     decay = hyperparameters['decay']
-    pos_to_neg_ratio = hyperparameters['pos_to_neg_ratio']
+    # pos_to_neg_ratio = hyperparameters['pos_to_neg_ratio']
     wandb_mode = hyperparameters['wandb_mode']
+
+    utils.set_seed(seed)
 
     time_start = datetime.now()
     timestamp = time_start.strftime('%Y-%b-%d-%H-%M-%S')
     data_path = os.path.abspath(data)
     
     if out is None:
-        train_path = os.path.join(data_path, f'train')
-        valid_path = os.path.join(data_path, f'valid')
         out = timestamp
-    else:
-        train_path = os.path.join(data_path, f'train_{out}')
-        valid_path = os.path.join(data_path, f'valid_{out}')
+    train_path = os.path.join(data_path, f'train_{out}')
+    valid_path = os.path.join(data_path, f'valid_{out}')
 
-    # out = args.out if args.out is not None else timestamp
-    # is_eval = args.eval
-    # is_split = args.split
-
-    utils.set_seed(seed)
-    
     sampler = dgl.dataloading.MultiLayerFullNeighborSampler(num_gnn_layers)
 
     if not overfit:
         ds_train = AssemblyGraphDataset(train_path, nb_pos_enc=nb_pos_enc)
         ds_valid = AssemblyGraphDataset(valid_path, nb_pos_enc=nb_pos_enc)
-        num_graphs = len(ds_train) + len(ds_valid)
     else:
         ds = AssemblyGraphDataset(train_path, nb_pos_enc=nb_pos_enc)
         # TODO: Only a temporary stupid fix, have to decide later how to make it proper
         ds_train = ds 
         ds_valid = ds_train # DEBUG !!!!!!!!!!!!!
-        num_graphs = len(ds)
 
-    # overfit = num_graphs == 1
 
-    #overfit = False # DEBUG !!!!!!!!!!!!!
-    #batch_size_train = batch_size_eval = 1 # DEBUG !!!!!!!!!!!!!
+    pos_to_neg_ratio = sum([((g.edata['y']==1).sum() / (g.edata['y']==0).sum()).item() for idx, g in ds_train]) / len(ds_train)
 
-    if batch_size_train <= 1: # train with full graph 
-        #model = models.GraphGCNModel(node_features, edge_features, hidden_features, num_gnn_layers)
-        #best_model = models.GraphGCNModel(node_features, edge_features, hidden_features, num_gnn_layers)
-        model = models.GraphGatedGCNModel(node_features, edge_features, hidden_features, hidden_edge_features, num_gnn_layers, hidden_edge_scores, batch_norm, nb_pos_enc) # GatedGCN 
-        best_model = models.GraphGatedGCNModel(node_features, edge_features, hidden_features, hidden_edge_features, num_gnn_layers, hidden_edge_scores, batch_norm, nb_pos_enc) # GatedGCN 
-    else:
-        #model = models.BlockGatedGCNModel(node_features, edge_features, hidden_features, num_gnn_layers, batch_norm=batch_norm)
-        #best_model = models.BlockGatedGCNModel(node_features, edge_features, hidden_features, num_gnn_layers, batch_norm=batch_norm)
-        model = models.GraphGatedGCNModel(node_features, edge_features, hidden_features, hidden_edge_features, num_gnn_layers, hidden_edge_scores, batch_norm, nb_pos_enc) # GatedGCN 
-        best_model = models.GraphGatedGCNModel(node_features, edge_features, hidden_features, hidden_edge_features, num_gnn_layers, hidden_edge_scores, batch_norm, nb_pos_enc) # GatedGCN 
+#     if batch_size_train <= 1: # train with full graph 
+#         # model = models.GraphGCNModel(node_features, edge_features, hidden_features, num_gnn_layers)
+#         # best_model = models.GraphGCNModel(node_features, edge_features, hidden_features, num_gnn_layers)
+#         model = models.GraphGatedGCNModel(node_features, edge_features, hidden_features, hidden_edge_features, num_gnn_layers, hidden_edge_scores, batch_norm, nb_pos_enc) # GatedGCN 
+#         best_model = models.GraphGatedGCNModel(node_features, edge_features, hidden_features, hidden_edge_features, num_gnn_layers, hidden_edge_scores, batch_norm, nb_pos_enc) # GatedGCN 
+#     else:
+#         # model = models.BlockGatedGCNModel(node_features, edge_features, hidden_features, num_gnn_layers, batch_norm=batch_norm)
+#         # best_model = models.BlockGatedGCNModel(node_features, edge_features, hidden_features, num_gnn_layers, batch_norm=batch_norm)
+#         model = models.GraphGatedGCNModel(node_features, edge_features, hidden_features, hidden_edge_features, num_gnn_layers, hidden_edge_scores, batch_norm, nb_pos_enc) # GatedGCN 
+#         best_model = models.GraphGatedGCNModel(node_features, edge_features, hidden_features, hidden_edge_features, num_gnn_layers, hidden_edge_scores, batch_norm, nb_pos_enc) # GatedGCN 
+
+
+    model = models.GraphGatedGCNModel(node_features, edge_features, hidden_features, hidden_edge_features, num_gnn_layers, hidden_edge_scores, batch_norm, nb_pos_enc) # GatedGCN
+    best_model = models.GraphGatedGCNModel(node_features, edge_features, hidden_features, hidden_edge_features, num_gnn_layers, hidden_edge_scores, batch_norm, nb_pos_enc) # GatedGCN
 
     model.to(device)
     if not os.path.exists(os.path.join('pretrained')):
         os.makedirs(os.path.join('pretrained'))
     model_path = os.path.abspath(f'pretrained/model_{out}.pt')
-    best_model.to(device)  # TODO: IF I really need to save on memory, maybe not do this
+    best_model.to(device)
     best_model.load_state_dict(copy.deepcopy(model.state_dict()))
     best_model.eval()
 
@@ -233,6 +227,7 @@ def train(data, out, eval, overfit):
                 train_acc_all_graphs, train_precision_all_graphs, train_recall_all_graphs, train_f1_all_graphs = [], [], [], []
 
                 print('TRAINING')
+                random.shuffle(ds_train.graph_list)
                 for data in ds_train:
                     model.train()
                     idx, g = data
@@ -277,7 +272,6 @@ def train(data, out, eval, overfit):
                         print(f'elapsed time: {elapsed}\n')
 
                     else: # train with mini-batch
-
                         # remove Metis clusters to force new clusters
                         try:
                             os.remove(cluster_cache_path)
@@ -286,9 +280,9 @@ def train(data, out, eval, overfit):
 
                         # Run Metis
                         g = g.long()
-                        num_clusters = torch.LongTensor(1).random_(num_parts_metis_train-50,num_parts_metis_train+50).item() # DEBUG!!!
+                        num_clusters = torch.LongTensor(1).random_(num_parts_metis_train-100,num_parts_metis_train+100).item() # DEBUG!!!
                         sampler = dgl.dataloading.ClusterGCNSampler(g, num_clusters, cache_path=cluster_cache_path) 
-                        dataloader = dgl.dataloading.DataLoader(g, torch.arange(num_clusters), sampler, batch_size=batch_size_train, shuffle=True, drop_last=False, num_workers=4) # XB
+                        dataloader = dgl.dataloading.DataLoader(g, torch.arange(num_clusters), sampler, batch_size=batch_size_train, shuffle=True, drop_last=False, num_workers=4)
 
                         # For loop over all mini-batch in the graph
                         running_loss, running_fp_rate, running_fn_rate = [], [], []
@@ -366,12 +360,6 @@ def train(data, out, eval, overfit):
                 print(f'Loss: {train_loss_all_graphs:.4f}, fp_rate(GT=0): {train_fp_rate_all_graphs:.4f}, fn_rate(GT=1): {train_fn_rate_all_graphs:.4f}')
                 print(f'lr_value: {lr_value:.6f}, elapsed time: {elapsed}\n')
 
-                # try:
-                #     wandb.log({'train_loss': train_loss_all_graphs, 'train_accuracy': train_acc_all_graphs, 'train_precision': train_precision_all_graphs, \
-                #             'train_recall': train_recall_all_graphs, 'train_f1': train_f1_all_graphs, 'train_fp-rate': train_fp_rate_all_graphs, 'train_fn-rate': train_fn_rate_all_graphs, 'lr_value': lr_value})
-                # except Exception:
-                #     print(f'WandB exception occured!')
-
                 if overfit: # temp : one graph at the moment
                     if len(loss_per_epoch_train) > 1 and loss_per_epoch_train[-1] < min(loss_per_epoch_train[:-1]):
                         best_model.load_state_dict(copy.deepcopy(model.state_dict()))
@@ -440,7 +428,7 @@ def train(data, out, eval, overfit):
                                 # Run Metis
                                 g = g.long()
                                 sampler = dgl.dataloading.ClusterGCNSampler(g, num_parts_metis_eval, cache_path=cluster_cache_path) 
-                                dataloader = dgl.dataloading.DataLoader(g, torch.arange(num_parts_metis_eval), sampler, batch_size=batch_size_eval, shuffle=True, drop_last=False, num_workers=4) # XB
+                                dataloader = dgl.dataloading.DataLoader(g, torch.arange(num_parts_metis_eval), sampler, batch_size=batch_size_eval, shuffle=True, drop_last=False, num_workers=4)
 
                                 # For loop over all mini-batch in the graph
                                 running_loss, running_fp_rate, running_fn_rate = [], [], []
@@ -514,14 +502,6 @@ def train(data, out, eval, overfit):
                         print(f'Loss: {val_loss_all_graphs:.4f}, fp_rate(GT=0): {val_fp_rate_all_graphs:.4f}, fn_rate(GT=1): {val_fn_rate_all_graphs:.4f}')
                         print(f'elapsed time: {elapsed}\n')
 
-
-                        # try:
-                        #     wandb.log({'train_loss': train_loss_all_graphs, 'train_accuracy': train_acc_all_graphs, 'train_precision': train_precision_all_graphs, \
-                        #             'train_recall': train_recall_all_graphs, 'train_f1': train_f1_all_graphs, 'train_fp-rate': train_fp_rate_all_graphs, 'train_fn-rate': train_fn_rate_all_graphs, 'lr_value': lr_value})
-                        # except Exception:
-                        #     print(f'WandB exception occured!')
-
-
                         try:
                             wandb.log({'train_loss': train_loss_all_graphs, 'train_accuracy': train_acc_all_graphs, \
                                        'train_precision': train_precision_all_graphs, 'lr_value': lr_value, \
@@ -540,79 +520,88 @@ def train(data, out, eval, overfit):
                         save_checkpoint(epoch, model, optimizer, loss_per_epoch_train[-1], loss_per_epoch_valid[-1], out)
                         scheduler.step(val_loss_all_graphs)
 
-                # DECODING : LV 
-                if (not epoch % 50 or epoch + 1 == num_epochs) and epoch > 0:
-                    print(f'\n=====>DECODING: Epoch = {epoch}')
-                    time_start_decoding = datetime.now()
-                    # device_cpu = torch.device('cpu')
-                    decode_path = valid_path # If you're overfitting then put train_path
-                    model.eval()
-                    for data in ds_valid:
-                        idx, g = data
-                        with torch.no_grad():
-                            g = g.int().to(device)
-                            x = g.ndata['x'].to(device) 
-                            e = g.edata['e'].to(device)
-                            pe = g.ndata['pe'].to(device)
-                            pe_in = g.ndata['in_deg'].unsqueeze(1).to(device)
-                            pe_out = g.ndata['out_deg'].unsqueeze(1).to(device)
-                            pe = torch.cat((pe_in, pe_out, pe), dim=1)
-                            edge_predictions = model(g, x, e, pe)
-                            g.edata['score'] = edge_predictions 
-                        succs = pickle.load(open(f'{decode_path}/info/{idx}_succ.pkl', 'rb'))
-                        preds = pickle.load(open(f'{decode_path}/info/{idx}_pred.pkl', 'rb'))
-                        edges = pickle.load(open(f'{decode_path}/info/{idx}_edges.pkl', 'rb'))
-                        len_threshold = 50  # TODO: Add as hyperparameter!!!
-                        walks = get_contigs_for_one_graph(g, succs, preds, edges, num_decoding_paths, len_threshold, device)
-                        print(f'Epoch = {epoch}, sequential lengths of all contigs: {[len(w) for w in walks]}\n')
-                        # torch.save([all_contigs, all_contigs_len], 'checkpoints/all_contigs.pt')
-                        elapsed = utils.timedelta_to_str(datetime.now() - time_start_decoding)
-                        print(f'elapsed time (decoding - finding walks): {elapsed}\n')
-                        reads = pickle.load(open(f'{decode_path}/info/{idx}_reads.pkl', 'rb'))
-                        try:
-                            g_to_chr = pickle.load(open(f'{decode_path}/info/g_to_chr.pkl', 'rb'))
-                            chrN = g_to_chr[idx]
-                        except FileNotFoundError:
-                            print('SOMETHING WRONG WITH g_to_chr !!')
-                            raise
-                        contigs = evaluate.walk_to_sequence(walks, g, reads, edges)
-                        num_contigs, longest_contig, reconstructed, n50, ng50 = evaluate.quick_evaluation(contigs, chrN)
-                        print(f'{num_contigs=} {longest_contig=} {reconstructed=:.4f} {n50=} {ng50=}')
-                        elapsed = utils.timedelta_to_str(datetime.now() - time_start_decoding)
-                        print(f'elapsed time (decoding - evaluating contigs): {elapsed}\n')
+#                 # DECODING : sequential 
+#                 if (not epoch % 50 or epoch + 1 == num_epochs) and epoch > 0 and False:
+#                     print(f'\n=====>DECODING: Epoch = {epoch}')
+#                     time_start_decoding = datetime.now()
+#                     # device_cpu = torch.device('cpu')
+#                     model.eval()
+#                     decode_path = train_path if overfit else valid_path
+#                     ds_decode = ds_train if overfit else ds_valid
+#                     for data in ds_decode:
+#                         idx, g = data
+#                         with torch.no_grad():
+#                             g = g.int().to(device)
+#                             x = g.ndata['x'].to(device) 
+#                             e = g.edata['e'].to(device)
+#                             pe = g.ndata['pe'].to(device)
+#                             pe_in = g.ndata['in_deg'].unsqueeze(1).to(device)
+#                             pe_out = g.ndata['out_deg'].unsqueeze(1).to(device)
+#                             pe = torch.cat((pe_in, pe_out, pe), dim=1)
+#                             edge_predictions = model(g, x, e, pe)
+#                             g.edata['score'] = edge_predictions 
+#                         succs = pickle.load(open(f'{decode_path}/info/{idx}_succ.pkl', 'rb'))
+#                         preds = pickle.load(open(f'{decode_path}/info/{idx}_pred.pkl', 'rb'))
+#                         edges = pickle.load(open(f'{decode_path}/info/{idx}_edges.pkl', 'rb'))
+#                         # print(idx, f'{decode_path}/info/{idx}_edges.pkl')
+#                         # print(g)
+#                         len_threshold = 50  # TODO: Add as hyperparameter!!!
+#                         walks, walks_ol, walks_lab = get_contigs_for_one_graph(g, succs, preds, edges, num_decoding_paths, len_threshold, device)
+#                         print(f'Epoch = {epoch}, sequential lengths of all contigs: {[len(w) for w in walks]}\n')
+#                         # torch.save([all_contigs, all_contigs_len], 'checkpoints/all_contigs.pt')
+#                         elapsed = utils.timedelta_to_str(datetime.now() - time_start_decoding)
+#                         print(f'elapsed time (decoding - finding walks): {elapsed}\n')
+#                         reads = pickle.load(open(f'{decode_path}/info/{idx}_reads.pkl', 'rb'))
+#                         try:
+#                             g_to_chr = pickle.load(open(f'{decode_path}/info/g_to_chr.pkl', 'rb'))
+#                             chrN = g_to_chr[idx]
+#                         except FileNotFoundError:
+#                             print('SOMETHING WRONG WITH g_to_chr !!')
+#                             raise
+#                         contigs = evaluate.walk_to_sequence(walks, g, reads, edges)
+#                         contigs_ol = evaluate.walk_to_sequence(walks_ol, g, reads, edges)
+#                         contigs_lab = evaluate.walk_to_sequence(walks_lab, g, reads, edges)
+#                         num_contigs, longest_contig, reconstructed, n50, ng50 = evaluate.quick_evaluation(contigs, chrN)
+#                         print(f'{num_contigs=} {longest_contig=} {reconstructed=:.4f} {n50=} {ng50=}')
+#                         num_contigs, longest_contig, reconstructed, n50, ng50 = evaluate.quick_evaluation(contigs_ol, chrN)
+#                         print(f'{num_contigs=} {longest_contig=} {reconstructed=:.4f} {n50=} {ng50=}')
+#                         num_contigs, longest_contig, reconstructed, n50, ng50 = evaluate.quick_evaluation(contigs_lab, chrN)
+#                         print(f'{num_contigs=} {longest_contig=} {reconstructed=:.4f} {n50=} {ng50=}')
+#                         elapsed = utils.timedelta_to_str(datetime.now() - time_start_decoding)
+#                         print(f'elapsed time (decoding - evaluating contigs): {elapsed}\n')
 
 
-                # DECODING : XB
-                if (not epoch % 100 or epoch + 1 == num_epochs) and epoch > 0 and False:
-                    print(f'\n=====>DECODING: Epoch = {epoch}')
-                    time_start_decoding = datetime.now()
-                    device_cpu = torch.device('cpu')
-                    model.train() # DEBUG !!!!!!!!!!!!!
-                    #model.eval() # DEBUG !!!!!!!!!!!!!
-                    for data in ds_train: # DEBUG !!!!!!!!!!!!!
-                    #for data in ds_valid: # DEBUG !!!!!!!!!!!!!
-                        idx, g = data
-                        g_decoding = copy.deepcopy(g)
-                        with torch.no_grad():
-                            model = model.to(device_cpu)
-                            g_decoding = g_decoding.to(device_cpu)
-                            x = g_decoding.ndata['x'].to(device_cpu)
-                            e = g_decoding.edata['e'].to(device_cpu)
-                            pe = g_decoding.ndata['pe'].to(device_cpu)
-                            pe_in = g_decoding.ndata['in_deg'].unsqueeze(1).to(device_cpu)
-                            pe_out = g_decoding.ndata['out_deg'].unsqueeze(1).to(device_cpu)
-                            pe = torch.cat((pe_in, pe_out, pe), dim=1)
-                            edge_predictions = model(g_decoding, x, e, pe)
-                            g_decoding.edata['score'] = edge_predictions
-                        g_decoding = g_decoding.int().to(device)
-                        all_contigs, all_contigs_len = parallel_greedy_decoding(g_decoding, num_decoding_paths, num_contigs, device, train_path)
-                        print(f'Epoch = {epoch}, parallel lengths of all contigs: \n{all_contigs_len}\n')
-                        del g_decoding
-                        torch.save([all_contigs, all_contigs_len], 'checkpoints/all_contigs.pt')
-                        #all_contigs, all_contigs_len = torch.load('checkpoints/all_contigs.pt')
-                        elapsed = utils.timedelta_to_str(datetime.now() - time_start_decoding)
-                        print(f'elapsed time (decoding): {elapsed}\n')
-                    model = model.to(device)
+#                 # DECODING : parallel
+#                 if (not epoch % 100 or epoch + 1 == num_epochs) and epoch > 0 and False:
+#                     print(f'\n=====>DECODING: Epoch = {epoch}')
+#                     time_start_decoding = datetime.now()
+#                     device_cpu = torch.device('cpu')
+#                     model.train() # DEBUG !!!!!!!!!!!!!
+#                     #model.eval() # DEBUG !!!!!!!!!!!!!
+#                     for data in ds_train: # DEBUG !!!!!!!!!!!!!
+#                     #for data in ds_valid: # DEBUG !!!!!!!!!!!!!
+#                         idx, g = data
+#                         g_decoding = copy.deepcopy(g)
+#                         with torch.no_grad():
+#                             model = model.to(device_cpu)
+#                             g_decoding = g_decoding.to(device_cpu)
+#                             x = g_decoding.ndata['x'].to(device_cpu)
+#                             e = g_decoding.edata['e'].to(device_cpu)
+#                             pe = g_decoding.ndata['pe'].to(device_cpu)
+#                             pe_in = g_decoding.ndata['in_deg'].unsqueeze(1).to(device_cpu)
+#                             pe_out = g_decoding.ndata['out_deg'].unsqueeze(1).to(device_cpu)
+#                             pe = torch.cat((pe_in, pe_out, pe), dim=1)
+#                             edge_predictions = model(g_decoding, x, e, pe)
+#                             g_decoding.edata['score'] = edge_predictions
+#                         g_decoding = g_decoding.int().to(device)
+#                         all_contigs, all_contigs_len = parallel_greedy_decoding(g_decoding, num_decoding_paths, num_contigs, device, train_path)
+#                         print(f'Epoch = {epoch}, parallel lengths of all contigs: \n{all_contigs_len}\n')
+#                         del g_decoding
+#                         torch.save([all_contigs, all_contigs_len], 'checkpoints/all_contigs.pt')
+#                         #all_contigs, all_contigs_len = torch.load('checkpoints/all_contigs.pt')
+#                         elapsed = utils.timedelta_to_str(datetime.now() - time_start_decoding)
+#                         print(f'elapsed time (decoding): {elapsed}\n')
+#                     model = model.to(device)
 
 
 
