@@ -167,7 +167,9 @@ test_cases/
 data_model*
 data_old/
 cpp/
-mjkocijan/
 
 vendor/raven_filter/
 vendor/raven
+
+references/CHM13/
+references/chromosomes/
