@@ -115,7 +115,7 @@ def view_model_param(model):
     return total_param
 
 
-def train(data, out, eval, overfit):
+def train(data, out, overfit):
     """Training loop where the model learns to predict the edge labels.
 
     Parameters
@@ -124,8 +124,6 @@ def train(data, out, eval, overfit):
         Path to where training and validation data is stored
     out : str
         Name used for saving auxiliary files and the trained model
-    eval : bool
-        DEPRECATED
     overfit : bool
         Whether to train in the overfitting mode
 
@@ -542,8 +540,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--data', type=str, default='data/train', help='Path to directory with training data')
     parser.add_argument('--out', type=str, default=None, help='Output name for figures and models')
-    parser.add_argument('--eval', action='store_true')
     parser.add_argument('--overfit', action='store_true', default=False, help='Overfit on the chromosomes in the train directory')
     args = parser.parse_args()
-    train(args.data, args.out, args.eval, args.overfit)
+    train(args.data, args.out, args.overfit)
 

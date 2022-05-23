@@ -12,7 +12,7 @@ import graph_dataset
 import train
 import inference
 import evaluate
-
+import config
 
 chr_lens = {
     'chr1' : 248387328,
@@ -351,31 +351,31 @@ def train_valid_split(data_path, train_dict, valid_dict, test_dict={}, out=None)
 
 
 # 3. Train the model
-def train_the_model(data, out, eval, overfit):
+def train_the_model(data, out, overfit):
     print(f'SETUP::train')
-    train.train(data, out, eval, overfit)
+    train.train(data, out, overfit)
 
 
 # 4. Inference - get the results
 def predict(data_path, out, model_path=None, device='cpu'):
     if model_path is None:
         model_path = os.path.abspath(f'pretrained/model_{out}.pt')
-    walks_per_graph, contigs_per_graph, walks_per_graph_ol, contigs_per_graph_ol, walks_per_graph_lab, contigs_per_graph_lab = inference.inference(data_path, model_path, device)
+    walks_per_graph, contigs_per_graph = inference.inference(data_path, model_path, device)
     g_to_chr = pickle.load(open(f'{data_path}/info/g_to_chr.pkl', 'rb'))
     for idx, contigs in enumerate(contigs_per_graph):
         chrN = g_to_chr[idx]
         num_contigs, longest_contig, reconstructed, n50, ng50 = evaluate.quick_evaluation(contigs, chrN)
         evaluate.print_summary(data_path, idx, chrN, num_contigs, longest_contig, reconstructed, n50, ng50)
-    # return
+    return
     ############################
-    for idx, contigs in enumerate(contigs_per_graph_ol):
-        chrN = g_to_chr[idx]
-        num_contigs, longest_contig, reconstructed, n50, ng50 = evaluate.quick_evaluation(contigs, chrN)
-        print(f'ol_len: {idx=} {num_contigs=} {longest_contig=} {reconstructed=:.4f} {n50=} {ng50=}')
-    for idx, contigs in enumerate(contigs_per_graph_lab):
-        chrN = g_to_chr[idx]
-        num_contigs, longest_contig, reconstructed, n50, ng50 = evaluate.quick_evaluation(contigs, chrN)
-        print(f'labels: {idx=} {num_contigs=} {longest_contig=} {reconstructed=:.4f} {n50=} {ng50=}')
+    # for idx, contigs in enumerate(contigs_per_graph_ol):
+    #     chrN = g_to_chr[idx]
+    #     num_contigs, longest_contig, reconstructed, n50, ng50 = evaluate.quick_evaluation(contigs, chrN)
+    #     print(f'ol_len: {idx=} {num_contigs=} {longest_contig=} {reconstructed=:.4f} {n50=} {ng50=}')
+    # for idx, contigs in enumerate(contigs_per_graph_lab):
+    #     chrN = g_to_chr[idx]
+    #     num_contigs, longest_contig, reconstructed, n50, ng50 = evaluate.quick_evaluation(contigs, chrN)
+    #     print(f'labels: {idx=} {num_contigs=} {longest_contig=} {reconstructed=:.4f} {n50=} {ng50=}')
     ############################
 
 
@@ -448,45 +448,40 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--data', type=str, default='data/train', help='Path to directory with training data')
     parser.add_argument('--out', type=str, default=None, help='Output name for figures and models')
-    parser.add_argument('--eval', action='store_true')
     parser.add_argument('--overfit', action='store_true', default=False, help='Overfit on the chromosomes in the train directory')
     args = parser.parse_args()
-    # Either get all the arguments
-    # Or just reads everything from some config file
-    # E.g., train = {chr1: 1, chr4: 3, chr5: 5}
-    # E.g., eval = {chr6: 2, chr5: 3}
 
-    # train_dict = {'chr19': 15}
-    # valid_dict = {'chr19': 3}
-    train_dict = {'chr18': 5, 'chr19': 5, 'chr20': 5}
-    valid_dict = {'chr19': 3}
-    test_dict  = {'chr19': 1}
+    data_path = args.data
+    out = args.out
+    overfit = args.overfit
 
-    # ALL Chromosomes
-    # train_dict = {'chr19': 1}
-    # valid_dict = {f'chr{i}': 1 for i in range(1, 23)} ; valid_dict['chrX'] = 1
+    dicts = config.get_config()
+    train_dict = dicts['train_dict']
+    valid_dict = dicts['valid_dict']
+    test_dict = dicts['test_dict']
 
     all_chr = merge_dicts(train_dict, valid_dict, test_dict)
 
-    data = args.data
-    out = args.out
-    eval = args.eval
-    overfit = args.overfit
-
-    data_path = data
-
     # nips_exp3_mix()
-    nips_exp1a()
-    exit(1)
+    # nips_exp1a()
+    # exit(1)
+
+    ##### For Martin
+    train_dict = {f'chr{i}': 1 for i in range(1, 23)} ; _test_dict['chrX'] = 1
+    valid_dict = {}
+    test_dict = {}
+    all_chr = merge_dicts(train_dict, valid_dict, test_dict)
+    #####
+
 
     file_structure_setup(data_path)
     download_reference(data_path)
     simulate_reads(data_path, all_chr)
     generate_graphs(data_path, all_chr)
     train_path, valid_path, test_path = train_valid_split(data_path, train_dict, valid_dict, test_dict, out)
-    train_the_model(data, out, eval, overfit)
+    # train_the_model(data_path, out, overfit)
     
-    # test_path = '/home/user/scratch/nips_2022/experiments/model_vs_raven/real/12-05_v2/chr18'
+    # test_path = '/home/vrcekl/scratch/nips_2022/experiments/model_vs_raven/real/17-05/chr19'
     # model_path = f'pretrained/model_10-05_chr19-15v3v2-exp-1.pt'
     # out = 'out'
     # predict(test_path, out, model_path, device='cpu')
