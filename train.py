@@ -2,7 +2,7 @@ import argparse
 from datetime import datetime
 import copy
 import os
-from posixpath import split
+# from posixpath import split
 import pickle
 import random
 
@@ -12,7 +12,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-from torch.utils.data import random_split
+# from torch.utils.data import random_split
 from torch.profiler import profile, record_function, ProfilerActivity
 import dgl
 from dgl.dataloading import GraphDataLoader
@@ -24,7 +24,7 @@ import evaluate
 import models
 import utils
 
-from algorithms import parallel_greedy_decoding, sequential_greedy_decoding
+from algorithms import parallel_greedy_decoding
 from inference import get_contigs_for_one_graph
 
 
@@ -188,8 +188,8 @@ def train(data, out, eval, overfit):
     best_model = models.GraphGatedGCNModel(node_features, edge_features, hidden_features, hidden_edge_features, num_gnn_layers, hidden_edge_scores, batch_norm, nb_pos_enc) # GatedGCN
 
     model.to(device)
-    if not os.path.exists(os.path.join('pretrained')):
-        os.makedirs(os.path.join('pretrained'))
+    if not os.path.exists('pretrained'):
+        os.makedirs('pretrained')
     model_path = os.path.abspath(f'pretrained/model_{out}.pt')
     best_model.to(device)
     best_model.load_state_dict(copy.deepcopy(model.state_dict()))
@@ -218,7 +218,7 @@ def train(data, out, eval, overfit):
     acc_per_epoch_train, acc_per_epoch_valid = [], []
 
     try:
-        with wandb.init(project="GeNNome-neurips", config=hyperparameters, mode=wandb_mode):
+        with wandb.init(project="GeNNome", config=hyperparameters, mode=wandb_mode):
             wandb.watch(model, criterion, log='all', log_freq=1000)
 
             for epoch in range(num_epochs):

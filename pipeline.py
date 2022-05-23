@@ -43,7 +43,7 @@ chr_lens = {
 
 def change_description(file_path):
     new_fasta = []
-    for record in SeqIO.parse(file_path, file_path[-5:]): # path[-5:] is fasta for fasta file, anf fastq for fastq file
+    for record in SeqIO.parse(file_path, file_path[-5:]): # 'fasta' for FASTA file, 'fastq' for FASTQ file
         des = record.description.split(",")
         id = des[0][5:]
         if des[1] == "forward":
@@ -75,23 +75,20 @@ def merge_dicts(d1, d2, d3={}):
 
 # -1. Set up the data file structure
 def file_structure_setup(data_path):
-    # try:
-    #     subprocess.run(f'rm -rf raven', shell=True, cwd='vendor')
-    # except:
-    #     pass
     print(f'SETUP::filesystem:: Create directories for storing data')
     if not os.path.isdir(data_path):
         os.makedirs(data_path)
-    if 'references' not in os.listdir(data_path):
-        os.mkdir(os.path.join(data_path, 'references'))
-        subprocess.run(f'mkdir CHM13 chromosomes lengths', shell=True, cwd=os.path.join(data_path, 'references'))
-        subprocess.run(f'cp -r lengths {data_path}/references', shell=True)
-    else:
-        ref_path = os.path.join(data_path, 'references')
-        if 'CHM13' not in os.listdir(ref_path):
-            os.mkdir(os.path.join(ref_path, 'CHM13'))
-        if 'chromosomes' not in os.listdir(ref_path):
-            os.mkdir(os.path.join(ref_path, 'chromosomes'))
+
+    # if 'references' not in os.listdir(data_path):
+    #     os.mkdir(os.path.join(data_path, 'references'))
+    #     subprocess.run(f'mkdir CHM13 chromosomes lengths', shell=True, cwd=os.path.join(data_path, 'references'))
+    #     subprocess.run(f'cp -r lengths {data_path}/references', shell=True)
+    
+    ref_path = os.path.abspath('references')
+    if 'CHM13' not in os.listdir(ref_path):
+        os.mkdir(os.path.join(ref_path, 'CHM13'))
+    if 'chromosomes' not in os.listdir(ref_path):
+        os.mkdir(os.path.join(ref_path, 'chromosomes'))
             
     if 'simulated' not in os.listdir(data_path):
         os.mkdir(os.path.join(data_path, 'simulated'))
@@ -100,21 +97,21 @@ def file_structure_setup(data_path):
         os.mkdir(os.path.join(data_path, 'real'))
         create_chr_dirs(os.path.join(data_path, 'real'))
 
-    if 'train' not in os.listdir(data_path):
-        os.mkdir(os.path.join(data_path, 'train'))
-        subprocess.run(f'mkdir raw processed info tmp graphia solutions', shell=True, cwd=os.path.join(data_path, 'train'))
-    if 'valid' not in os.listdir(data_path):
-        os.mkdir(os.path.join(data_path, 'valid'))
-        subprocess.run(f'mkdir raw processed info tmp graphia solutions', shell=True, cwd=os.path.join(data_path, 'valid'))
-    if 'test' not in os.listdir(data_path):
-        os.mkdir(os.path.join(data_path, 'test'))
-        subprocess.run(f'mkdir raw processed info tmp graphia solutions', shell=True, cwd=os.path.join(data_path, 'test'))
+    # if 'train' not in os.listdir(data_path):
+    #     os.mkdir(os.path.join(data_path, 'train'))
+    #     subprocess.run(f'mkdir raw processed info tmp graphia solutions', shell=True, cwd=os.path.join(data_path, 'train'))
+    # if 'valid' not in os.listdir(data_path):
+    #     os.mkdir(os.path.join(data_path, 'valid'))
+    #     subprocess.run(f'mkdir raw processed info tmp graphia solutions', shell=True, cwd=os.path.join(data_path, 'valid'))
+    # if 'test' not in os.listdir(data_path):
+    #     os.mkdir(os.path.join(data_path, 'test'))
+    #     subprocess.run(f'mkdir raw processed info tmp graphia solutions', shell=True, cwd=os.path.join(data_path, 'test'))
 
 
 # 0. Download the CHM13 if necessary
 def download_reference(data_path):
-    data_path = os.path.abspath(data_path)
-    ref_path = os.path.join(data_path, 'references/')
+    # data_path = os.path.abspath(data_path)
+    ref_path = os.path.abspath('references')
     chm_path = os.path.join(ref_path, 'CHM13')
     chr_path = os.path.join(ref_path, 'chromosomes')
     chm13_url = 'https://s3-us-west-2.amazonaws.com/human-pangenomics/T2T/CHM13/assemblies/chm13.draft_v1.1.fasta.gz'
@@ -150,7 +147,7 @@ def simulate_reads(data_path, chr_dict):
     # Dict saying how much of simulated datasets for each chromosome do we need
     # E.g., {'chr1': 4, 'chr6': 2, 'chrX': 4}
 
-    # TODO: This is like this temporarily, should be done upon setting up the poject repo
+    # TODO: This is temporarily, should be done upon setting up the poject repo
     print(f'SETUP::simulate')
     if 'seqrequester' not in os.listdir('vendor'):
         print(f'SETUP::simulate:: Download seqrequester')
@@ -158,11 +155,13 @@ def simulate_reads(data_path, chr_dict):
         subprocess.run(f'make', shell=True, cwd='vendor/seqrequester/src')
 
     data_path = os.path.abspath(data_path)
-    ref_path = os.path.join(data_path, 'references')
+    ref_path = os.path.abspath('references')
     chr_path = os.path.join(ref_path, 'chromosomes')
     len_path = os.path.join(ref_path, 'lengths')
     sim_path = os.path.join(data_path, 'simulated')
     for chrN, n_need in chr_dict.items():
+        if '_r' in chrN:
+            continue
         chr_raw_path = os.path.join(sim_path, f'{chrN}/raw')
         n_have = len(os.listdir(chr_raw_path))
         if n_need <= n_have:
@@ -186,7 +185,6 @@ def simulate_reads(data_path, chr_dict):
                 change_description(chr_save_path)
 
 
-
 # 2. Generate the graphs
 def generate_graphs(data_path, chr_dict):
     print(f'SETUP::generate')
@@ -200,6 +198,8 @@ def generate_graphs(data_path, chr_dict):
     data_path = os.path.abspath(data_path)
 
     for chrN, n_need in chr_dict.items():
+        if '_r' in chrN:
+            continue
         chr_sim_path = os.path.join(data_path, 'simulated', f'{chrN}')
         chr_raw_path = os.path.join(chr_sim_path, 'raw')
         chr_prc_path = os.path.join(chr_sim_path, 'processed')
@@ -254,6 +254,7 @@ def train_valid_split(data_path, train_dict, valid_dict, test_dict={}, out=None)
     print(f'SETUP::split')
     data_path = os.path.abspath(data_path)
     sim_path = os.path.join(data_path, 'simulated')
+    real_path = os.path.join(data_path, 'real')
 
     if out is None:
         train_path = os.path.join(data_path, f'train')
@@ -273,7 +274,8 @@ def train_valid_split(data_path, train_dict, valid_dict, test_dict={}, out=None)
             os.mkdir(test_path)
             subprocess.run(f'mkdir raw processed info graphia tmp', shell=True, cwd=test_path)
  
-    train_g_to_chr = {}
+    train_g_to_chr = {}  # Remember chromosomes for each graph in the dataset
+    train_g_to_org_g = {}  # Remember index of the graph in the master dataset for each graph in this dataset
     n_have = 0
     for chrN, n_need in train_dict.items():
         # copy n_need datasets from chrN into train dict
@@ -288,10 +290,13 @@ def train_valid_split(data_path, train_dict, valid_dict, test_dict={}, out=None)
             subprocess.run(f'cp {chr_sim_path}/info/{i}_edges.pkl {train_path}/info/{n_have}_edges.pkl', shell=True)
             subprocess.run(f'cp {chr_sim_path}/info/{i}_reads.pkl {train_path}/info/{n_have}_reads.pkl', shell=True)
             # subprocess.run(f'cp {chr_sim_path}/solutions/{i}_edges.pkl {train_path}/solutions/{n_have}_edges.pkl', shell=True)
+            train_g_to_org_g = {n_have: i}
             n_have += 1
     pickle.dump(train_g_to_chr, open(f'{train_path}/info/g_to_chr.pkl', 'wb'))
+    pickle.dump(train_g_to_org_g, open(f'{train_path}/info/g_to_org_g.pkl', 'wb'))
 
     valid_g_to_chr = {}
+    valid_g_to_org_g = {}
     n_have = 0
     for chrN, n_need in valid_dict.items():
         # copy n_need datasets from chrN into train dict
@@ -307,19 +312,29 @@ def train_valid_split(data_path, train_dict, valid_dict, test_dict={}, out=None)
             subprocess.run(f'cp {chr_sim_path}/info/{j}_edges.pkl {valid_path}/info/{n_have}_edges.pkl', shell=True)
             subprocess.run(f'cp {chr_sim_path}/info/{j}_reads.pkl {valid_path}/info/{n_have}_reads.pkl', shell=True)
             # subprocess.run(f'cp {chr_sim_path}/solutions/{j}_edges.pkl {valid_path}/solutions/{n_have}_edges.pkl', shell=True)
+            valid_g_to_org_g = {n_have: j}
             n_have += 1
     pickle.dump(valid_g_to_chr, open(f'{valid_path}/info/g_to_chr.pkl', 'wb'))
+    pickle.dump(valid_g_to_org_g, open(f'{valid_path}/info/g_to_org_g.pkl', 'wb'))
 
     if test_dict: 
         test_g_to_chr = {}
+        test_g_to_org_g = {}
         n_have = 0
         for chrN, n_need in test_dict.items():
             # copy n_need datasets from chrN into train dict
             print(f'SETUP::split:: Copying {n_need} graphs of {chrN} into {test_path}')
             for i in range(n_need):
+                if '_r' in chrN:
+                    chrN = chrN[:-2]
+                    chr_sim_path = os.path.join(real_path, chrN)
+                    k = i
+                else:
+                    chr_sim_path = os.path.join(sim_path, chrN)
+                    k = i + train_dict.get(chrN, 0) + valid_dict.get(chrN, 0)
                 test_g_to_chr[n_have] = chrN
-                k = i + train_dict.get(chrN, 0) + valid_dict.get(chrN, 0)
-                chr_sim_path = os.path.join(sim_path, chrN)
+                # k = i + train_dict.get(chrN, 0) + valid_dict.get(chrN, 0)
+                # chr_sim_path = os.path.join(sim_path, chrN)
                 print(f'Copying {chr_sim_path}/processed/{k}.dgl into {test_path}/processed/{n_have}.dgl')
                 subprocess.run(f'cp {chr_sim_path}/processed/{k}.dgl {test_path}/processed/{n_have}.dgl', shell=True)
                 subprocess.run(f'cp {chr_sim_path}/info/{k}_succ.pkl {test_path}/info/{n_have}_succ.pkl', shell=True)
@@ -328,7 +343,9 @@ def train_valid_split(data_path, train_dict, valid_dict, test_dict={}, out=None)
                 subprocess.run(f'cp {chr_sim_path}/info/{k}_reads.pkl {test_path}/info/{n_have}_reads.pkl', shell=True)
                 # subprocess.run(f'cp {chr_sim_path}/solutions/{j}_edges.pkl {valid_path}/solutions/{n_have}_edges.pkl', shell=True)
                 n_have += 1
+                test_g_to_org_g = {n_have: k}
         pickle.dump(test_g_to_chr, open(f'{test_path}/info/g_to_chr.pkl', 'wb'))
+        pickle.dump(test_g_to_org_g, open(f'{test_path}/info/g_to_org_g.pkl', 'wb'))
 
     return train_path, valid_path, test_path
 
@@ -343,12 +360,88 @@ def train_the_model(data, out, eval, overfit):
 def predict(data_path, out, model_path=None, device='cpu'):
     if model_path is None:
         model_path = os.path.abspath(f'pretrained/model_{out}.pt')
-    walks_per_graph, contigs_per_graph = inference.inference(data_path, model_path, device)
+    walks_per_graph, contigs_per_graph, walks_per_graph_ol, contigs_per_graph_ol, walks_per_graph_lab, contigs_per_graph_lab = inference.inference(data_path, model_path, device)
     g_to_chr = pickle.load(open(f'{data_path}/info/g_to_chr.pkl', 'rb'))
     for idx, contigs in enumerate(contigs_per_graph):
         chrN = g_to_chr[idx]
         num_contigs, longest_contig, reconstructed, n50, ng50 = evaluate.quick_evaluation(contigs, chrN)
         evaluate.print_summary(data_path, idx, chrN, num_contigs, longest_contig, reconstructed, n50, ng50)
+    # return
+    ############################
+    for idx, contigs in enumerate(contigs_per_graph_ol):
+        chrN = g_to_chr[idx]
+        num_contigs, longest_contig, reconstructed, n50, ng50 = evaluate.quick_evaluation(contigs, chrN)
+        print(f'ol_len: {idx=} {num_contigs=} {longest_contig=} {reconstructed=:.4f} {n50=} {ng50=}')
+    for idx, contigs in enumerate(contigs_per_graph_lab):
+        chrN = g_to_chr[idx]
+        num_contigs, longest_contig, reconstructed, n50, ng50 = evaluate.quick_evaluation(contigs, chrN)
+        print(f'labels: {idx=} {num_contigs=} {longest_contig=} {reconstructed=:.4f} {n50=} {ng50=}')
+    ############################
+
+
+def nips_exp1():
+    """
+        Predict the scores for all the synthetic chromosomes, given the model trained only on chr19.
+        Calculate the prediction-metrics, don't assemble the genomes.
+        Goal: Show that the model generalizes well to other synthetic chromosomes.
+    """
+    data_path = f'/home/vrcekl/scratch/nips_2022/experiments/valid_ALL-CHR'
+    model_path = f'nips_submit/model_12-05_15v3-chr19_shuffle.pt'
+    inference.inference(data_path, model_path)
+
+
+def nips_exp1a():
+    """
+        Predict the scores for all the synthetic chromosomes, given the model trained only on chr19.
+        Calculate the prediction-metrics, assemble all the genomes.
+        Goal: Show that the model generalizes well to other synthetic chromosomes.
+    """
+    data_path = f'/home/vrcekl/scratch/nips_2022/experiments/valid_ALL-CHR'
+    model_path = f'nips_submit/model_12-05_15v3-chr19_shuffle.pt'
+    # model_path = f'nips_submit/model_18-05_15v3-mix_c91922_EXP6.pt'
+    predict(data_path, '.', model_path)
+
+
+
+def nips_exp2():
+    """
+        Reconstruct the real chr19, given the model trained only on synthetic chr19.
+        Calculate the metrics AND assembly the genome.
+        Goal: Show that the model generalizes from synthetic to real data.
+    """
+    data_path = f'/home/vrcekl/scratch/nips_2022/experiments/model_vs_raven/real/17-05/chr19'
+    model_path = f'nips_submit/model_12-05_15v3-chr19_shuffle.pt'
+    predict(data_path, '.', model_path, device='cuda:3')
+
+
+def nips_exp3():
+    """
+        Predict the scores for all the real chromosomes, given the model trained only on synthetic chr19.
+        Calculate the prediction-metrics, assemble all the genomes.
+        Goal: Show that the model generalizes well to other real as well chromosomes.
+    """
+    for i in range(1, 24):
+        if i == 23:
+            i = 'X'
+        data_path = f'/home/vrcekl/scratch/nips_2022/experiments/real/chr{i}/'
+        model_path = f'nips_submit/model_12-05_15v3-chr19_shuffle.pt'
+        predict(data_path, '.', model_path)
+
+
+
+def nips_exp3_mix():
+    """
+        Predict the scores for all the real chromosomes, given the model trained only on synthetic chr19.
+        Calculate the prediction-metrics, assemble all the genomes.
+        Goal: Show that the model generalizes well to other real as well chromosomes.
+    """
+    for i in range(1, 24):
+        if i == 23:
+            i = 'X'
+        data_path = f'/home/vrcekl/scratch/nips_2022/experiments/real/chr{i}/'
+        # model_path = f'nips_submit/model_18-05_15v3-mix_EXP2.pt'
+        model_path = f'nips_submit/model_18-05_15v3-mix_c91922_EXP6.pt'
+        predict(data_path, '.', model_path)
 
 
 if __name__ == '__main__':
@@ -363,17 +456,17 @@ if __name__ == '__main__':
     # E.g., train = {chr1: 1, chr4: 3, chr5: 5}
     # E.g., eval = {chr6: 2, chr5: 3}
 
-    # train_dict = {'chr19': 4, 'chr18': 4, 'chr21': 4}
-    # valid_dict = {'chr17': 1, 'chr20': 1, 'chr22': 1}
-    # train_dict = {'chr19': 10}
-    # valid_dict = {'chr19': 1}
-    train_dict = {'chr19': 15}
+    # train_dict = {'chr19': 15}
+    # valid_dict = {'chr19': 3}
+    train_dict = {'chr18': 5, 'chr19': 5, 'chr20': 5}
     valid_dict = {'chr19': 3}
-    test_dict  = {'chr19': 2}
+    test_dict  = {'chr19': 1}
+
+    # ALL Chromosomes
+    # train_dict = {'chr19': 1}
+    # valid_dict = {f'chr{i}': 1 for i in range(1, 23)} ; valid_dict['chrX'] = 1
 
     all_chr = merge_dicts(train_dict, valid_dict, test_dict)
-
-    # data_path = '/home/vrcekl/scratch/data/neurips'
 
     data = args.data
     out = args.out
@@ -382,11 +475,19 @@ if __name__ == '__main__':
 
     data_path = data
 
+    # nips_exp3_mix()
+    nips_exp1a()
+    exit(1)
+
     file_structure_setup(data_path)
     download_reference(data_path)
     simulate_reads(data_path, all_chr)
     generate_graphs(data_path, all_chr)
     train_path, valid_path, test_path = train_valid_split(data_path, train_dict, valid_dict, test_dict, out)
     train_the_model(data, out, eval, overfit)
-    predict(test_path, out, device='cuda:3')
+    
+    # test_path = '/home/user/scratch/nips_2022/experiments/model_vs_raven/real/12-05_v2/chr18'
+    # model_path = f'pretrained/model_10-05_chr19-15v3v2-exp-1.pt'
+    # out = 'out'
+    # predict(test_path, out, model_path, device='cpu')
 
