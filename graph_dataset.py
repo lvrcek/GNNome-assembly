@@ -39,7 +39,14 @@ class AssemblyGraphDataset(DGLDataset):
         root : str
             Root directory consisting of other directories where the raw
             data can be found (reads in FASTQ format), and where all the
-            processing results are stored.
+            processing results are stored
+        nb_pos_end : int
+            Dimension of vector for storing the positional encoding of nodes
+        specs : dict
+            Dictionary with specifications for running Raven
+        generate : bool
+            Boolean which, if true, skips computing positional encoding and
+            loading of the graphs.
         """
         self.root = os.path.abspath(root)
         self.specs = specs

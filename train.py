@@ -29,6 +29,27 @@ from inference import get_contigs_for_one_graph
 
 
 def save_checkpoint(epoch, model, optimizer, loss_train, loss_valid, out):
+    """Save the state of the training process.
+
+    Parameters
+    ----------
+    epoch : int
+        Number of epoch in which the training loop is at the time of saving
+    model : torch.nn.Module
+        A PyTorch model used during training
+    optimizer : torch.optim.Optimizer
+        A PyTorch optimizer used during training
+    loss_train : float
+        Loss on the training dataset in the current epoch
+    loss_valid : float
+        Loss on the validation dataset in the current epoch
+    out : str
+        Name of the file in which the checkpoint is saved, not the full path
+
+    Returns
+    -------
+    None
+    """
     checkpoint = {
             'epoch': epoch,
             'model_state_dict': model.state_dict(),
@@ -41,6 +62,30 @@ def save_checkpoint(epoch, model, optimizer, loss_train, loss_valid, out):
 
 
 def load_checkpoint(out, model, optimizer):
+    """Load the previously saved checkpoints.
+
+    Parameters
+    ----------
+    out : string
+        Name of the file from which the checkpoints will be loaded
+    model : torch.nn.Module
+        A PyTorch model into which the weights will be loaded
+    optimizer : torch.nn.Optimizer
+        A PyTorch optimizer into which the optimizer state will be loaded
+
+    Returns
+    -------
+    int
+        Epoch at which the checkpoint was saved
+    torch.nn.Module
+        A model with weights loaded from the checkpoint
+    torch.nn.Optimizer
+        An optimizer with state loaded from the checkpoint
+    float
+        Training loss at the epoch of saving the checkpoint
+    float
+        Validation loss at the epoch of saving the checkpoint
+    """
     ckpt_path = f'checkpoints/{out}.pt'
     checkpoint = torch.load(ckpt_path)
     epoch = checkpoint['epoch']
@@ -52,6 +97,18 @@ def load_checkpoint(out, model, optimizer):
 
 
 def view_model_param(model):
+    """Get the total number of parameters of the model.
+    
+    Parameters
+    ----------
+    model : torch.nn.Module
+        PyTorch model for which the number of parameters is calculated
+
+    Returns
+    -------
+    int
+        Number of parameters of the model
+    """
     total_param = 0
     for param in model.parameters():
         total_param += np.prod(list(param.data.size()))
@@ -59,6 +116,23 @@ def view_model_param(model):
 
 
 def train(data, out, eval, overfit):
+    """Training loop where the model learns to predict the edge labels.
+
+    Parameters
+    ----------
+    data : str
+        Path to where training and validation data is stored
+    out : str
+        Name used for saving auxiliary files and the trained model
+    eval : bool
+        DEPRECATED
+    overfit : bool
+        Whether to train in the overfitting mode
+
+    Returns
+    -------
+    None
+    """
     hyperparameters = get_hyperparameters()
     seed = hyperparameters['seed']
     num_epochs = hyperparameters['num_epochs']
