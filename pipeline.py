@@ -465,10 +465,10 @@ if __name__ == '__main__':
     out = args.out
     overfit = args.overfit
 
-    dicts = config.get_config()
-    train_dict = dicts['train_dict']
-    valid_dict = dicts['valid_dict']
-    test_dict = dicts['test_dict']
+    # dicts = config.get_config()
+    # train_dict = dicts['train_dict']
+    # valid_dict = dicts['valid_dict']
+    # test_dict = dicts['test_dict']
 
     all_chr = merge_dicts(train_dict, valid_dict, test_dict)
 
@@ -477,7 +477,7 @@ if __name__ == '__main__':
     # exit(1)
 
     ##### For Martin
-    train_dict = {f'chr{i}': 1 for i in range(1, 23)} ; _test_dict['chrX'] = 1
+    train_dict = {f'chr{i}': 1 for i in range(1, 23)} ; train_dict['chrX'] = 1
     valid_dict = {}
     test_dict = {}
     all_chr = merge_dicts(train_dict, valid_dict, test_dict)
