@@ -37,6 +37,25 @@ def walk_to_sequence(walks, graph, reads, edges):
     contigs = []
     for i, walk in enumerate(walks):
         sequence = ''
+        prefixes = [(src, graph.edata['prefix_length'][edges[src,dst]]) for src, dst in zip(walk[:-1], walk[1:])]
+        sequences = [reads[src][:prefix] for (src, prefix) in prefixes]
+        sequence = ''.join(map(str, sequences)) + reads[walk[-1]]
+        # for src, dst in zip(walk[:-1], walk[1:]):
+        #     edge_id = edges[(src, dst)]
+        #     prefix = graph.edata['prefix_length'][edge_id].item()
+        #     sequence += reads[src][:prefix]
+        # sequence += reads[walk[-1]]
+        sequence = SeqIO.SeqRecord(sequence)
+        sequence.id = f'contig_{i+1}'
+        sequence.description = f'length={len(sequence)}'
+        contigs.append(sequence)
+    return contigs
+
+
+def walk_to_sequencei_old(walks, graph, reads, edges):
+    contigs = []
+    for i, walk in enumerate(walks):
+        sequence = ''
         for src, dst in zip(walk[:-1], walk[1:]):
             edge_id = edges[(src, dst)]
             prefix = graph.edata['prefix_length'][edge_id].item()
