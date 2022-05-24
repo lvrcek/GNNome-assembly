@@ -167,9 +167,16 @@ test_cases/
 data_model*
 data_old/
 cpp/
+reports/
 
 vendor/raven_filter/
 vendor/raven
+vendor/*
 
-references/CHM13/
-references/chromosomes/
+experiments.py
+cluster_gcn.pkl
+
+!data/references/
+!data/references/lengths/
+data/references/CHM13/
+data/references/chromosomes/
