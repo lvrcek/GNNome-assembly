@@ -24,9 +24,6 @@ import evaluate
 import models
 import utils
 
-from algorithms import parallel_greedy_decoding
-from inference import get_contigs_for_one_graph
-
 
 def save_checkpoint(epoch, model, optimizer, loss_train, loss_valid, out):
     """Save the state of the training process.
@@ -142,8 +139,8 @@ def train(data, out, overfit):
     nb_pos_enc = hyperparameters['nb_pos_enc']
     num_parts_metis_train = hyperparameters['num_parts_metis_train']
     num_parts_metis_eval = hyperparameters['num_parts_metis_eval']
-    num_decoding_paths = hyperparameters['num_decoding_paths']
-    num_contigs = hyperparameters['num_contigs']
+    # num_decoding_paths = hyperparameters['num_decoding_paths']
+    # num_contigs = hyperparameters['num_contigs']
     patience = hyperparameters['patience']
     lr = hyperparameters['lr']
     device = hyperparameters['device']

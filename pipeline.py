@@ -14,6 +14,7 @@ import inference
 import evaluate
 import config
 
+
 chr_lens = {
     'chr1' : 248387328,
     'chr2' : 242696752,
@@ -64,7 +65,7 @@ def create_chr_dirs(pth):
         if i == 23:
             i = 'X'
         subprocess.run(f'mkdir chr{i}', shell=True, cwd=pth)
-        subprocess.run(f'mkdir raw processed info tmp graphia solutions', shell=True, cwd=os.path.join(pth, f'chr{i}'))
+        subprocess.run(f'mkdir raw processed info raven_output graphia', shell=True, cwd=os.path.join(pth, f'chr{i}'))
 
 
 def merge_dicts(d1, d2, d3={}):
@@ -173,7 +174,7 @@ def simulate_reads(data_path, chr_dict):
             # Be careful how you name them
             chr_seq_path = os.path.join(chr_path, f'{chrN}.fasta')
             # chr_dist_path = os.path.join(len_path, f'{chrN}.txt')
-            chr_dist_path = os.path.join('lengths', f'{chrN}.txt')
+            chr_dist_path = os.path.join(len_path, f'{chrN}.txt')
             chr_len = chr_lens[chrN]
             for i in range(n_diff):
                 idx = n_have + i
@@ -357,26 +358,35 @@ def train_the_model(data, out, overfit):
 
 
 # 4. Inference - get the results
-def predict(data_path, out, model_path=None, device='cpu'):
+def predict(test_path, out, model_path=None, device='cpu'):
     if model_path is None:
         model_path = os.path.abspath(f'pretrained/model_{out}.pt')
-    walks_per_graph, contigs_per_graph = inference.inference(data_path, model_path, device)
-    g_to_chr = pickle.load(open(f'{data_path}/info/g_to_chr.pkl', 'rb'))
+    walks_per_graph, contigs_per_graph = inference.inference(test_path, model_path, device)
+    g_to_chr = pickle.load(open(f'{test_path}/info/g_to_chr.pkl', 'rb'))
+
     for idx, contigs in enumerate(contigs_per_graph):
         chrN = g_to_chr[idx]
         num_contigs, longest_contig, reconstructed, n50, ng50 = evaluate.quick_evaluation(contigs, chrN)
-        evaluate.print_summary(data_path, idx, chrN, num_contigs, longest_contig, reconstructed, n50, ng50)
-    return
-    ############################
-    # for idx, contigs in enumerate(contigs_per_graph_ol):
-    #     chrN = g_to_chr[idx]
-    #     num_contigs, longest_contig, reconstructed, n50, ng50 = evaluate.quick_evaluation(contigs, chrN)
-    #     print(f'ol_len: {idx=} {num_contigs=} {longest_contig=} {reconstructed=:.4f} {n50=} {ng50=}')
-    # for idx, contigs in enumerate(contigs_per_graph_lab):
-    #     chrN = g_to_chr[idx]
-    #     num_contigs, longest_contig, reconstructed, n50, ng50 = evaluate.quick_evaluation(contigs, chrN)
-    #     print(f'labels: {idx=} {num_contigs=} {longest_contig=} {reconstructed=:.4f} {n50=} {ng50=}')
-    ############################
+        evaluate.print_summary(test_path, idx, chrN, num_contigs, longest_contig, reconstructed, n50, ng50)
+
+
+def predict_baselines(test_path, out, model_path=None, device='cpu'):
+    if model_path is None:
+        model_path = os.path.abspath(f'pretrained/model_{out}.pt')
+    walks_and_contigs = inference.inferencei_baselines(test_path, model_path, device)
+    walks_per_graph, contigs_per_graph = walks_and_contigs[0], walks_and_contigs[1]
+    walks_per_graph_ol_len, contigs_per_graph_ol_len = walks_and_contigs[2], walks_and_contigs[3]
+    walks_per_graph_ol_sim, contigs_per_graph_ol_sim = walks_and_contigs[4], walks_and_contigs[5]
+    g_to_chr = pickle.load(open(f'{test_path}/info/g_to_chr.pkl', 'rb'))
+    
+    for idx, (contigs, contigs_ol_len, contigs_ol_sim) in enumerate(zip(contigs_per_graph, contigs_per_graph_ol_len, contigs_per_graph_ol_sim)):
+        chrN = g_to_chr[idx]
+        num_contigs, longest_contig, reconstructed, n50, ng50 = evaluate.quick_evaluation(contigs, chrN)
+        evaluate.print_summary(test_path, idx, chrN, num_contigs, longest_contig, reconstructed, n50, ng50)
+        num_contigs, longest_contig, reconstructed, n50, ng50 = evaluate.quick_evaluation(contigs_ol_len, chrN)
+        print(f'ol_len: {idx=} {num_contigs=} {longest_contig=} {reconstructed=:.4f} {n50=} {ng50=}')
+        num_contigs, longest_contig, reconstructed, n50, ng50 = evaluate.quick_evaluation(contigs_ol_sim, chrN)
+        print(f'ol_sim: {idx=} {num_contigs=} {longest_contig=} {reconstructed=:.4f} {n50=} {ng50=}')
 
 
 def nips_exp1():
@@ -423,9 +433,9 @@ def nips_exp3():
     for i in range(1, 24):
         if i == 23:
             i = 'X'
-        data_path = f'/home/vrcekl/scratch/nips_2022/experiments/real/chr{i}/'
+        test_path = f'/home/vrcekl/scratch/nips_2022/experiments/real/chr{i}/'
         model_path = f'nips_submit/model_12-05_15v3-chr19_shuffle.pt'
-        predict(data_path, '.', model_path)
+        predict(test_path, '.', model_path)
 
 
 
@@ -462,7 +472,7 @@ if __name__ == '__main__':
 
     all_chr = merge_dicts(train_dict, valid_dict, test_dict)
 
-    # nips_exp3_mix()
+    # nips_exp3()
     # nips_exp1a()
     # exit(1)
 
@@ -478,7 +488,7 @@ if __name__ == '__main__':
     download_reference(data_path)
     simulate_reads(data_path, all_chr)
     generate_graphs(data_path, all_chr)
-    train_path, valid_path, test_path = train_valid_split(data_path, train_dict, valid_dict, test_dict, out)
+    # train_path, valid_path, test_path = train_valid_split(data_path, train_dict, valid_dict, test_dict, out)
     # train_the_model(data_path, out, overfit)
     
     # test_path = '/home/vrcekl/scratch/nips_2022/experiments/model_vs_raven/real/17-05/chr19'

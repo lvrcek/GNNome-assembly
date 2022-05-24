@@ -52,15 +52,15 @@ class AssemblyGraphDataset(DGLDataset):
         self.specs = specs
         if 'raw' not in os.listdir(self.root):
             subprocess.run(f"mkdir 'raw'", shell=True, cwd=self.root)
-        if 'tmp' not in os.listdir(self.root):
-            subprocess.run(f"mkdir 'tmp'", shell=True, cwd=self.root)
+        if 'raven_output' not in os.listdir(self.root):
+            subprocess.run(f"mkdir 'raven_output'", shell=True, cwd=self.root)
         if 'processed' not in os.listdir(self.root):
             subprocess.run(f"mkdir 'processed'", shell=True, cwd=self.root)
         if 'info' not in os.listdir(self.root):
             subprocess.run(f"mkdir 'info'", shell=True, cwd=self.root)
         raw_dir = os.path.join(self.root, 'raw')
         save_dir = os.path.join(self.root, 'processed')
-        self.tmp_dir = os.path.join(self.root, 'tmp')
+        self.tmp_dir = os.path.join(self.root, 'raven_output')
         self.info_dir = os.path.join(self.root, 'info')
         self.raven_path = os.path.abspath('vendor/raven/build/bin/raven')
         super().__init__(name='assembly_graphs', raw_dir=raw_dir, save_dir=save_dir)
