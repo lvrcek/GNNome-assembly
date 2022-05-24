@@ -9,18 +9,18 @@
 
 ### Setting up virtual environment
 
-1. Create a conda virtual environment from `environment.yml`.
+#### 1. Create a conda virtual environment
 ```bash
 conda env create -f environment.yml
 ```
 
-2. Install the GPU-specific requirements.
-**Use pip for both of the installations bellow.**
+#### 2. Install the GPU-specific requirements
+Use pip for both of the installations bellow.
 
-- PyTorch: Install a version for Python 3.8 based on your CUDA version:
+- **PyTorch**: Install a version for Python 3.8 based on your CUDA version:
 https://pytorch.org/get-started/previous-versions/#linux-and-windows-7
 
-- DGL: Install a version for Python 3.8, based on your CUDA version:
+- **DGL**: Install a version for Python 3.8, based on your CUDA version:
 https://www.dgl.ai/pages/start.html
 
 For example, for CUDA 11.1, this would be:
@@ -43,11 +43,12 @@ This will also download the CHM13 reference and set up the directory structure f
 Once you have the directory structure set up, you can download the real data. Note that this takes 180 GB.
 
 
-## Running the code
+## Usage
 
-1. Specify the train/valid/test split by editing `_train_dict`, `valid_dict`, and `_test_dict` inside `config.py`.
+### 1. Specify the train/valid/test split
+You can choose on which graphs to train, validate, and test, by editing `_train_dict`, `valid_dict`, and `_test_dict` inside `config.py`.
+Inside each dictionary specify how many graphs created from which chromosome you wish to train, validate, and test on. For real data, add suffix "_r".
 
-Inside each dictionary specify how many graphs created from which chromosome you wish to train/validate/test on. For real data, add suffix "_r".
 E.g., to train on two graphs of chromosome 19 and one graphs of chromosome 20, valdiate on one chromosome 19 graphs, and test on chromosome 21 graph created from real PacBio HiFi data, write:
 ```python
 _train_dict = {'chr19': 2, 'chr20': 1}
@@ -58,17 +59,17 @@ Note that all three chr19 graphs are created from different sets of reads (sampl
 Also note that you cannot specify more than one graph per real chromosome.
 
 
-2. [Optional] Adjust the hyperparameters.
+### 2. [Optional] Adjust the hyperparameters.
 
 All the hyperparameters are in the `hyperparameters.py`. Change them by editing the dictionary inside the file.
 
 
-3. Run the pipeline.
+### 3. Run the pipeline.
 ```bash
 python -u pipeline.py --data <data_path> --out <out_name> &> output.log &
 ```
 
-#### Arguments:
+Arguments:
 
 - `--data`: path where simulated sequences, real sequences, constructed graphs, and the experiments will be stores.
 
