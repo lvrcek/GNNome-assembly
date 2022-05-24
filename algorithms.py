@@ -17,7 +17,7 @@ def greedy_message_func(edges):
 
 
 def greedy_reduce_func(nodes):
-    s_ji = nodes.mailbox['s_ji']
+    s_ji = nodes.mailbox['s_ji'] # k x m, k = nb_of_nodes_with_m_neighbors
     idx_i = nodes.mailbox['idx_i']
     idx_j = nodes.mailbox['idx_j']
     j_max_score = torch.max(s_ji, dim=1)[1].squeeze()
@@ -28,56 +28,96 @@ def greedy_reduce_func(nodes):
     return {'src_greedy': i_max_index, 'dst_greedy': j_max_index}
 
 
-def compute_tour_length(g, paths_nodes, device): 
-    nb_paths = paths_nodes.shape[0]
-    nb_nodes = paths_nodes.shape[1]
-    path_tot_overlaps = torch.zeros(nb_paths, device=device)
-    # idx_src = paths_nodes[:,0]
-    # for i in range(1,nb_nodes):
-    #     idx_dst = paths_nodes[:,i]
-    #     path_tot_overlaps += g.edges[idx_src, idx_dst].data['overlap_length']
-    #     idx_src = idx_dst
-    path_node_lengths = torch.zeros(nb_paths, device=device).long()
+def extract_repetitive_pattern(idx_duplicate, val_duplicate):
+    k = 0
+    for i in idx_duplicate:
+        if i in val_duplicate:
+            k +=1; val_duplicate.remove(i)
+        else:
+            break
+    return idx_duplicate[:k], val_duplicate
+        
+
+def extract_non_duplicate_walk(walk_in):
+    walk_in = walk_in.squeeze()
+    output, inverse_indices, return_counts = torch.unique(walk_in, sorted=False, return_inverse=True, return_counts=True)
+    bool_duplicate = (return_counts!=1)
+    if bool_duplicate.sum()<bool_duplicate.size(0): # walk_in has some non-duplicate nodes
+        # check if there is a central part with non-duplicate nodes that are consecutives and NOT disconnected
+        val_non_duplicate = output[~bool_duplicate]
+        indicator_non_duplicate = torch.zeros(walk_in.size(0)).bool()
+        for val in val_non_duplicate:
+            indicator_non_duplicate[walk_in==val] = True
+        # find first and last index of non duplicate nodes
+        idx_non_duplicate = torch.arange(walk_in.size(0))[indicator_non_duplicate]
+        idx_end_minus_start = idx_non_duplicate[-1] - idx_non_duplicate[0] + 1
+        num_non_duplicate = val_non_duplicate.size(0)
+        if num_non_duplicate == idx_end_minus_start: # there is a central part with non-duplicate nodes that are consecutives and NOT disconnected
+            val_duplicate = output[bool_duplicate]
+            len_non_duplicate_walk_in = torch.unique(walk_in).size(0)
+            indicator_duplicate = torch.zeros(walk_in.size(0)).bool()
+            for val in val_duplicate:
+                indicator_duplicate[walk_in==val] = True
+            central = walk_in[~indicator_duplicate].tolist()
+            idx_central_start = torch.arange(walk_in.size(0))[walk_in==central[0]]
+            idx_central_end = torch.arange(walk_in.size(0))[walk_in==central[-1]] + 1
+            val_duplicate = val_duplicate.tolist()
+            walk_in = walk_in.tolist()
+            left_pattern, val_duplicate = extract_repetitive_pattern(walk_in[:idx_central_start][::-1], val_duplicate)
+            right_pattern, val_duplicate = extract_repetitive_pattern(walk_in[idx_central_end:], val_duplicate)
+            walk_out = left_pattern[::-1] + central + right_pattern
+            #assert len(walk_out) == len_non_duplicate_walk_in, f"Length of in and out walks expected to be the same!"
+            if len(walk_out) != len_non_duplicate_walk_in: # return empty list for ambiguous duplicate nodes
+                walk_out = []    
+        else: # return empty list for ambiguous walk (disconnected central part)
+            walk_out = []    
+    else: # return empty list for ambiguous walk (no central part)
+        walk_out = []    
+    return walk_out
+
+
+def compute_walks(g, walks, device): 
+    nb_paths = walks.shape[0]
+    contigs = []
+    clean_walks = []
+    clean_walks_length = torch.zeros(nb_paths, device=device).long()
     for k in range(nb_paths):
-        path_nodes_unique = paths_nodes[k]
-        path_node_lengths[k] = torch.unique(path_nodes_unique).size(0)
-    return path_tot_overlaps, path_node_lengths
+        walk = walks[k].int()
+        clean_walk = extract_non_duplicate_walk(walk) 
+        clean_walks.append(clean_walk)
+        clean_walks_length[k] = len(clean_walk)
+        # print('h2d', k, clean_walks_length[k])
+    return clean_walks, clean_walks_length
 
 
-def parallel_greedy_decoding(original_g, nb_paths, num_contigs, device):
+def parallel_greedy_decoding(original_g, nb_paths, len_threshold, device):
 
     with torch.no_grad():
 
-        # Remove not used node/edge features
-        # GatedGCN
-        original_g.ndata.pop('x'); original_g.ndata.pop('pe'); original_g.ndata.pop('h');
-        # original_g.ndata.pop('y')  # Not used anymore
-        original_g.ndata.pop('A1h'); original_g.ndata.pop('A2h'); original_g.ndata.pop('A3h'); original_g.ndata.pop('B1h'); original_g.ndata.pop('B2h');
-        original_g.ndata.pop('sum_sigma_h_f'); original_g.ndata.pop('sum_sigma_f'); original_g.ndata.pop('h_forward')
-        original_g.edata.pop('e'); original_g.edata.pop('y'); original_g.edata.pop('B3e'); original_g.edata.pop('B12h'); original_g.edata.pop('e_ji'); original_g.edata.pop('sigma_f')
-        # Reads
-        # original_g.ndata.pop('read_trim_end'); original_g.ndata.pop('read_end'); original_g.ndata.pop('read_start'); original_g.ndata.pop('read_trim_start');
-        # original_g.ndata.pop('read_idx'); original_g.ndata.pop('read_strand'); original_g.ndata.pop('read_length')
-        # original_g.edata.pop('prefix_length')
-        
         # Remove current self-loop and add new self-loop with -inf score
         original_g = dgl.remove_self_loop(original_g)
         n_original_g = original_g.num_nodes(); self_nodes = torch.arange(n_original_g, dtype=torch.int32).to(device)
         original_g.add_edges(self_nodes, self_nodes)
         original_g.edata['score'][-n_original_g:] = float('-inf')
 
+        # Running lists
+        all_walks = []
+        all_walks_both_strands = []
+        all_walks_len = []
+        max_greedy_nb_steps = 0
+        idx_contig = 0
+        while True:
 
-        all_contigs = []
-        all_contigs_len = []
+            idx_contig += 1
 
-        for idx_contig in range(num_contigs):
+            # Track max number of greedy decoding steps
+            greedy_nb_steps = 0
 
             # Extract sub-graph
-            if not all_contigs:
+            if not all_walks_both_strands:
                 remove_node_idx = torch.LongTensor([]) # sub-graph = orginal graph 
             else:
-                remove_node_idx = torch.LongTensor([item for sublist in all_contigs for item in sublist])
-            #print('h1c',remove_node_idx.size(),remove_node_idx)
+                remove_node_idx = torch.LongTensor([item for sublist in all_walks_both_strands for item in sublist])
             list_node_idx = torch.arange(original_g.num_nodes())
             keep_node_idx = torch.ones(original_g.num_nodes())
             keep_node_idx[remove_node_idx] = 0
@@ -88,7 +128,7 @@ def parallel_greedy_decoding(original_g, nb_paths, num_contigs, device):
             sub_g.ndata['idx_nodes'] = torch.arange(sub_g.num_nodes()).to(device) # index used for max score
             n_sub_g = sub_g.num_nodes()
             print(f'nb of nodes sub-graph: {n_sub_g}')
-
+            
             # Mapping index from sub-graph to original graph
             map_subg_to_g = sub_g.ndata[dgl.NID]
 
@@ -110,23 +150,23 @@ def parallel_greedy_decoding(original_g, nb_paths, num_contigs, device):
             idx_cur_nodes_subg = dst_init_edges # dst # index in sub-graph
             idx_cur_nodes_g = map_subg_to_g[idx_cur_nodes_subg]
             paths_nodes_forward = [] # index in original graph 
-            paths_nodes_forward.append(idx_cur_nodes_g) 
             flag_dead_ends = flag_cycles = True
-            max_cycle_size = 30
             nb_steps = 0
+            paths_nodes_forward = torch.zeros(nb_paths,n_sub_g//2).long().to(device)
+            paths_nodes_forward[:,nb_steps] = idx_cur_nodes_g
             while flag_dead_ends and flag_cycles and nb_steps<n_sub_g//2: # positive or negative strand
+                nb_steps += 1
                 idx_next_nodes_subg = dst_greedy_forward[idx_cur_nodes_subg] # index in sub-graph
                 idx_next_nodes_g = map_subg_to_g[idx_next_nodes_subg] # index in original graph
-                paths_nodes_forward.append(idx_next_nodes_g)
+                paths_nodes_forward[:,nb_steps] = idx_next_nodes_g
                 flag_dead_ends = (idx_cur_nodes_subg==idx_next_nodes_subg).long().sum()<nb_paths
-                if not nb_steps%max_cycle_size:
-                    idx_cycle_anchor1 = idx_next_nodes_subg 
-                else:
-                    idx_cycle_anchor2 = idx_next_nodes_subg 
-                    flag_cycles = (idx_cycle_anchor1==idx_cycle_anchor2).long().sum()<nb_paths
                 idx_cur_nodes_subg = idx_next_nodes_subg
-                nb_steps += 1
-            paths_nodes_forward = torch.stack(paths_nodes_forward,dim=1)
+                if not nb_steps%100: # check cycles
+                    for path in paths_nodes_forward:
+                        flag_cycles += (torch.unique(path).size(0)<nb_steps)
+                    flag_cycles = (flag_cycles<nb_paths) 
+            paths_nodes_forward = paths_nodes_forward[:,:nb_steps]
+            greedy_nb_steps = nb_steps
             print(f'Forward paths - nb_steps: {nb_steps}, nb_nodes_sub_g: {n_sub_g}, find_cycles: {not flag_cycles}')
 
             # Backward paths
@@ -136,50 +176,56 @@ def parallel_greedy_decoding(original_g, nb_paths, num_contigs, device):
             idx_cur_nodes_subg = src_init_edges # src # index in sub-graph
             idx_cur_nodes_g = map_subg_to_g[idx_cur_nodes_subg]
             paths_nodes_backward = [] # index in original graph
-            paths_nodes_backward.append(idx_cur_nodes_g) 
             flag_dead_ends = flag_cycles = True
-            max_cycle_size = 30
+            max_cycle_size = 100
             nb_steps = 0
+            paths_nodes_backward = torch.zeros(nb_paths,n_sub_g//2).long().to(device)
+            paths_nodes_backward[:,nb_steps] = idx_cur_nodes_g
             while flag_dead_ends and flag_cycles and nb_steps<n_sub_g//2: # positive or negative strand
+                nb_steps += 1
                 idx_next_nodes_subg = dst_greedy_backward[idx_cur_nodes_subg] # index in sub-graph    
                 idx_next_nodes_g = map_subg_to_g[idx_next_nodes_subg] # index in original graph
-                paths_nodes_backward.insert(0, idx_next_nodes_g)
+                paths_nodes_backward[:,nb_steps] = idx_next_nodes_g
                 flag_dead_ends = (idx_cur_nodes_subg==idx_next_nodes_subg).long().sum()<nb_paths
-                if not nb_steps%max_cycle_size:
-                    idx_cycle_anchor1 = idx_next_nodes_subg 
-                else:
-                    idx_cycle_anchor2 = idx_next_nodes_subg 
-                    flag_cycles = (idx_cycle_anchor1==idx_cycle_anchor2).long().sum()<nb_paths
-                idx_cur_nodes_subg = idx_next_nodes_subg  
-                nb_steps += 1
-            paths_nodes_backward = torch.stack(paths_nodes_backward,dim=1)
+                idx_cur_nodes_subg = idx_next_nodes_subg
+                if not nb_steps%100: # check cycles
+                    for path in paths_nodes_backward:
+                        flag_cycles += (torch.unique(path).size(0)<nb_steps)
+                    flag_cycles = (flag_cycles<nb_paths) 
+            paths_nodes_backward = torch.fliplr(paths_nodes_backward[:,:nb_steps])
+            greedy_nb_steps += nb_steps; max_greedy_nb_steps = max(max_greedy_nb_steps, greedy_nb_steps)
             print(f'Backward paths - nb_steps: {nb_steps}, nb_nodes_sub_g: {n_sub_g}, find_cycles: {not flag_cycles}')
 
             # Concatenate forward and backward paths
             paths_nodes = torch.cat( (paths_nodes_backward, paths_nodes_forward), dim=1 )
 
             # compute total Length of overlaps
-            path_tot_overlaps, path_node_lengths = compute_tour_length(original_g, paths_nodes, device)
-            #print(f'path_tot_overlaps: {path_tot_overlaps}')
-            print(f'path_node_lengths: {path_node_lengths}')
+            walks, walks_length = compute_walks(original_g, paths_nodes, device) 
+            for k in range(nb_paths):
+                print(f'candidate path: {k}, walks_length: {walks_length[k]}')
 
             # Select the path with max total length of overlaps
-            #idx_max = torch.argmax(path_tot_overlaps)
-            idx_max = torch.argmax(path_node_lengths)
-            selected_node_path = paths_nodes[idx_max]
+            #idx_max = torch.argmax(contigs_length)
+            idx_max = torch.argmax(walks_length)
 
-            # Remove duplicate nodes at the beginning and the end of the sequence
-            idx_start = ((selected_node_path[0]==selected_node_path).sum()) - 1
-            idx_end = ((selected_node_path[-1]==selected_node_path)).sum() - 1
-            selected_node_path = selected_node_path[idx_start:-idx_end].tolist()
+            # Append to all walks, contigs
+            all_walks.append(walks[idx_max]) 
+            all_walks_both_strands.append(walks[idx_max]) # computed strand
+            all_walks_both_strands.append([n^1 for n in walks[idx_max]]) # opposite strand
+            all_walks_len.append(walks_length[idx_max])
+            print(f'idx_contig: {idx_contig}\n')
+            print(f'idx of longest contig:  {idx_max}, len of longest walk: {len(walks[idx_max])}\n')
 
-            # Append to all contigs
-            all_contigs.append(selected_node_path) 
-            all_contigs_len.append(path_node_lengths[idx_max].item())
-            print(f'idx of max path: {idx_max}, len of max path: {path_node_lengths[idx_max]}, tot overlaps of max path: {path_tot_overlaps[idx_max]}')
-            print(f'idx_contig: {idx_contig}, len of selected contig: {path_node_lengths[idx_max]}\n')
-            
-    return all_contigs, all_contigs_len
+            # criteria to stop decoding
+            len_best_walk = torch.max(walks_length, dim=0)[0].squeeze()
+            if len_best_walk < len_threshold:
+                break
+
+    print(f'max_greedy_nb_steps: {max_greedy_nb_steps}\n')
+
+    all_walks_len = torch.stack(all_walks_len).tolist()
+
+    return all_walks, all_walks_len
 
 
 def assert_strand(graph, walk):
@@ -212,56 +258,6 @@ def assert_overlap(graph, walk):
             print(f'end: {src_start}, start: {dst_end}')
 
 
-
-# def to_csv(name, root, print_strand=True, save_dir='test_cases'):
-#     graph = dgl.load_graphs(f'{root}/processed/{name}.dgl')[0][0]
-#     if not os.path.isdir(save_dir):
-#         os.makedirs(save_dir)
-#     with open(f'{save_dir}/{name}_info.csv', 'w') as f:
-#         if print_strand:
-#             f.write('node_id,read_strand,read_start,read_end\n')
-#         else:
-#             f.write('node_id,read_start,read_end\n')
-#         for n in range(graph.num_nodes()):
-#             strand = graph.ndata['read_strand'][n].item()
-#             start = graph.ndata['read_start'][n].item()
-#             end = graph.ndata['read_end'][n].item()
-#             if print_strand:
-#                 f.write(f'{n},{strand},{start},{end}\n')
-#             else:
-#                 if strand == 1:
-#                     f.write(f'{n},{start},{end}\n')
-# 
-# 
-# def to_positive_pairwise(name, root, save_dir='test_cases'):
-#     graph = dgl.load_graphs(f'{root}/processed/{name}.dgl')[0][0]
-#     if not os.path.isdir(save_dir):
-#         os.makedirs(save_dir)
-#     with open(f'{save_dir}/{name}_edges.txt', 'w') as f:
-#         f.write('src\tdst\n')
-#         for src, dst in zip(graph.edges()[0], graph.edges()[1]):
-#             src = src.item()
-#             dst = dst.item()
-#             if graph.ndata['read_strand'][src] == 1 and graph.ndata['read_strand'][dst] == 1:
-#                 f.write(f'{src}\t{dst}\n')
-#     
-# 
-# def get_solutions_for_all_cpp(root, save_dir='test_cases'):
-#     processed_path = os.path.join(root, 'processed')
-# 
-#     for filename in os.listdir(processed_path):
-#         name = filename[:-4]
-#         print(f'Finding walk for... {name}')
-#         to_csv(name, root, print_strand=False, save_dir=save_dir)
-#         to_positive_pairwise(name, root, save_dir=save_dir)
-#         subprocess.run(f'./longestContinuousSequence {name}_info.csv > {name}.out', shell=True, cwd=save_dir)
-#         with open(f'{save_dir}/{name}.out') as f:
-#            lines = f.readlines()
-#            walk = lines[-1].strip().split(' -> ')
-#            walk = list(map(int, walk))
-#            pickle.dump(walk, open(f'{save_dir}/{name}_walk.pkl', 'wb'))
-
-
 def interval_union(name, root):
     graph = dgl.load_graphs(f'{root}/processed/{name}.dgl')[0][0]
     intervals = []
@@ -281,13 +277,9 @@ def interval_union(name, root):
 
 
 def dfs(graph, neighbors, start=None, avoid={}):
-    # TODO: Take only those with in-degree 0
     if start is None:
         min_value, idx = torch.topk(graph.ndata['read_start'], k=1, largest=False)
         start = idx.item()
-
-    # threshold, _ = torch.topk(graph.ndata['read_start'][graph.ndata['read_strand']==1], k=1)
-    # threshold = threshold.item()
 
     stack = deque()
     stack.append(start)
@@ -304,9 +296,6 @@ def dfs(graph, neighbors, start=None, avoid={}):
             if visited[current]:
                 continue
             
-            # if graph.ndata['read_end'][current] == threshold:
-            #     break
-
             if graph.ndata['read_end'][current] > max_value:
                 max_value = graph.ndata['read_end'][current]
                 max_node = current
