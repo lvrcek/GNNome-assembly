@@ -52,7 +52,7 @@ def walk_to_sequence(walks, graph, reads, edges):
     return contigs
 
 
-def walk_to_sequencei_old(walks, graph, reads, edges):
+def walk_to_sequence_old(walks, graph, reads, edges):
     contigs = []
     for i, walk in enumerate(walks):
         sequence = ''

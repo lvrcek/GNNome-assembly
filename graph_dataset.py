@@ -107,35 +107,33 @@ class AssemblyGraphDataset(DGLDataset):
 
         print(f'====> FILTER = {filter}\n')
 
-        with open(f'{self.root}/dataset_log.txt', 'w') as f:
-            n_have = len(os.listdir(self.save_dir))
-            n_need = len(os.listdir(self.raw_dir))
-            for cnt, idx in enumerate(range(n_have, n_need)):
-                fastq = f'{idx}.fasta'
-                print(f'Step {cnt}: generating graphs for reads in {fastq}')
-                reads_path = os.path.abspath(os.path.join(self.raw_dir, fastq))
-                print(f'Path to the reads: {reads_path}')
-                print(f'Starting raven at: {self.raven_path}')
-                print(f'Parameters: --identity {filter} -k29 -w9 -t{threads} -p0')
-                print(f'Assembly output: {out}\n')
-                subprocess.run(f'{self.raven_path} --identity {filter} -k29 -w9 -t{threads} -p0 {reads_path} > {idx}_{out}', shell=True, cwd=self.tmp_dir)
-                subprocess.run(f'mv graph_1.csv {idx}_graph_1.csv', shell=True, cwd=self.tmp_dir)
-                subprocess.run(f'mv graph_1.gfa {idx}_graph_1.gfa', shell=True, cwd=self.tmp_dir)
-                
-                print(f'\nRaven generated the graph! Processing...')
-                processed_path = os.path.join(self.save_dir, f'{idx}.dgl')
-                graph, pred, succ, reads, edges, labels = graph_parser.from_csv(os.path.join(self.tmp_dir, f'{idx}_graph_1.csv'), reads_path)
-                print(f'Parsed Raven output! Saving files...')
+        n_have = len(os.listdir(self.save_dir))
+        n_need = len(os.listdir(self.raw_dir))
+        for cnt, idx in enumerate(range(n_have, n_need)):
+            fastq = f'{idx}.fasta'
+            print(f'Step {cnt}: generating graphs for reads in {fastq}')
+            reads_path = os.path.abspath(os.path.join(self.raw_dir, fastq))
+            print(f'Path to the reads: {reads_path}')
+            print(f'Starting raven at: {self.raven_path}')
+            print(f'Parameters: --identity {filter} -k29 -w9 -t{threads} -p0')
+            print(f'Assembly output: {out}\n')
+            subprocess.run(f'{self.raven_path} --identity {filter} -k29 -w9 -t{threads} -p0 {reads_path} > {idx}_{out}', shell=True, cwd=self.tmp_dir)
+            subprocess.run(f'mv graph_1.csv {idx}_graph_1.csv', shell=True, cwd=self.tmp_dir)
+            subprocess.run(f'mv graph_1.gfa {idx}_graph_1.gfa', shell=True, cwd=self.tmp_dir)
+            
+            print(f'\nRaven generated the graph! Processing...')
+            processed_path = os.path.join(self.save_dir, f'{idx}.dgl')
+            graph, pred, succ, reads, edges, labels = graph_parser.from_csv(os.path.join(self.tmp_dir, f'{idx}_graph_1.csv'), reads_path)
+            print(f'Parsed Raven output! Saving files...')
 
-                dgl.save_graphs(processed_path, graph)
-                pickle.dump(pred, open(f'{self.info_dir}/{idx}_pred.pkl', 'wb'))
-                pickle.dump(succ, open(f'{self.info_dir}/{idx}_succ.pkl', 'wb'))
-                pickle.dump(reads, open(f'{self.info_dir}/{idx}_reads.pkl', 'wb'))
-                pickle.dump(edges, open(f'{self.info_dir}/{idx}_edges.pkl', 'wb'))
-                pickle.dump(labels, open(f'{self.info_dir}/{idx}_labels.pkl', 'wb'))
+            dgl.save_graphs(processed_path, graph)
+            pickle.dump(pred, open(f'{self.info_dir}/{idx}_pred.pkl', 'wb'))
+            pickle.dump(succ, open(f'{self.info_dir}/{idx}_succ.pkl', 'wb'))
+            pickle.dump(reads, open(f'{self.info_dir}/{idx}_reads.pkl', 'wb'))
+            pickle.dump(edges, open(f'{self.info_dir}/{idx}_edges.pkl', 'wb'))
+            pickle.dump(labels, open(f'{self.info_dir}/{idx}_labels.pkl', 'wb'))
 
-                graphia_path = os.path.join(graphia_dir, f'{idx}_graph.txt')
-                graph_parser.print_pairwise(graph, graphia_path)
-                print(f'Processing of graph {idx} generated from {fastq} done!\n')
-                f.write(f'{idx} - {fastq}\n')
+            graphia_path = os.path.join(graphia_dir, f'{idx}_graph.txt')
+            graph_parser.print_pairwise(graph, graphia_path)
+            print(f'Processing of graph {idx} generated from {fastq} done!\n')
 

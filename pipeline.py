@@ -3,6 +3,7 @@ import gzip
 import os
 import pickle
 import subprocess
+from datetime import datetime
 
 from tqdm import tqdm
 import requests
@@ -75,17 +76,11 @@ def merge_dicts(d1, d2, d3={}):
 
 
 # -1. Set up the data file structure
-def file_structure_setup(data_path):
+def file_structure_setup(data_path, ref_path):
     print(f'SETUP::filesystem:: Create directories for storing data')
     if not os.path.isdir(data_path):
         os.makedirs(data_path)
 
-    # if 'references' not in os.listdir(data_path):
-    #     os.mkdir(os.path.join(data_path, 'references'))
-    #     subprocess.run(f'mkdir CHM13 chromosomes lengths', shell=True, cwd=os.path.join(data_path, 'references'))
-    #     subprocess.run(f'cp -r lengths {data_path}/references', shell=True)
-    
-    ref_path = os.path.abspath('references')
     if 'CHM13' not in os.listdir(ref_path):
         os.mkdir(os.path.join(ref_path, 'CHM13'))
     if 'chromosomes' not in os.listdir(ref_path):
@@ -97,22 +92,12 @@ def file_structure_setup(data_path):
     if 'real' not in os.listdir(data_path):
         os.mkdir(os.path.join(data_path, 'real'))
         create_chr_dirs(os.path.join(data_path, 'real'))
-
-    # if 'train' not in os.listdir(data_path):
-    #     os.mkdir(os.path.join(data_path, 'train'))
-    #     subprocess.run(f'mkdir raw processed info tmp graphia solutions', shell=True, cwd=os.path.join(data_path, 'train'))
-    # if 'valid' not in os.listdir(data_path):
-    #     os.mkdir(os.path.join(data_path, 'valid'))
-    #     subprocess.run(f'mkdir raw processed info tmp graphia solutions', shell=True, cwd=os.path.join(data_path, 'valid'))
-    # if 'test' not in os.listdir(data_path):
-    #     os.mkdir(os.path.join(data_path, 'test'))
-    #     subprocess.run(f'mkdir raw processed info tmp graphia solutions', shell=True, cwd=os.path.join(data_path, 'test'))
+    if 'experiments' not in os.listdir(data_path):
+        os.mkdir(os.path.join(data_path, 'experiments'))
 
 
 # 0. Download the CHM13 if necessary
-def download_reference(data_path):
-    # data_path = os.path.abspath(data_path)
-    ref_path = os.path.abspath('references')
+def download_reference(ref_path):
     chm_path = os.path.join(ref_path, 'CHM13')
     chr_path = os.path.join(ref_path, 'chromosomes')
     chm13_url = 'https://s3-us-west-2.amazonaws.com/human-pangenomics/T2T/CHM13/assemblies/chm13.draft_v1.1.fasta.gz'
@@ -144,11 +129,10 @@ def download_reference(data_path):
 
 
 # 1. Simulate the sequences
-def simulate_reads(data_path, chr_dict):
+def simulate_reads(data_path, ref_path, chr_dict):
     # Dict saying how much of simulated datasets for each chromosome do we need
     # E.g., {'chr1': 4, 'chr6': 2, 'chrX': 4}
 
-    # TODO: This is temporarily, should be done upon setting up the poject repo
     print(f'SETUP::simulate')
     if 'seqrequester' not in os.listdir('vendor'):
         print(f'SETUP::simulate:: Download seqrequester')
@@ -156,7 +140,6 @@ def simulate_reads(data_path, chr_dict):
         subprocess.run(f'make', shell=True, cwd='vendor/seqrequester/src')
 
     data_path = os.path.abspath(data_path)
-    ref_path = os.path.abspath('references')
     chr_path = os.path.join(ref_path, 'chromosomes')
     len_path = os.path.join(ref_path, 'lengths')
     sim_path = os.path.join(data_path, 'simulated')
@@ -244,36 +227,33 @@ def generate_graphs_real(data_path, chr_real_list):
             'out': 'assembly.fasta'
         }
         graph_dataset.AssemblyGraphDataset(chr_sim_path, nb_pos_enc=None, specs=specs, generate=True)
-        # Generate graphs for those reads that don't have them
-        # Probably something with Raven
-        # Then the graph_parser
 
 
 # 2.5 Train-valid-test split
 def train_valid_split(data_path, train_dict, valid_dict, test_dict={}, out=None):
-    #Both are chromosome dicts specifying which data to use for training/validation
     print(f'SETUP::split')
     data_path = os.path.abspath(data_path)
     sim_path = os.path.join(data_path, 'simulated')
     real_path = os.path.join(data_path, 'real')
+    exp_path = os.path.join(data_path, 'experiments')
 
     if out is None:
-        train_path = os.path.join(data_path, f'train')
-        valid_path = os.path.join(data_path, f'valid')
-        test_path  = os.path.join(data_path, f'test')
+        train_path = os.path.join(exp_path, f'train')
+        valid_path = os.path.join(exp_path, f'valid')
+        test_path  = os.path.join(exp_path, f'test')
     else:
-        train_path = os.path.join(data_path, f'train_{out}')
-        valid_path = os.path.join(data_path, f'valid_{out}')
-        test_path  = os.path.join(data_path, f'test_{out}')
-        if not os.path.isdir(train_path):
-            os.mkdir(train_path)
-            subprocess.run(f'mkdir raw processed info graphia tmp', shell=True, cwd=train_path)
-        if not os.path.isdir(valid_path):
-            os.mkdir(valid_path)
-            subprocess.run(f'mkdir raw processed info graphia tmp', shell=True, cwd=valid_path)
-        if not os.path.isdir(test_path) and len(test_dict) > 0:
-            os.mkdir(test_path)
-            subprocess.run(f'mkdir raw processed info graphia tmp', shell=True, cwd=test_path)
+        train_path = os.path.join(exp_path, f'train_{out}')
+        valid_path = os.path.join(exp_path, f'valid_{out}')
+        test_path  = os.path.join(exp_path, f'test_{out}')
+    if not os.path.isdir(train_path):
+        os.makedirs(train_path)
+        subprocess.run(f'mkdir raw processed info', shell=True, cwd=train_path)
+    if not os.path.isdir(valid_path):
+        os.makedirs(valid_path)
+        subprocess.run(f'mkdir raw processed info', shell=True, cwd=valid_path)
+    if not os.path.isdir(test_path) and len(test_dict) > 0:
+        os.makedirs(test_path)
+        subprocess.run(f'mkdir raw processed info', shell=True, cwd=test_path)
  
     train_g_to_chr = {}  # Remember chromosomes for each graph in the dataset
     train_g_to_org_g = {}  # Remember index of the graph in the master dataset for each graph in this dataset
@@ -290,8 +270,7 @@ def train_valid_split(data_path, train_dict, valid_dict, test_dict={}, out=None)
             subprocess.run(f'cp {chr_sim_path}/info/{i}_pred.pkl {train_path}/info/{n_have}_pred.pkl', shell=True)
             subprocess.run(f'cp {chr_sim_path}/info/{i}_edges.pkl {train_path}/info/{n_have}_edges.pkl', shell=True)
             subprocess.run(f'cp {chr_sim_path}/info/{i}_reads.pkl {train_path}/info/{n_have}_reads.pkl', shell=True)
-            # subprocess.run(f'cp {chr_sim_path}/solutions/{i}_edges.pkl {train_path}/solutions/{n_have}_edges.pkl', shell=True)
-            train_g_to_org_g = {n_have: i}
+            train_g_to_org_g[n_have] = i
             n_have += 1
     pickle.dump(train_g_to_chr, open(f'{train_path}/info/g_to_chr.pkl', 'wb'))
     pickle.dump(train_g_to_org_g, open(f'{train_path}/info/g_to_org_g.pkl', 'wb'))
@@ -312,8 +291,7 @@ def train_valid_split(data_path, train_dict, valid_dict, test_dict={}, out=None)
             subprocess.run(f'cp {chr_sim_path}/info/{j}_pred.pkl {valid_path}/info/{n_have}_pred.pkl', shell=True)
             subprocess.run(f'cp {chr_sim_path}/info/{j}_edges.pkl {valid_path}/info/{n_have}_edges.pkl', shell=True)
             subprocess.run(f'cp {chr_sim_path}/info/{j}_reads.pkl {valid_path}/info/{n_have}_reads.pkl', shell=True)
-            # subprocess.run(f'cp {chr_sim_path}/solutions/{j}_edges.pkl {valid_path}/solutions/{n_have}_edges.pkl', shell=True)
-            valid_g_to_org_g = {n_have: j}
+            valid_g_to_org_g[n_have] = j
             n_have += 1
     pickle.dump(valid_g_to_chr, open(f'{valid_path}/info/g_to_chr.pkl', 'wb'))
     pickle.dump(valid_g_to_org_g, open(f'{valid_path}/info/g_to_org_g.pkl', 'wb'))
@@ -342,9 +320,8 @@ def train_valid_split(data_path, train_dict, valid_dict, test_dict={}, out=None)
                 subprocess.run(f'cp {chr_sim_path}/info/{k}_pred.pkl {test_path}/info/{n_have}_pred.pkl', shell=True)
                 subprocess.run(f'cp {chr_sim_path}/info/{k}_edges.pkl {test_path}/info/{n_have}_edges.pkl', shell=True)
                 subprocess.run(f'cp {chr_sim_path}/info/{k}_reads.pkl {test_path}/info/{n_have}_reads.pkl', shell=True)
-                # subprocess.run(f'cp {chr_sim_path}/solutions/{j}_edges.pkl {valid_path}/solutions/{n_have}_edges.pkl', shell=True)
                 n_have += 1
-                test_g_to_org_g = {n_have: k}
+                test_g_to_org_g[n_have] = k
         pickle.dump(test_g_to_chr, open(f'{test_path}/info/g_to_chr.pkl', 'wb'))
         pickle.dump(test_g_to_org_g, open(f'{test_path}/info/g_to_org_g.pkl', 'wb'))
 
@@ -352,9 +329,9 @@ def train_valid_split(data_path, train_dict, valid_dict, test_dict={}, out=None)
 
 
 # 3. Train the model
-def train_the_model(data, out, overfit):
+def train_model(train_path, valid_path, out, overfit):
     print(f'SETUP::train')
-    train.train(data, out, overfit)
+    train.train(train_path, valid_path, out, overfit)
 
 
 # 4. Inference - get the results
@@ -381,12 +358,15 @@ def predict_baselines(test_path, out, model_path=None, device='cpu'):
     
     for idx, (contigs, contigs_ol_len, contigs_ol_sim) in enumerate(zip(contigs_per_graph, contigs_per_graph_ol_len, contigs_per_graph_ol_sim)):
         chrN = g_to_chr[idx]
+        print(f'GNN: Scores')
         num_contigs, longest_contig, reconstructed, n50, ng50 = evaluate.quick_evaluation(contigs, chrN)
         evaluate.print_summary(test_path, idx, chrN, num_contigs, longest_contig, reconstructed, n50, ng50)
+        print(f'Baseline: Overlap lengths')
         num_contigs, longest_contig, reconstructed, n50, ng50 = evaluate.quick_evaluation(contigs_ol_len, chrN)
-        print(f'ol_len: {idx=} {num_contigs=} {longest_contig=} {reconstructed=:.4f} {n50=} {ng50=}')
+        evaluate.print_summary(test_path, idx, chrN, num_contigs, longest_contig, reconstructed, n50, ng50)
+        print(f'Baseline: Overlap similarities')
         num_contigs, longest_contig, reconstructed, n50, ng50 = evaluate.quick_evaluation(contigs_ol_sim, chrN)
-        print(f'ol_sim: {idx=} {num_contigs=} {longest_contig=} {reconstructed=:.4f} {n50=} {ng50=}')
+        evaluate.print_summary(test_path, idx, chrN, num_contigs, longest_contig, reconstructed, n50, ng50)
 
 
 def nips_exp1():
@@ -456,40 +436,44 @@ def nips_exp3_mix():
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data', type=str, default='data/train', help='Path to directory with training data')
+    parser.add_argument('--data', type=str, default='data', help='Path to directory with simulated and real data')
+    parser.add_argument('--refs', type=str, default='data/references', help='Path to directory with reference information')
     parser.add_argument('--out', type=str, default=None, help='Output name for figures and models')
     parser.add_argument('--overfit', action='store_true', default=False, help='Overfit on the chromosomes in the train directory')
     args = parser.parse_args()
 
     data_path = args.data
+    ref_path = args.refs
     out = args.out
     overfit = args.overfit
 
-    # dicts = config.get_config()
-    # train_dict = dicts['train_dict']
-    # valid_dict = dicts['valid_dict']
-    # test_dict = dicts['test_dict']
+    time_start = datetime.now()
+    timestamp = time_start.strftime('%Y-%b-%d-%H-%M-%S')
+    if out is None:
+        out = timestamp
+
+    dicts = config.get_config()
+    train_dict = dicts['train_dict']
+    valid_dict = dicts['valid_dict']
+    test_dict = dicts['test_dict']
 
     all_chr = merge_dicts(train_dict, valid_dict, test_dict)
 
-    # nips_exp3()
-    # nips_exp1a()
-    # exit(1)
 
     ##### For Martin
-    train_dict = {f'chr{i}': 1 for i in range(1, 23)} ; train_dict['chrX'] = 1
-    valid_dict = {}
-    test_dict = {}
-    all_chr = merge_dicts(train_dict, valid_dict, test_dict)
+    # train_dict = {f'chr{i}': 1 for i in range(1, 23)} ; train_dict['chrX'] = 1
+    # valid_dict = {}
+    # test_dict = {}
+    # all_chr = merge_dicts(train_dict, valid_dict, test_dict)
     #####
-
-
-    file_structure_setup(data_path)
-    download_reference(data_path)
-    simulate_reads(data_path, all_chr)
-    generate_graphs(data_path, all_chr)
-    # train_path, valid_path, test_path = train_valid_split(data_path, train_dict, valid_dict, test_dict, out)
-    # train_the_model(data_path, out, overfit)
+    
+    # file_structure_setup(data_path, ref_path)
+    # download_reference(ref_path)
+    # simulate_reads(data_path, ref_path, all_chr)
+    # generate_graphs(data_path, all_chr)
+    train_path, valid_path, test_path = train_valid_split(data_path, train_dict, valid_dict, test_dict, out)
+    train_model(train_path, valid_path, out, overfit)
+    predict(test_path, out, device='cpu')
     
     # test_path = '/home/vrcekl/scratch/nips_2022/experiments/model_vs_raven/real/17-05/chr19'
     # model_path = f'pretrained/model_10-05_chr19-15v3v2-exp-1.pt'

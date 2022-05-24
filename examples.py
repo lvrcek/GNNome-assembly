@@ -7,6 +7,7 @@ def exp1():
         Goal: Show that the model generalizes well to other synthetic chromosomes.
     """
     data_path = f'data/examples'
+    ref_path = f'data/references'
     out = 'example_1'
     train_dict = {'chr19': 3}
     valid_dict = {'chr19': 1}
@@ -14,10 +15,10 @@ def exp1():
     all_chr = pipeline.merge_dicts(train_dict, valid_dict, test_dict)
     pipeline.file_structure_setup(data_path)
     pipeline.download_reference(data_path)
-    pipeline.simulate_reads(data_path, all_chr)
+    pipeline.simulate_reads(data_path, ref_path, all_chr)
     pipeline.generate_graphs(data_path, all_chr)
     train_path, valid_path, test_path = pipeline.train_valid_split(data_path, train_dict, valid_dict, test_dict, out)
-    # pipeline.train_the_model(data_path, out, False)
+    # pipeline.train_the_model(train_path, valid_path, out, False)
     pipeline.predict(test_path, out=out)
 
 
