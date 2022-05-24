@@ -302,12 +302,15 @@ def train_valid_split(data_path, train_dict, valid_dict, test_dict={}, out=None)
         n_have = 0
         for chrN, n_need in test_dict.items():
             # copy n_need datasets from chrN into train dict
+            if '_r' in chrN and n_need > 1:
+                print(f'SETUP::split::WARNING Cannot copy more than one graph for real data: {chrN}')
+                n_need = 1
             print(f'SETUP::split:: Copying {n_need} graphs of {chrN} into {test_path}')
             for i in range(n_need):
                 if '_r' in chrN:
                     chrN = chrN[:-2]
                     chr_sim_path = os.path.join(real_path, chrN)
-                    k = i
+                    k = 0
                 else:
                     chr_sim_path = os.path.join(sim_path, chrN)
                     k = i + train_dict.get(chrN, 0) + valid_dict.get(chrN, 0)
@@ -369,71 +372,6 @@ def predict_baselines(test_path, out, model_path=None, device='cpu'):
         evaluate.print_summary(test_path, idx, chrN, num_contigs, longest_contig, reconstructed, n50, ng50)
 
 
-def nips_exp1():
-    """
-        Predict the scores for all the synthetic chromosomes, given the model trained only on chr19.
-        Calculate the prediction-metrics, don't assemble the genomes.
-        Goal: Show that the model generalizes well to other synthetic chromosomes.
-    """
-    data_path = f'/home/vrcekl/scratch/nips_2022/experiments/valid_ALL-CHR'
-    model_path = f'nips_submit/model_12-05_15v3-chr19_shuffle.pt'
-    inference.inference(data_path, model_path)
-
-
-def nips_exp1a():
-    """
-        Predict the scores for all the synthetic chromosomes, given the model trained only on chr19.
-        Calculate the prediction-metrics, assemble all the genomes.
-        Goal: Show that the model generalizes well to other synthetic chromosomes.
-    """
-    data_path = f'/home/vrcekl/scratch/nips_2022/experiments/valid_ALL-CHR'
-    model_path = f'nips_submit/model_12-05_15v3-chr19_shuffle.pt'
-    # model_path = f'nips_submit/model_18-05_15v3-mix_c91922_EXP6.pt'
-    predict(data_path, '.', model_path)
-
-
-
-def nips_exp2():
-    """
-        Reconstruct the real chr19, given the model trained only on synthetic chr19.
-        Calculate the metrics AND assembly the genome.
-        Goal: Show that the model generalizes from synthetic to real data.
-    """
-    data_path = f'/home/vrcekl/scratch/nips_2022/experiments/model_vs_raven/real/17-05/chr19'
-    model_path = f'nips_submit/model_12-05_15v3-chr19_shuffle.pt'
-    predict(data_path, '.', model_path, device='cuda:3')
-
-
-def nips_exp3():
-    """
-        Predict the scores for all the real chromosomes, given the model trained only on synthetic chr19.
-        Calculate the prediction-metrics, assemble all the genomes.
-        Goal: Show that the model generalizes well to other real as well chromosomes.
-    """
-    for i in range(1, 24):
-        if i == 23:
-            i = 'X'
-        test_path = f'/home/vrcekl/scratch/nips_2022/experiments/real/chr{i}/'
-        model_path = f'nips_submit/model_12-05_15v3-chr19_shuffle.pt'
-        predict(test_path, '.', model_path)
-
-
-
-def nips_exp3_mix():
-    """
-        Predict the scores for all the real chromosomes, given the model trained only on synthetic chr19.
-        Calculate the prediction-metrics, assemble all the genomes.
-        Goal: Show that the model generalizes well to other real as well chromosomes.
-    """
-    for i in range(1, 24):
-        if i == 23:
-            i = 'X'
-        data_path = f'/home/vrcekl/scratch/nips_2022/experiments/real/chr{i}/'
-        # model_path = f'nips_submit/model_18-05_15v3-mix_EXP2.pt'
-        model_path = f'nips_submit/model_18-05_15v3-mix_c91922_EXP6.pt'
-        predict(data_path, '.', model_path)
-
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--data', type=str, default='data', help='Path to directory with simulated and real data')
@@ -459,24 +397,18 @@ if __name__ == '__main__':
 
     all_chr = merge_dicts(train_dict, valid_dict, test_dict)
 
-
-    ##### For Martin
+    ##### For M
     # train_dict = {f'chr{i}': 1 for i in range(1, 23)} ; train_dict['chrX'] = 1
     # valid_dict = {}
     # test_dict = {}
     # all_chr = merge_dicts(train_dict, valid_dict, test_dict)
     #####
     
-    # file_structure_setup(data_path, ref_path)
-    # download_reference(ref_path)
-    # simulate_reads(data_path, ref_path, all_chr)
-    # generate_graphs(data_path, all_chr)
+    file_structure_setup(data_path, ref_path)
+    download_reference(ref_path)
+    simulate_reads(data_path, ref_path, all_chr)
+    generate_graphs(data_path, all_chr)
     train_path, valid_path, test_path = train_valid_split(data_path, train_dict, valid_dict, test_dict, out)
     train_model(train_path, valid_path, out, overfit)
     predict(test_path, out, device='cpu')
     
-    # test_path = '/home/vrcekl/scratch/nips_2022/experiments/model_vs_raven/real/17-05/chr19'
-    # model_path = f'pretrained/model_10-05_chr19-15v3v2-exp-1.pt'
-    # out = 'out'
-    # predict(test_path, out, model_path, device='cpu')
-

@@ -1,11 +1,23 @@
-# Edit these three dictionaries to specify on which graphs to train/validate/test
+################################################################################
+
+# Edit these three dictionaries to specify graphs to train/validation/test
 # Assemblies will be constructed only for the graphs in the test_dict
-#################################################################################
-_train_dict = {'chr19': 1, 'chr20': 1, 'chr17': 1}
-_valid_dict = {'chr19': 1, 'chr22': 1, 'chr17': 1}
-_test_dict = {'chr19_r': 1, 'chr20_r': 1, 'chr21_r': 1, 'chr21': 1}
-# _test_dict  = {f'chr{i}': 1 for i in range(1, 23)} ; _test_dict['chrX'] = 1
-#################################################################################
+
+# To train/validate/test on multiple chromosomes, put the as separate
+# entries in the dictionaries
+# E.g., to train on 1 chr19 graph and 2 chr20 graphs: 
+# _train_dict = {'chr19': 1, 'chr20': 2}
+
+# To test on real chromosome put "_r" suffix. Don't put value higher than 1,
+# since there is only 1 real HiFi dataset for each chromosomes
+# E.g., to test on real chr21:
+# _test_dict = {'chr21_r': 1}
+
+_train_dict = {'chr19': 5}
+_valid_dict = {'chr19': 2}
+_test_dict = {'chr21': 1}
+
+################################################################################
 
 def get_config():
     return {

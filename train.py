@@ -112,7 +112,7 @@ def view_model_param(model):
     return total_param
 
 
-def train(train_path, valid_path, out, overfit):
+def train(train_path, valid_path, out, overfit=False):
     """Training loop where the model learns to predict the edge labels.
 
     Parameters
@@ -178,8 +178,6 @@ def train(train_path, valid_path, out, overfit):
         ds_train = ds 
         ds_valid = ds_train # DEBUG !!!!!!!!!!!!!
 
-    print(ds_train)
-    print(ds_valid)
     pos_to_neg_ratio = sum([((g.edata['y']==1).sum() / (g.edata['y']==0).sum()).item() for idx, g in ds_train]) / len(ds_train)
 
 #     if batch_size_train <= 1: # train with full graph 
