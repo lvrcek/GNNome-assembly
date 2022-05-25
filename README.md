@@ -62,12 +62,12 @@ Note that all three chr19 graphs are created from different sets of reads (sampl
 Also note that you cannot specify more than one graph per real chromosome.
 
 
-### 2. [Optional] Adjust the hyperparameters.
+### 2. [Optional] Adjust the hyperparameters
 
 All the hyperparameters are in the `hyperparameters.py`. Change them by editing the dictionary inside the file.
 
 
-### 3. Run the pipeline.
+### 3. Run the pipeline
 ```bash
 python pipeline.py --data <data_path> --out <out_name>
 ```
@@ -82,3 +82,20 @@ For example, if you want to save the data inside `other_dir/data` and call all t
 ```bash
 python pipeline.py --data other_dir/data --out example_run
 ```
+
+### 4. Evaluate assemblies
+The assembly sequences, obtained for the graphs in the test set, wil lbe stored inside `<data_path>/experiments/test_<out>/assembly` directory. The easiest way to evaluate the obtained assemblies is with [Quast](https://github.com/ablab/quast). For installing Quast, we suggest creating a new conda environment (due to clashing dependencies):
+```bash
+conda create -n quast python=3.6
+conda activate quast
+conda install -c bioconda quast
+```
+The general usage is as follows:
+```bash
+quast -r <path_to_reference> -o <output_dir> <path_to_assembly_file>
+```
+For example, if inside `test_example` directory you only have one graph of chromosome 21, then you could evaluate the assembly sequence of that chromosome by running:
+```bash
+quast -r <ref_path>/chromosomes/chr21.fasta -o <data_path>/experiments/test_example/quast <data_path>/experiments/test_example/assembly/0_assembly.fasta
+```
+The report, containing all the evaluation metrics, will be located at `<data_path>/experiments/test_example/quast/report.txt`.
