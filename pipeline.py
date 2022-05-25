@@ -135,6 +135,8 @@ def simulate_reads(data_path, ref_path, chr_dict):
     # E.g., {'chr1': 4, 'chr6': 2, 'chrX': 4}
 
     print(f'SETUP::simulate')
+    if 'vendor' not in os.listdir():
+        os.mkdir('vendor')
     if 'seqrequester' not in os.listdir('vendor'):
         print(f'SETUP::simulate:: Download seqrequester')
         subprocess.run(f'git clone https://github.com/marbl/seqrequester.git', shell=True, cwd='vendor')
