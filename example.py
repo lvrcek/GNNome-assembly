@@ -8,7 +8,6 @@ def example():
         Goal: Show that the model generalizes well to other synthetic chromosomes.
     """
     data_path = f'data'
-    data_path = '/home/vrcekl/scratch/nips_2022/experiments'
     ref_path = f'data/references'
     out = 'example'
 
