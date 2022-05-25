@@ -37,6 +37,8 @@ python example.py
 ```
 This will also download the CHM13 reference and set up the directory structure for simulating reads, constructing graphs and running experiments. Default location is in the `data` directory of the root directory of this project.
 
+Apart from setting up the working directory, running the above example will simulate four read datasets for chromosome 19 and one read dataset for chromosome 21 and construct graphs from those reads. Subsequently, it will train a model on three chromosome 19 graphs, validate it on one chromosome 19 graph, and, finally, create assembly for chromosome 21. After reconstruction, the assembly sequences can be found in `data/experiments/test_example/assembly/0_assembly.fasta`.
+
 
 ## Download the real data
 
@@ -66,12 +68,16 @@ All the hyperparameters are in the `hyperparameters.py`. Change them by editing 
 
 ### 3. Run the pipeline.
 ```bash
-python -u pipeline.py --data <data_path> --out <out_name> &> output.log &
+python pipeline.py --data <data_path> --out <out_name>
 ```
 
 Arguments:
 
-- `--data`: path where simulated sequences, real sequences, constructed graphs, and the experiments will be stores.
+- `--data`: (default value: `data/`) path where simulated sequences, real sequences, constructed graphs, and the experiments will be stores. 
 
-- `--out`: name that will be used for naming the directories for train/valid/test, and saving the model and the checkpoints during the training. The models are saved inside the `pretrained` directory. E.g., with `--out example`, the model will be saved int `pretrained/model_example.pt`, and all the checkpoint information (optimizer parameters, loss, etc.) will be saved inside `checkpoints/example.pt`. In the same example, train/valid/test directories would be `<data_path>/experiments/train_example`, `<data_path>/experiments/valid_example`, `<data_path>/experiments/test_example`.
+- `--out`: (default value: timestamp at running the pipeline) name that will be used for naming the directories for train/valid/test, and saving the model and the checkpoints during the training. The models are saved inside the `pretrained` directory. E.g., with `--out example`, the model will be saved int `pretrained/model_example.pt`, and all the checkpoint information (optimizer parameters, loss, etc.) will be saved inside `checkpoints/example.pt`. In the same example, train/valid/test directories would be `<data_path>/experiments/train_example`, `<data_path>/experiments/valid_example`, `<data_path>/experiments/test_example`.
 
+For example, if you want to save the data inside `other_dir/data` and call all the output files `example_run`, run:
+```bash
+python pipeline.py --data other_dir/data --out example_run
+```
