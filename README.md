@@ -1,6 +1,6 @@
 # GNNome Assembly
 
-
+A framework for training graph neural networks to untangle assembly graphs obtained from de novo genome assembly.
 
 ## Installation
 
