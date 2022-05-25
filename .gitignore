@@ -149,7 +149,6 @@ cython_debug/
 10_1e-8_100
 full_1e-8_50
 
-figures/*
 pretrained/*
 debug/*
 wandb/*
