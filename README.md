@@ -12,18 +12,19 @@ A framework for training graph neural networks to untangle assembly graphs obtai
 #### 1. Create a conda virtual environment
 ```bash
 conda env create -f environment.yml
+conda activate gnn-assembly
 ```
 
 #### 2. Install the GPU-specific requirements
 Use pip for both of the installations bellow.
 
-- **PyTorch**: Install a version for Python 3.8 based on your CUDA version:
+- **PyTorch**: Install version 1.9 or higher, based on your CUDA version:
 https://pytorch.org/get-started/previous-versions/#linux-and-windows-7
 
-- **DGL**: Install a version for Python 3.8, based on your CUDA version:
+- **DGL**: Install version 3.8 or higher, based on your CUDA version:
 https://www.dgl.ai/pages/start.html
 
-For example, for CUDA 11.1, this would be:
+For example, for CUDA 11.1, this could be:
 ```bash
 pip install torch==1.9.0+cu111 torchvision==0.10.0+cu111 torchaudio==0.9.0 -f https://download.pytorch.org/whl/torch_stable.html
 pip install dgl-cu111 dglgo -f https://data.dgl.ai/wheels/repo.html
