@@ -90,8 +90,9 @@ def file_structure_setup(data_path, ref_path):
         os.mkdir(os.path.join(data_path, 'simulated'))
         create_chr_dirs(os.path.join(data_path, 'simulated'))
     if 'real' not in os.listdir(data_path):
-        os.mkdir(os.path.join(data_path, 'real'))
-        create_chr_dirs(os.path.join(data_path, 'real'))
+        subprocess.run(f'bash download_dataset.sh {data_path}', shell=True)
+        # os.mkdir(os.path.join(data_path, 'real'))
+        # create_chr_dirs(os.path.join(data_path, 'real'))
     if 'experiments' not in os.listdir(data_path):
         os.mkdir(os.path.join(data_path, 'experiments'))
 
@@ -397,13 +398,6 @@ if __name__ == '__main__':
 
     all_chr = merge_dicts(train_dict, valid_dict, test_dict)
 
-    ##### For M
-    # train_dict = {f'chr{i}': 1 for i in range(1, 23)} ; train_dict['chrX'] = 1
-    # valid_dict = {}
-    # test_dict = {}
-    # all_chr = merge_dicts(train_dict, valid_dict, test_dict)
-    #####
-    
     file_structure_setup(data_path, ref_path)
     download_reference(ref_path)
     simulate_reads(data_path, ref_path, all_chr)
