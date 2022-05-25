@@ -2,6 +2,13 @@
 
 A framework for training graph neural networks to untangle assembly graphs obtained from de novo genome assembly.
 
+This framework consists of simulating the synthetic reads, generating the assebmly graphs, training a Graph Neural Network to predict edge probabilities, and finally decoding these edge probabilities with greedy search. The final result are assembly sequences stored in the commonly used FASTA format.
+
+<p align="center">
+  <img src="figures/framework.png" width="800" title="Framework">
+</p>
+
+
 ## Installation
 
 ### Requirements
