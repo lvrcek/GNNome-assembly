@@ -40,7 +40,12 @@ zip --fix genomic_dataset_chunk --out genomic_dataset
 echo -e "\nUnzipping $FILE (182GB)..."
 unzip genomic_dataset.zip
 
-mv genomic_dataset real
+rm genomic_dataset_chunk.z01
+rm genomic_dataset_chunk.z02
+rm genomic_dataset_chunk.z03
+rm genomic_dataset_chunk.z04
+rm genomic_dataset_chunk.zip
+rm genomic_dataset.zip
 
 # Done
 echo -e "Dataset downloaded, unzipped and ready to use.\n"
