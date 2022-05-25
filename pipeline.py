@@ -155,9 +155,7 @@ def simulate_reads(data_path, ref_path, chr_dict):
             n_diff = n_need - n_have
             print(f'SETUP::simulate:: Simulate {n_diff} datasets for {chrN}')
             # Simulate reads for chrN n_diff times
-            # Be careful how you name them
             chr_seq_path = os.path.join(chr_path, f'{chrN}.fasta')
-            # chr_dist_path = os.path.join(len_path, f'{chrN}.txt')
             chr_dist_path = os.path.join(len_path, f'{chrN}.txt')
             chr_len = chr_lens[chrN]
             for i in range(n_diff):
@@ -198,9 +196,6 @@ def generate_graphs(data_path, chr_dict):
             'out': 'assembly.fasta'
         }
         graph_dataset.AssemblyGraphDataset(chr_sim_path, nb_pos_enc=None, specs=specs, generate=True)
-        # Generate graphs for those reads that don't have them
-        # Probably something with Raven
-        # Then the graph_parser
 
 
 # 2.1. Generate the real_graphs
@@ -316,8 +311,6 @@ def train_valid_split(data_path, train_dict, valid_dict, test_dict={}, out=None)
                     chr_sim_path = os.path.join(sim_path, chrN)
                     k = i + train_dict.get(chrN, 0) + valid_dict.get(chrN, 0)
                 test_g_to_chr[n_have] = chrN
-                # k = i + train_dict.get(chrN, 0) + valid_dict.get(chrN, 0)
-                # chr_sim_path = os.path.join(sim_path, chrN)
                 print(f'Copying {chr_sim_path}/processed/{k}.dgl into {test_path}/processed/{n_have}.dgl')
                 subprocess.run(f'cp {chr_sim_path}/processed/{k}.dgl {test_path}/processed/{n_have}.dgl', shell=True)
                 subprocess.run(f'cp {chr_sim_path}/info/{k}_succ.pkl {test_path}/info/{n_have}_succ.pkl', shell=True)

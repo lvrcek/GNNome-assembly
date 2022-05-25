@@ -212,7 +212,6 @@ def from_csv(graph_path, reads_path):
             src_id, src_len = int(src[0]), int(re.findall(pattern, src[2])[0])
             dst_id, dst_len = int(dst[0]), int(re.findall(pattern, dst[2])[0])
             # --------------------------
-            # SO FAR ALL GOOD!
             # src_len and dst_len are length of the trimmed reads!!
             # --------------------------
 
@@ -226,11 +225,6 @@ def from_csv(graph_path, reads_path):
                 # except:
                 #     id, idx, strand, start, end = description.split()
 
-                # TODO: only for the current type of real reads, doesn't work with simulated
-                # TODO: E.g., if the oridinal id is SRR9087597.16, the idx will be 16
-                # Variant 1
-                # idx = int(re.findall(r'idx=[a-zA-Z]*\.{0,1}(\d+)', id)[0])
-                # Variant 2
                 try:
                     idx = int(id)
                 except ValueError:
@@ -247,25 +241,11 @@ def from_csv(graph_path, reads_path):
                 trimming = overlap
                 if trimming == '-':
                     trim_start, trim_end = 0, end - start
-                    # if strand == 1:
-                    #     trim_start, trim_end = 0, end - start
-                    # if strand == -1:
-                    #     trim_start, trim_end = 0, start - end
                 else:
                     trim_start, trim_end = trimming.split()
                     trim_start = int(trim_start)
                     trim_end = int(trim_end)
                
-                # start = start + trim_start * strand
-                # end = start + trim_end * strand
-
-                # If + strand: start < end
-                # If - strand: start > and (the read is from the opposite strand, so it kinda goes backwards)
-                # This is due to how the reads are sampled from the reference
-
-                # ----- 26/04/22 -----
-                # end = start + trim_end * strand
-                # start = start + trim_start * strand
                 end = start + trim_end
                 start = start + trim_start
 
@@ -283,57 +263,6 @@ def from_csv(graph_path, reads_path):
 
                 graph_nx.add_node(src_id)
                 graph_nx.add_node(dst_id)
-                # graph_nx_und.add_node(src_id)
-                # graph_nx_und.add_node(dst_id)
-
-                # ------ 26/04/22 ------
-                # if src_id not in read_length.keys():
-                #     read_length[src_id] = src_len
-                #     node_data[src_id] = read_sequences.popleft()
-                #     read_idx[src_id] = idx
-                #     read_strand[src_id] = strand
-                # 
-                #     # Strand - reads will remain backwards
-                #     read_start[src_id] = start
-                #     read_end[src_id] = end
-                # 
-                #     # if strand == 1:
-                #     #     read_start[src_id] = start + trim_start
-                #     #     read_end[src_id] = start + trim_end
-                #     # else:
-                #     #     read_start[src_id] = start + trim_end
-                #     #     read_end[src_id] = start + trim_start
-                # 
-                #     graph_nx.add_node(src_id)
-                #     graph_nx_und.add_node(src_id)
-                # 
-                #     read_trim_start[src_id] = trim_start
-                #     read_trim_end[src_id] = trim_end
-                # 
-                # if dst_id not in read_length.keys():
-                #     read_length[dst_id] = dst_len
-                #     node_data[dst_id] = read_sequences.popleft()
-                #     read_idx[dst_id] = idx
-                #     read_strand[dst_id] = -strand
-                #     # This is on purpose so that positive strand reads are 'forwards'
-                #     # While negative strand reads become 'backwards' (start < end)
-                # 
-                #     # Virtual pairs of - strand reads will be flipped into forward orientation (start < end)
-                #     read_start[dst_id] = end
-                #     read_end[dst_id] = start
-                # 
-                #     # if read_strand[dst_id] == 1:
-                #     #     read_start[dst_id] = start - trim_end  # end + delta = end + (start - end - trim_end) = start - trim_end
-                #     #     read_end[dst_id] = start - trim_start  # start - trim_start
-                #     # else:
-                #     #     read_start[dst_id] = start - trim_start
-                #     #     read_end = start - trim_end
-                # 
-                #     graph_nx.add_node(dst_id)
-                #     graph_nx_und.add_node(dst_id)
-                # 
-                #     read_trim_start[dst_id] = trim_end
-                #     read_trim_end[dst_id] = trim_start
 
             else:
                 # Overlap info: id, length, weight, similarity
@@ -346,8 +275,7 @@ def from_csv(graph_path, reads_path):
                 except ValueError:
                     (edge_id, prefix_len), weight, similarity = map(int, overlap[:2]), float(overlap[2]), 0
                 graph_nx.add_edge(src_id, dst_id)
-                # graph_nx_und.add_edge(src_id, dst_id)
-                if (src_id, dst_id) not in prefix_length.keys():  # TODO: This will always be true, I think
+                if (src_id, dst_id) not in prefix_length.keys():  # TODO: This will always be true
                     edge_ids[(src_id, dst_id)] = edge_id
                     prefix_length[(src_id, dst_id)] = prefix_len
                     overlap_length[(src_id, dst_id)] = read_length[src_id] - prefix_len
