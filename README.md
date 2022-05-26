@@ -58,6 +58,14 @@ after which the dataset will be saved in `<data_path>/real/`
 
 **Note:** This dataset has 43 GB when compressed (during download) and 180 GB when uncompressed (used during training/evaluation).
 
+## Reproduce the results
+
+The results can easily be reproduced by running `reproduce.py` script, with `--mode` argument set to either `synth` for synthetic data or `real` for real data. For example:
+```bash
+python reproduce.py --mode real
+```
+will load the model pretrained on 15 chromosome 19 graphs, which is stored in `pretrained_models/model_15xchr19.pt`, and produce assembly sequences for all 23 real-data chromosomes. We suggest you evaluate the obtained assemblies with Quast, as explained at the end of this README.
+
 ## Usage
 
 ### 1. Specify the train/valid/test split
