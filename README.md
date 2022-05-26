@@ -50,8 +50,13 @@ Apart from setting up the working directory, running the above example will simu
 
 ## Download the real data
 
-Once you have the directory structure set up, you can download the real data. Note that this takes 180 GB.
+The real data is automatically downloaded by running the `example.py` script, as described above or if you run a custom run with `pipeline.py`, as described in the next section. However, you can also download the real dataset separately, by running:
+```bash
+bash download_dataset.sh <data_path>
+```
+where `<data_path>` is the path where the dataset will be saved.
 
+**Note:** This dataset has 43 GB when compressed (during download) and 180 GB when uncompressed (used during training/evaluation).
 
 ## Usage
 
