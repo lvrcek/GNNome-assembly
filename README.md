@@ -54,7 +54,7 @@ The real data is automatically downloaded by running the `example.py` script, as
 ```bash
 bash download_dataset.sh <data_path>
 ```
-where `<data_path>` is the path where the dataset will be saved.
+after which the dataset will be saved in `<data_path>/real/`
 
 **Note:** This dataset has 43 GB when compressed (during download) and 180 GB when uncompressed (used during training/evaluation).
 
