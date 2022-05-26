@@ -34,9 +34,6 @@ def walk_forwards(start, edges_p, neighbors, predecessors, edges, visited_old):
     walk = []
     visited = set()
     while True:
-        # all_visited = visited | visited_old
-        # if current in all_visited:
-        #     break
         walk.append(current)
         visited.add(current)
         visited.add(current ^ 1)
@@ -55,42 +52,12 @@ def walk_forwards(start, edges_p, neighbors, predecessors, edges, visited_old):
     return walk, visited
 
 
-def walk_forwards_old(start, edges_p, neighbors, predecessors, edges, visited_old):
-    """Greedy walk forwards."""
-    current = start
-    walk = []
-    visited = set()
-    while True:
-        all_visited = visited | visited_old
-        if current in all_visited:
-            break
-        walk.append(current)
-        visited.add(current)
-        visited.add(current ^ 1)
-        if len(neighbors[current]) == 0:
-            break 
-        if len(neighbors[current]) == 1:
-            current = neighbors[current][0]
-            continue
-        neighbor_edges = [edges[current, n] for n in neighbors[current] if n not in all_visited]
-        masked_neighbors = [n for n in neighbors[current] if n not in all_visited]
-        if not neighbor_edges:
-            break
-        neighbor_p = edges_p[neighbor_edges]
-        _, index = torch.topk(neighbor_p, k=1, dim=0)
-        current = masked_neighbors[index]
-    return walk, visited
-
-
 def walk_backwards(start, edges_p, predecessors, neighbors, edges, visited_old):
     """Greedy walk backwards."""
     current = start
     walk = []
     visited = set()
     while True:
-        # all_visited = visited | visited_old
-        # if current in all_visited:
-        #     break
         walk.append(current)
         visited.add(current)
         visited.add(current ^ 1)
@@ -101,34 +68,6 @@ def walk_backwards(start, edges_p, predecessors, neighbors, edges, visited_old):
             continue
         masked_neighbors = [n for n in predecessors[current] if not (n in visited_old or n in visited)]
         neighbor_edges = [edges[n, current] for n in masked_neighbors]
-        if not neighbor_edges:
-            break
-        neighbor_p = edges_p[neighbor_edges]
-        _, index = torch.topk(neighbor_p, k=1, dim=0)
-        current = masked_neighbors[index]
-    walk = list(reversed(walk))
-    return walk, visited
-
-
-def walk_backwards_old(start, edges_p, predecessors, neighbors, edges, visited_old):
-    """Greedy walk backwards."""
-    current = start
-    walk = []
-    visited = set()
-    while True:
-        all_visited = visited | visited_old
-        if current in all_visited:
-            break
-        walk.append(current)
-        visited.add(current)
-        visited.add(current ^ 1)
-        if len(predecessors[current]) == 0:
-            break 
-        if len(predecessors[current]) == 1:
-            current = predecessors[current][0]
-            continue
-        neighbor_edges = [edges[n, current] for n in predecessors[current] if n not in all_visited]
-        masked_neighbors = [n for n in predecessors[current] if n not in all_visited]
         if not neighbor_edges:
             break
         neighbor_p = edges_p[neighbor_edges]
