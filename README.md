@@ -119,3 +119,8 @@ For example, if inside `test_example` directory you only have one graph of chrom
 quast -r <ref_path>/chromosomes/chr21.fasta -o <data_path>/experiments/test_example/quast <data_path>/experiments/test_example/assembly/0_assembly.fasta
 ```
 The report, containing all the evaluation metrics, will be located at `<data_path>/experiments/test_example/quast/report.txt`.
+
+
+## Reference
+
+Full paper can be found on arXiv (PLACEHOLDER).
