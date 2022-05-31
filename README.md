@@ -1,5 +1,9 @@
 # GNNome Assembly
 
+Lovro Vrček, Xavier Bresson, Thomas Laurent, Martin Schmitz, Mile Šikić, Learning to Untangle Genome Assembly with Graph Convolutional Networks, arXiv preprint arXiv:2205.XXXX (with pdf link on arXiv:2205.XXXX)
+
+---
+
 A framework for training graph neural networks to untangle assembly graphs obtained from de novo genome assembly.
 
 This framework consists of simulating the synthetic reads, generating the assebmly graphs, training a Graph Neural Network to predict edge probabilities, and finally decoding these edge probabilities with greedy search. The final result are assembly sequences stored in the commonly used FASTA format.
@@ -121,6 +125,3 @@ quast -r <ref_path>/chromosomes/chr21.fasta -o <data_path>/experiments/test_exam
 The report, containing all the evaluation metrics, will be located at `<data_path>/experiments/test_example/quast/report.txt`.
 
 
-## Reference
-
-Full paper can be found on arXiv (PLACEHOLDER).
