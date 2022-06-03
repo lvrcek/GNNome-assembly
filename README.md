@@ -1,6 +1,8 @@
 # GNNome Assembly
 
-Lovro Vrček, Xavier Bresson, Thomas Laurent, Martin Schmitz, Mile Šikić, Learning to Untangle Genome Assembly with Graph Convolutional Networks, arXiv preprint arXiv:2205.XXXX (with pdf link on arXiv:2205.XXXX)
+This repository contains the code for the following paper:
+
+Lovro Vrček, Xavier Bresson, Thomas Laurent, Martin Schmitz, Mile Šikić. [Learning to Untangle Genome Assembly with Graph Convolutional Networks](https://arxiv.org/abs/2206.00668), arXiv preprint arXiv:2206.00668, 2022.
 
 ---
 
