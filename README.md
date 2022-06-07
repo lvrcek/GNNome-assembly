@@ -127,3 +127,13 @@ quast -r <ref_path>/chromosomes/chr21.fasta -o <data_path>/experiments/test_exam
 The report, containing all the evaluation metrics, will be located at `<data_path>/experiments/test_example/quast/report.txt`.
 
 
+## Citation
+To cite this work, please use the following:
+```
+@article{vrvcek2022learning,
+  title={Learning to Untangle Genome Assembly with Graph Convolutional Networks},
+  author={Vr{\v{c}}ek, Lovro and Bresson, Xavier and Laurent, Thomas and Schmitz, Martin and {\v{S}}iki{\'c}, Mile},
+  journal={arXiv preprint arXiv:2206.00668},
+  year={2022}
+}
+```
