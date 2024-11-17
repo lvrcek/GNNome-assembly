@@ -4,6 +4,8 @@ This repository contains the code for the following paper:
 
 Lovro Vrček, Xavier Bresson, Thomas Laurent, Martin Schmitz, Mile Šikić. [Learning to Untangle Genome Assembly with Graph Convolutional Networks](https://arxiv.org/abs/2206.00668), arXiv preprint arXiv:2206.00668, 2022.
 
+This repository is now **deprecated** and all the development has been moved [here](https://github.com/lbcb-sci/GNNome).
+
 ---
 
 A framework for training graph neural networks to untangle assembly graphs obtained from de novo genome assembly.
